@@ -1,0 +1,11 @@
+
+This is a CPU miner for bitcoin.
+
+License: X11/MIT
+	 See http://www.opensource.org/licenses/mit-license.php
+
+Dependencies:
+	libcurl			http://curl.haxx.se/libcurl/
+	jansson			http://www.digip.org/jansson/
+	OpenSSL libcrypto	http://www.openssl.org/
+

@@ -1,3 +1,8 @@
+/*
+   Copyright 2010 Jeff Garzik
+   Distributed under the MIT/X11 software license, see
+   http://www.opensource.org/licenses/mit-license.php
+ */
 
 #define _GNU_SOURCE
 #include <stdio.h>
