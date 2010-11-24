@@ -25,6 +25,7 @@
 enum {
 	STAT_SLEEP_INTERVAL		= 10,
 	POW_SLEEP_INTERVAL		= 1,
+	STAT_CTR_INTERVAL		= 10000000,
 };
 
 static bool opt_verbose;
@@ -69,6 +70,17 @@ struct work {
 	unsigned char	hash1[64];
 	BIGNUM		*target;
 };
+
+#define ___constant_swab32(x) ((u32)(                       \
+        (((u32)(x) & (u32)0x000000ffUL) << 24) |            \
+        (((u32)(x) & (u32)0x0000ff00UL) <<  8) |            \
+        (((u32)(x) & (u32)0x00ff0000UL) >>  8) |            \
+        (((u32)(x) & (u32)0xff000000UL) >> 24)))
+
+static inline uint32_t swab32(uint32_t v)
+{
+	return ___constant_swab32(v);
+}
 
 static void databuf_free(struct data_buffer *db)
 {
@@ -325,17 +337,6 @@ static void inc_stats(uint64_t n_hashes)
 	pthread_mutex_unlock(&stats_mutex);
 }
 
-#define ___constant_swab32(x) ((u32)(                       \
-        (((u32)(x) & (u32)0x000000ffUL) << 24) |            \
-        (((u32)(x) & (u32)0x0000ff00UL) <<  8) |            \
-        (((u32)(x) & (u32)0x00ff0000UL) >>  8) |            \
-        (((u32)(x) & (u32)0xff000000UL) >> 24)))
-
-static inline uint32_t swab32(uint32_t v)
-{
-	return ___constant_swab32(v);
-}
-
 static void runhash(void *state, void *input, const void *init)
 {
 	memcpy(state, init, 32);
@@ -354,6 +355,7 @@ static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
 	uint32_t *hash32 = (uint32_t *) hash;
 	uint32_t *nonce = (uint32_t *)(data + 12);
 	uint32_t n;
+	unsigned long stat_ctr = 0;
 
 	while (1) {
 		n = *nonce;
@@ -376,8 +378,14 @@ static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
 			return n;
 		}
 
+		stat_ctr++;
+		if (stat_ctr >= STAT_CTR_INTERVAL) {
+			inc_stats(STAT_CTR_INTERVAL);
+			stat_ctr = 0;
+		}
+
 		if ((n & 0xffffff) == 0) {
-			inc_stats(n);
+			inc_stats(stat_ctr);
 
 			if (opt_debug)
 				fprintf(stderr, "DBG: end of nonce range\n");
