@@ -281,6 +281,7 @@ static const uint32_t init_state[8] = {
 	0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
 };
 
+/* suspiciously similar to ScanHash* from bitcoin */
 static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
 			 unsigned char *hash1, unsigned char *hash)
 {
@@ -320,9 +321,11 @@ static void submit_work(struct work *work)
 
 	printf("PROOF OF WORK FOUND\n");
 
+	/* build hex string */
 	for (i = 0; i < sizeof(work->data); i++)
 		sprintf(hexstr + (i * 2), "%02x", work->data[i]);
 
+	/* build JSON-RPC request */
 	if (asprintf(&s,
 	    "{\"method\": \"getwork\", \"params\": [ \"%s\" ], \"id\":1}\r\n",
 	    hexstr) < 0) {
@@ -333,6 +336,7 @@ static void submit_work(struct work *work)
 	if (opt_debug)
 		fprintf(stderr, "DBG: sending RPC call:\n%s", s);
 
+	/* issue JSON-RPC request */
 	val = json_rpc_call(url, userpass, s);
 	if (!val) {
 		fprintf(stderr, "submit_work json_rpc_call failed\n");
@@ -353,6 +357,7 @@ static int main_loop(void)
 		struct work *work;
 		uint32_t nonce;
 
+		/* obtain new work from bitcoin */
 		val = json_rpc_call(url, userpass, rpc_req);
 		if (!val) {
 			fprintf(stderr, "json_rpc_call failed\n");
@@ -365,6 +370,7 @@ static int main_loop(void)
 			free(s);
 		}
 
+		/* decode result into work state struct */
 		work = work_decode(json_object_get(val, "result"));
 		if (!work) {
 			fprintf(stderr, "work decode failed\n");
@@ -373,9 +379,11 @@ static int main_loop(void)
 
 		json_decref(val);
 
+		/* scan nonces for a proof-of-work hash */
 		nonce = scanhash(work->midstate, work->data + 64,
 				 work->hash1, work->hash);
 
+		/* if nonce found, submit work */
 		if (nonce) {
 			submit_work(work);
 
