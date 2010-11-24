@@ -1,5 +1,5 @@
 
-CFLAGS= -O2 -Wall -g
+CFLAGS= -O2 -Wall -g -march=native -pthread
 
 PROG	= minerd
 

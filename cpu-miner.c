@@ -10,20 +10,47 @@
 #include <string.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <time.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <pthread.h>
+#include <argp.h>
 #include <jansson.h>
 #include <curl/curl.h>
 #include <openssl/bn.h>
 
+#define PROGRAM_NAME "minerd"
+
 #include "sha256_generic.c"
 
 enum {
-	POW_SLEEP_INTERVAL		= 5,
+	STAT_SLEEP_INTERVAL		= 10,
+	POW_SLEEP_INTERVAL		= 1,
 };
 
-static const bool opt_verbose = false;
-static const bool opt_debug = false;
+static bool opt_verbose;
+static bool opt_debug;
+static bool program_running = true;
 static const bool opt_time = true;
+static int opt_n_threads = 1;
+static pthread_mutex_t stats_mutex = PTHREAD_MUTEX_INITIALIZER;
+static uint64_t hash_ctr;
+
+static struct argp_option options[] = {
+	{ "threads", 't', "N", 0,
+	  "Number of miner threads" },
+	{ "debug", 'D', NULL, 0,
+	  "Enable debug output" },
+	{ "verbose", 'v', NULL, 0,
+	  "Enable verbose output" },
+	{ }
+};
+
+static const char doc[] =
+PROGRAM_NAME " - CPU miner for bitcoin";
+
+static error_t parse_opt (int key, char *arg, struct argp_state *state);
+
+static const struct argp argp = { options, parse_opt, NULL, doc };
 
 struct data_buffer {
 	void		*buf;
@@ -289,6 +316,15 @@ err_out:
 	return NULL;
 }
 
+static void inc_stats(uint64_t n_hashes)
+{
+	pthread_mutex_lock(&stats_mutex);
+
+	hash_ctr += n_hashes;
+
+	pthread_mutex_unlock(&stats_mutex);
+}
+
 #define ___constant_swab32(x) ((u32)(                       \
         (((u32)(x) & (u32)0x000000ffUL) << 24) |            \
         (((u32)(x) & (u32)0x0000ff00UL) <<  8) |            \
@@ -318,9 +354,6 @@ static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
 	uint32_t *hash32 = (uint32_t *) hash;
 	uint32_t *nonce = (uint32_t *)(data + 12);
 	uint32_t n;
-	time_t t_start;
-
-	t_start = time(NULL);
 
 	while (1) {
 		n = *nonce;
@@ -344,15 +377,10 @@ static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
 		}
 
 		if ((n & 0xffffff) == 0) {
-			time_t t_end = time(NULL);
-			time_t diff = t_end - t_start;
-			long double nd = n;
-			long double sd = diff;
-			if (opt_time) {
-				fprintf(stderr,
-					"DBG: end of nonce range, %.2Lf khps\n",
-					(nd / sd) / 1000.0);
-			}
+			inc_stats(n);
+
+			if (opt_debug)
+				fprintf(stderr, "DBG: end of nonce range\n");
 			return 0;
 		}
 	}
@@ -415,7 +443,7 @@ out:
 	free(hexstr);
 }
 
-static int main_loop(void)
+static void *miner_thread(void *dummy)
 {
 	static const char *rpc_req =
 		"{\"method\": \"getwork\", \"params\": [], \"id\":0}\r\n";
@@ -429,7 +457,7 @@ static int main_loop(void)
 		val = json_rpc_call(url, userpass, rpc_req);
 		if (!val) {
 			fprintf(stderr, "json_rpc_call failed\n");
-			return 1;
+			return NULL;
 		}
 
 		if (opt_verbose) {
@@ -442,7 +470,7 @@ static int main_loop(void)
 		work = work_decode(json_object_get(val, "result"));
 		if (!work) {
 			fprintf(stderr, "work decode failed\n");
-			return 1;
+			return NULL;
 		}
 
 		json_decref(val);
@@ -463,11 +491,91 @@ static int main_loop(void)
 		work_free(work);
 	}
 
+	return NULL;
+}
+
+static error_t parse_opt (int key, char *arg, struct argp_state *state)
+{
+	int v;
+
+	switch(key) {
+	case 'v':
+		opt_verbose = true;
+		break;
+	case 'D':
+		opt_debug = true;
+		break;
+	case 't':
+		v = atoi(arg);
+		if (v < 1 || v > 9999)		/* sanity check */
+			argp_usage(state);
+
+		opt_n_threads = v;
+		break;
+	case ARGP_KEY_ARG:
+		argp_usage(state);	/* too many args */
+		break;
+	case ARGP_KEY_END:
+		break;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+
 	return 0;
+}
+
+static void calc_stats(void)
+{
+	uint64_t hashes;
+	long double hd, sd;
+
+	pthread_mutex_lock(&stats_mutex);
+
+	hashes = hash_ctr;
+	hash_ctr = 0;
+
+	pthread_mutex_unlock(&stats_mutex);
+
+	hashes = hashes / 1000;
+
+	hd = hashes;
+	sd = STAT_SLEEP_INTERVAL;
+
+	fprintf(stderr, "wildly inaccurate HashMeter: %.2Lf khash/sec\n", hd / sd);
 }
 
 int main (int argc, char *argv[])
 {
-	return main_loop();
+	error_t aprc;
+	int i;
+
+	aprc = argp_parse(&argp, argc, argv, 0, NULL, NULL);
+	if (aprc) {
+		fprintf(stderr, "argp_parse failed: %s\n", strerror(aprc));
+		return 1;
+	}
+
+	if (setpriority(PRIO_PROCESS, 0, 19))
+		perror("setpriority");
+
+	for (i = 0; i < opt_n_threads; i++) {
+		pthread_t t;
+
+		if (pthread_create(&t, NULL, miner_thread, NULL)) {
+			fprintf(stderr, "thread %d create failed\n", i);
+			return 1;
+		}
+
+		sleep(1);	/* don't pound server all at once */
+	}
+
+	fprintf(stderr, "%d miner threads started.\n", opt_n_threads);
+
+	while (program_running) {
+		sleep(STAT_SLEEP_INTERVAL);
+		calc_stats();
+	}
+
+	return 0;
 }
 
