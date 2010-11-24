@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <time.h>
 #include <jansson.h>
 #include <curl/curl.h>
 #include <openssl/bn.h>
@@ -22,6 +23,7 @@ enum {
 
 static const bool opt_verbose = false;
 static const bool opt_debug = false;
+static const bool opt_time = true;
 
 struct data_buffer {
 	void		*buf;
@@ -316,6 +318,9 @@ static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
 	uint32_t *hash32 = (uint32_t *) hash;
 	uint32_t *nonce = (uint32_t *)(data + 12);
 	uint32_t n;
+	time_t t_start;
+
+	t_start = time(NULL);
 
 	while (1) {
 		n = *nonce;
@@ -339,8 +344,15 @@ static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
 		}
 
 		if ((n & 0xffffff) == 0) {
-			if (1)
-				fprintf(stderr, "DBG: end of nonce range\n");
+			time_t t_end = time(NULL);
+			time_t diff = t_end - t_start;
+			long double nd = n;
+			long double sd = diff;
+			if (opt_time) {
+				fprintf(stderr,
+					"DBG: end of nonce range, %.2Lf khps\n",
+					(nd / sd) / 1000.0);
+			}
 			return 0;
 		}
 	}
@@ -349,53 +361,24 @@ static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
 static const char *url = "http://127.0.0.1:8332/";
 static const char *userpass = "pretzel:smooth";
 
-static void submit_work(struct work *work)
+static void submit_work(struct work *work, bool byte_rev)
 {
 	char *hexstr = NULL, *s = NULL;
 	json_t *val, *res;
 	int i;
-	unsigned char hash_rev[32];
-	BIGNUM *hashnum;
-	char *s_hash, *s_target;
+	unsigned char data[128];
 
-	printf("PROOF OF WORK FOUND?  submitting...\n");
+	printf("PROOF OF WORK FOUND?  submitting (reversed:%s)...\n",
+	       byte_rev ? "yes" : "no");
 
-	for (i = 0; i < 32/4; i++)
-		((uint32_t *)hash_rev)[i] =
-			swab32(((uint32_t *)work->hash)[i]);
-
-	hashnum = BN_bin2bn(hash_rev, sizeof(hash_rev), NULL);
-	if (!hashnum) {
-		fprintf(stderr, "BN_bin2bn failed\n");
-		return;
+	if (byte_rev) {
+		/* byte reverse data */
+		for (i = 0; i < 128/4; i ++)
+			((uint32_t *)data)[i] =
+				swab32(((uint32_t *)work->data)[i]);
+	} else {
+		memcpy(data, work->data, sizeof(data));
 	}
-
-	s_hash = BN_bn2hex(hashnum);
-	s_target = BN_bn2hex(work->target);
-	fprintf(stderr, "    hash:%s\n    hashTarget:%s\n",
-		s_hash, s_target);
-	free(s_hash);
-	free(s_target);
-
-#if 0
-	i = BN_cmp(hashnum, work->target);
-#endif
-
-	BN_free(hashnum);
-
-#if 0
-	if (i >= 0) {
-		fprintf(stderr, "---INVALID--- proof of work found.\n");
-		return;
-	}
-#endif
-
-#if 0
-	/* byte reverse data */
-	for (i = 0; i < 128/4; i ++)
-		((uint32_t *)work->data)[i] =
-			swab32(((uint32_t *)work->data)[i]);
-#endif
 
 	/* build hex string */
 	hexstr = bin2hex(work->data, sizeof(work->data));
@@ -470,7 +453,8 @@ static int main_loop(void)
 
 		/* if nonce found, submit work */
 		if (nonce) {
-			submit_work(work);
+			submit_work(work, false);
+			submit_work(work, true);
 
 			fprintf(stderr, "sleeping, after proof-of-work...\n");
 			sleep(POW_SLEEP_INTERVAL);
