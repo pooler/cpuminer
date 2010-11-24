@@ -16,8 +16,12 @@
 
 #include "sha256_generic.c"
 
-static const bool opt_verbose = true;
-static const bool opt_debug = true;
+enum {
+	POW_SLEEP_INTERVAL		= 5,
+};
+
+static const bool opt_verbose = false;
+static const bool opt_debug = false;
 
 struct data_buffer {
 	void		*buf;
@@ -32,7 +36,7 @@ struct upload_buffer {
 struct work {
 	unsigned char	midstate[32];
 	unsigned char	data[128];
-	unsigned char	hash[64];
+	unsigned char	hash[32];
 	unsigned char	hash1[64];
 	BIGNUM		*target;
 };
@@ -169,6 +173,19 @@ err_out:
 	return NULL;
 }
 
+static char *bin2hex(unsigned char *p, size_t len)
+{
+	int i;
+	char *s = malloc((len * 2) + 1);
+	if (!s)
+		return NULL;
+	
+	for (i = 0; i < len; i++)
+		sprintf(s + (i * 2), "%02x", p[i]);
+
+	return s;
+}
+
 static bool hex2bin(unsigned char *p, const char *hexstr, size_t len)
 {
 	while (*hexstr && len) {
@@ -270,6 +287,17 @@ err_out:
 	return NULL;
 }
 
+#define ___constant_swab32(x) ((u32)(                       \
+        (((u32)(x) & (u32)0x000000ffUL) << 24) |            \
+        (((u32)(x) & (u32)0x0000ff00UL) <<  8) |            \
+        (((u32)(x) & (u32)0x00ff0000UL) >>  8) |            \
+        (((u32)(x) & (u32)0xff000000UL) >> 24)))
+
+static inline uint32_t swab32(uint32_t v)
+{
+	return ___constant_swab32(v);
+}
+
 static void runhash(void *state, void *input, const void *init)
 {
 	memcpy(state, init, 32);
@@ -285,6 +313,7 @@ static const uint32_t init_state[8] = {
 static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
 			 unsigned char *hash1, unsigned char *hash)
 {
+	uint32_t *hash32 = (uint32_t *) hash;
 	uint32_t *nonce = (uint32_t *)(data + 12);
 	uint32_t n;
 
@@ -296,14 +325,21 @@ static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
 		runhash(hash1, data, midstate);
 		runhash(hash, hash1, init_state);
 
-		if (((uint16_t *)hash)[14] == 0) {
-			if (opt_debug)
-				fprintf(stderr, "DBG: found zeroes in hash\n");
+		if (hash32[7] == 0) {
+			if (1) {
+				char *hexstr;
+
+				hexstr = bin2hex(hash, 32);
+				fprintf(stderr,
+					"DBG: found zeroes in hash:\n%s\n",
+					hexstr);
+				free(hexstr);
+			}
 			return n;
 		}
 
 		if ((n & 0xffffff) == 0) {
-			if (opt_debug)
+			if (1)
 				fprintf(stderr, "DBG: end of nonce range\n");
 			return 0;
 		}
@@ -315,22 +351,63 @@ static const char *userpass = "pretzel:smooth";
 
 static void submit_work(struct work *work)
 {
-	char hexstr[256 + 1], *s;
+	char *hexstr = NULL, *s = NULL;
+	json_t *val, *res;
 	int i;
-	json_t *val;
+	unsigned char hash_rev[32];
+	BIGNUM *hashnum;
+	char *s_hash, *s_target;
 
-	printf("PROOF OF WORK FOUND\n");
+	printf("PROOF OF WORK FOUND?  submitting...\n");
+
+	for (i = 0; i < 32/4; i++)
+		((uint32_t *)hash_rev)[i] =
+			swab32(((uint32_t *)work->hash)[i]);
+
+	hashnum = BN_bin2bn(hash_rev, sizeof(hash_rev), NULL);
+	if (!hashnum) {
+		fprintf(stderr, "BN_bin2bn failed\n");
+		return;
+	}
+
+	s_hash = BN_bn2hex(hashnum);
+	s_target = BN_bn2hex(work->target);
+	fprintf(stderr, "    hash:%s\n    hashTarget:%s\n",
+		s_hash, s_target);
+	free(s_hash);
+	free(s_target);
+
+#if 0
+	i = BN_cmp(hashnum, work->target);
+#endif
+
+	BN_free(hashnum);
+
+#if 0
+	if (i >= 0) {
+		fprintf(stderr, "---INVALID--- proof of work found.\n");
+		return;
+	}
+#endif
+
+#if 0
+	/* byte reverse data */
+	for (i = 0; i < 128/4; i ++)
+		((uint32_t *)work->data)[i] =
+			swab32(((uint32_t *)work->data)[i]);
+#endif
 
 	/* build hex string */
-	for (i = 0; i < sizeof(work->data); i++)
-		sprintf(hexstr + (i * 2), "%02x", work->data[i]);
+	hexstr = bin2hex(work->data, sizeof(work->data));
+	if (!hexstr)
+		goto out;
 
 	/* build JSON-RPC request */
 	if (asprintf(&s,
 	    "{\"method\": \"getwork\", \"params\": [ \"%s\" ], \"id\":1}\r\n",
 	    hexstr) < 0) {
 		fprintf(stderr, "asprintf failed\n");
-		return;
+		goto out;
 	}
 
 	if (opt_debug)
@@ -340,11 +417,19 @@ static void submit_work(struct work *work)
 	val = json_rpc_call(url, userpass, s);
 	if (!val) {
 		fprintf(stderr, "submit_work json_rpc_call failed\n");
-		return;
+		goto out;
 	}
 
-	free(s);
+	res = json_object_get(val, "result");
+
+	printf("PROOF OF WORK RESULT: %s\n",
+		json_is_true(res) ? "true (yay!!!)" : "false (booooo)");
+
 	json_decref(val);
+
+out:
+	free(s);
+	free(hexstr);
 }
 
 static int main_loop(void)
@@ -388,7 +473,7 @@ static int main_loop(void)
 			submit_work(work);
 
 			fprintf(stderr, "sleeping, after proof-of-work...\n");
-			sleep(20);
+			sleep(POW_SLEEP_INTERVAL);
 		}
 
 		work_free(work);
