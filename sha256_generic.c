@@ -46,6 +46,9 @@ static inline u32 Maj(u32 x, u32 y, u32 z)
 
 static inline void LOAD_OP(int I, u32 *W, const u8 *input)
 {
+	/* byteswap is commented out, because bitcoin input
+	 * is already big-endian
+	 */
 	W[I] = /* ntohl */ ( ((u32*)(input))[I] );
 }
 
