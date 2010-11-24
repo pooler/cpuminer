@@ -397,24 +397,12 @@ static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
 static const char *url = "http://127.0.0.1:8332/";
 static const char *userpass = "pretzel:smooth";
 
-static void submit_work(struct work *work, bool byte_rev)
+static void submit_work(struct work *work)
 {
 	char *hexstr = NULL, *s = NULL;
 	json_t *val, *res;
-	int i;
-	unsigned char data[128];
 
-	printf("PROOF OF WORK FOUND?  submitting (reversed:%s)...\n",
-	       byte_rev ? "yes" : "no");
-
-	if (byte_rev) {
-		/* byte reverse data */
-		for (i = 0; i < 128/4; i ++)
-			((uint32_t *)data)[i] =
-				swab32(((uint32_t *)work->data)[i]);
-	} else {
-		memcpy(data, work->data, sizeof(data));
-	}
+	printf("PROOF OF WORK FOUND?  submitting...\n");
 
 	/* build hex string */
 	hexstr = bin2hex(work->data, sizeof(work->data));
@@ -489,8 +477,7 @@ static void *miner_thread(void *dummy)
 
 		/* if nonce found, submit work */
 		if (nonce) {
-			submit_work(work, false);
-			submit_work(work, true);
+			submit_work(work);
 
 			fprintf(stderr, "sleeping, after proof-of-work...\n");
 			sleep(POW_SLEEP_INTERVAL);
