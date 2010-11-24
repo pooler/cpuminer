@@ -28,8 +28,8 @@ enum {
 	STAT_CTR_INTERVAL		= 10000000,
 };
 
-static bool opt_verbose;
 static bool opt_debug;
+static bool opt_protocol;
 static bool program_running = true;
 static const bool opt_time = true;
 static int opt_n_threads = 1;
@@ -41,8 +41,8 @@ static struct argp_option options[] = {
 	  "Number of miner threads" },
 	{ "debug", 'D', NULL, 0,
 	  "Enable debug output" },
-	{ "verbose", 'v', NULL, 0,
-	  "Enable verbose output" },
+	{ "protocol-dump", 'P', NULL, 0,
+	  "Verbose dump of protocol-level activities" },
 	{ }
 };
 
@@ -101,11 +101,6 @@ static size_t all_data_cb(const void *ptr, size_t size, size_t nmemb,
 	void *newmem;
 	static const unsigned char zero;
 
-	if (opt_debug)
-		fprintf(stderr, "DBG(%s): %p, %lu, %lu, %p\n",
-			__func__, ptr, (unsigned long) size,
-			(unsigned long) nmemb, user_data);
-
 	oldlen = db->len;
 	newlen = oldlen + len;
 
@@ -126,11 +121,6 @@ static size_t upload_data_cb(void *ptr, size_t size, size_t nmemb,
 {
 	struct upload_buffer *ub = user_data;
 	int len = size * nmemb;
-
-	if (opt_debug)
-		fprintf(stderr, "DBG(%s): %p, %lu, %lu, %p\n",
-			__func__, ptr, (unsigned long) size,
-			(unsigned long) nmemb, user_data);
 
 	if (len > ub->len)
 		len = ub->len;
@@ -160,7 +150,7 @@ static json_t *json_rpc_call(const char *url, const char *userpass,
 	if (!curl)
 		return NULL;
 
-	if (opt_verbose)
+	if (opt_protocol)
 		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_easy_setopt(curl, CURLOPT_ENCODING, "");
@@ -175,6 +165,9 @@ static json_t *json_rpc_call(const char *url, const char *userpass,
 		curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
 	}
 	curl_easy_setopt(curl, CURLOPT_POST, 1);
+
+	if (opt_protocol)
+		printf("JSON protocol request:\n%s\n", rpc_req);
 
 	upload_data.buf = rpc_req;
 	upload_data.len = strlen(rpc_req);
@@ -192,14 +185,16 @@ static json_t *json_rpc_call(const char *url, const char *userpass,
 	if (rc)
 		goto err_out;
 
-	if (opt_debug)
-		printf("====\nSERVER RETURNS:\n%s\n====\n",
-			(char *) all_data.buf);
-
 	val = json_loads(all_data.buf, &err);
 	if (!val) {
 		fprintf(stderr, "JSON failed(%d): %s\n", err.line, err.text);
 		goto err_out;
+	}
+
+	if (opt_protocol) {
+		char *s = json_dumps(val, JSON_INDENT(3));
+		printf("JSON protocol response:\n%s\n", s);
+		free(s);
 	}
 
 	databuf_free(&all_data);
@@ -222,7 +217,7 @@ static char *bin2hex(unsigned char *p, size_t len)
 		return NULL;
 	
 	for (i = 0; i < len; i++)
-		sprintf(s + (i * 2), "%02x", p[i]);
+		sprintf(s + (i * 2), "%02x", (unsigned int) p[i]);
 
 	return s;
 }
@@ -366,15 +361,14 @@ static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
 		runhash(hash, hash1, init_state);
 
 		if (hash32[7] == 0) {
-			if (1) {
-				char *hexstr;
+			char *hexstr;
 
-				hexstr = bin2hex(hash, 32);
-				fprintf(stderr,
-					"DBG: found zeroes in hash:\n%s\n",
-					hexstr);
-				free(hexstr);
-			}
+			hexstr = bin2hex(hash, 32);
+			fprintf(stderr,
+				"DBG: found zeroes in hash:\n%s\n",
+				hexstr);
+			free(hexstr);
+
 			return n;
 		}
 
@@ -456,12 +450,6 @@ static void *miner_thread(void *dummy)
 			return NULL;
 		}
 
-		if (opt_verbose) {
-			char *s = json_dumps(val, JSON_INDENT(2));
-			printf("JSON output:\n%s\n", s);
-			free(s);
-		}
-
 		/* decode result into work state struct */
 		work = work_decode(json_object_get(val, "result"));
 		if (!work) {
@@ -494,11 +482,11 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 	int v;
 
 	switch(key) {
-	case 'v':
-		opt_verbose = true;
-		break;
 	case 'D':
 		opt_debug = true;
+		break;
+	case 'P':
+		opt_protocol = true;
 		break;
 	case 't':
 		v = atoi(arg);

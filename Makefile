@@ -20,3 +20,5 @@ clean:
 $(PROG):	$(OBJS)
 	gcc $(LDFLAGS) -o $(PROG) $(OBJS) $(LIBS)
 
+cpu-miner.o:	cpu-miner.c sha256_generic.c
+
