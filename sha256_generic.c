@@ -46,7 +46,7 @@ static inline u32 Maj(u32 x, u32 y, u32 z)
 
 static inline void LOAD_OP(int I, u32 *W, const u8 *input)
 {
-	W[I] = ntohl( ((u32*)(input))[I] );
+	W[I] = /* ntohl */ ( ((u32*)(input))[I] );
 }
 
 static inline void BLEND_OP(int I, u32 *W)
