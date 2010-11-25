@@ -82,11 +82,12 @@ struct upload_buffer {
 };
 
 struct work {
-	unsigned char	midstate[32];
 	unsigned char	data[128];
-	unsigned char	hash[32];
 	unsigned char	hash1[64];
+	unsigned char	midstate[32];
 	unsigned char	target[32];
+
+	unsigned char	hash[32];
 };
 
 static void databuf_free(struct data_buffer *db)
@@ -141,8 +142,7 @@ static size_t upload_data_cb(void *ptr, size_t size, size_t nmemb,
 	return len;
 }
 
-static json_t *json_rpc_call(const char *url, const char *userpass,
-		       const char *rpc_req)
+static json_t *json_rpc_call(const char *url, const char *rpc_req)
 {
 	CURL *curl;
 	json_t *val;
@@ -282,22 +282,8 @@ static bool jobj_binary(const json_t *obj, const char *key,
 	return true;
 }
 
-static void work_free(struct work *work)
+static bool work_decode(const json_t *val, struct work *work)
 {
-	if (!work)
-		return;
-
-	free(work);
-}
-
-static struct work *work_decode(const json_t *val)
-{
-	struct work *work;
-
-	work = calloc(1, sizeof(*work));
-	if (!work)
-		return NULL;
-
 	if (!jobj_binary(val, "midstate",
 			 work->midstate, sizeof(work->midstate))) {
 		fprintf(stderr, "JSON inval midstate\n");
@@ -319,11 +305,12 @@ static struct work *work_decode(const json_t *val)
 		goto err_out;
 	}
 
-	return work;
+	memset(work->hash, 0, sizeof(work->hash));
+
+	return true;
 
 err_out:
-	work_free(work);
-	return NULL;
+	return false;
 }
 
 static void inc_stats(uint64_t n_hashes)
@@ -415,7 +402,7 @@ static void submit_work(struct work *work)
 		fprintf(stderr, "DBG: sending RPC call:\n%s", s);
 
 	/* issue JSON-RPC request */
-	val = json_rpc_call(rpc_url, userpass, s);
+	val = json_rpc_call(rpc_url, s);
 	if (!val) {
 		fprintf(stderr, "submit_work json_rpc_call failed\n");
 		goto out;
@@ -440,19 +427,20 @@ static void *miner_thread(void *dummy)
 
 	while (1) {
 		json_t *val;
-		struct work *work;
+		struct work work __attribute__((aligned(128)));
 		uint32_t nonce;
+		bool rc;
 
 		/* obtain new work from bitcoin */
-		val = json_rpc_call(rpc_url, userpass, rpc_req);
+		val = json_rpc_call(rpc_url, rpc_req);
 		if (!val) {
 			fprintf(stderr, "json_rpc_call failed\n");
 			return NULL;
 		}
 
 		/* decode result into work state struct */
-		work = work_decode(json_object_get(val, "result"));
-		if (!work) {
+		rc = work_decode(json_object_get(val, "result"), &work);
+		if (!rc) {
 			fprintf(stderr, "work decode failed\n");
 			return NULL;
 		}
@@ -460,14 +448,12 @@ static void *miner_thread(void *dummy)
 		json_decref(val);
 
 		/* scan nonces for a proof-of-work hash */
-		nonce = scanhash(work->midstate, work->data + 64,
-				 work->hash1, work->hash);
+		nonce = scanhash(work.midstate, work.data + 64,
+				 work.hash1, work.hash);
 
 		/* if nonce found, submit work */
 		if (nonce)
-			submit_work(work);
-
-		work_free(work);
+			submit_work(&work);
 	}
 
 	return NULL;

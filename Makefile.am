@@ -1,5 +1,5 @@
 
-INCLUDES	= -pthread
+INCLUDES	= -pthread -fno-strict-aliasing
 
 bin_PROGRAMS	= minerd
 
