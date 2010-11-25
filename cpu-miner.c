@@ -334,16 +334,15 @@ static const uint32_t init_state[8] = {
 };
 
 /* suspiciously similar to ScanHash* from bitcoin */
-static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
-			 unsigned char *hash1, unsigned char *hash)
+static bool scanhash(unsigned char *midstate, unsigned char *data,
+		     unsigned char *hash1, unsigned char *hash)
 {
 	uint32_t *hash32 = (uint32_t *) hash;
 	uint32_t *nonce = (uint32_t *)(data + 12);
-	uint32_t n;
+	uint32_t n = 0;
 	unsigned long stat_ctr = 0;
 
 	while (1) {
-		n = *nonce;
 		n++;
 		*nonce = n;
 
@@ -359,7 +358,7 @@ static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
 				hexstr);
 			free(hexstr);
 
-			return n;
+			return true;
 		}
 
 		stat_ctr++;
@@ -373,7 +372,7 @@ static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
 
 			if (opt_debug)
 				fprintf(stderr, "DBG: end of nonce range\n");
-			return 0;
+			return false;
 		}
 	}
 }
@@ -426,9 +425,8 @@ static void *miner_thread(void *dummy)
 		"{\"method\": \"getwork\", \"params\": [], \"id\":0}\r\n";
 
 	while (1) {
-		json_t *val;
 		struct work work __attribute__((aligned(128)));
-		uint32_t nonce;
+		json_t *val;
 		bool rc;
 
 		/* obtain new work from bitcoin */
@@ -448,11 +446,11 @@ static void *miner_thread(void *dummy)
 		json_decref(val);
 
 		/* scan nonces for a proof-of-work hash */
-		nonce = scanhash(work.midstate, work.data + 64,
-				 work.hash1, work.hash);
+		rc = scanhash(work.midstate, work.data + 64,
+			      work.hash1, work.hash);
 
 		/* if nonce found, submit work */
-		if (nonce)
+		if (rc)
 			submit_work(&work);
 	}
 
