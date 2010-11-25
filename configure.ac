@@ -1,4 +1,4 @@
-AC_INIT([cpuminer], [0.1])
+AC_INIT([cpuminer], [0.1.1])
 
 AC_PREREQ(2.52)
 AC_CONFIG_SRCDIR([cpu-miner.c])

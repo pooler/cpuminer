@@ -1,4 +1,8 @@
 
+Version 0.1.1 - November 24, 2010
+
+- Do not build sha256_generic module separately from cpuminer.
+
 Version 0.1 - November 24, 2010
 
 - Initial release.
