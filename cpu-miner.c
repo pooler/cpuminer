@@ -39,14 +39,27 @@ static const bool opt_time = true;
 static int opt_n_threads = 1;
 static pthread_mutex_t stats_mutex = PTHREAD_MUTEX_INITIALIZER;
 static uint64_t hash_ctr;
+static char *rpc_url = "http://127.0.0.1:8332/";
+static char *userpass = "rpcuser:rpcpass";
+
 
 static struct argp_option options[] = {
-	{ "threads", 't', "N", 0,
-	  "Number of miner threads (default: 1)" },
 	{ "debug", 'D', NULL, 0,
 	  "Enable debug output" },
+
 	{ "protocol-dump", 'P', NULL, 0,
 	  "Verbose dump of protocol-level activities" },
+
+	{ "threads", 't', "N", 0,
+	  "Number of miner threads (default: 1)" },
+
+	{ "url", 1001, "URL", 0,
+	  "URL for bitcoin JSON-RPC server "
+	  "(default: http://127.0.0.1:8332/)" },
+
+	{ "userpass", 1002, "USER:PASS", 0,
+	  "Username:Password pair for bitcoin JSON-RPC server "
+	  "(default: rpcuser:rpcpass)" },
 	{ }
 };
 
@@ -381,9 +394,6 @@ static uint32_t scanhash(unsigned char *midstate, unsigned char *data,
 	}
 }
 
-static const char *url = "http://127.0.0.1:8332/";
-static const char *userpass = "pretzel:smooth";
-
 static void submit_work(struct work *work)
 {
 	char *hexstr = NULL, *s = NULL;
@@ -408,7 +418,7 @@ static void submit_work(struct work *work)
 		fprintf(stderr, "DBG: sending RPC call:\n%s", s);
 
 	/* issue JSON-RPC request */
-	val = json_rpc_call(url, userpass, s);
+	val = json_rpc_call(rpc_url, userpass, s);
 	if (!val) {
 		fprintf(stderr, "submit_work json_rpc_call failed\n");
 		goto out;
@@ -437,7 +447,7 @@ static void *miner_thread(void *dummy)
 		uint32_t nonce;
 
 		/* obtain new work from bitcoin */
-		val = json_rpc_call(url, userpass, rpc_req);
+		val = json_rpc_call(rpc_url, userpass, rpc_req);
 		if (!val) {
 			fprintf(stderr, "json_rpc_call failed\n");
 			return NULL;
@@ -479,10 +489,23 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		break;
 	case 't':
 		v = atoi(arg);
-		if (v < 1 || v > 9999)		/* sanity check */
+		if (v < 1 || v > 9999)	/* sanity check */
 			argp_usage(state);
 
 		opt_n_threads = v;
+		break;
+	case 1001:			/* --url */
+		if (strncmp(arg, "http://", 7) &&
+		    strncmp(arg, "https://", 8))
+			argp_usage(state);
+
+		rpc_url = arg;
+		break;
+	case 1002:			/* --userpass */
+		if (!strchr(arg, ':'))
+			argp_usage(state);
+
+		userpass = arg;
 		break;
 	case ARGP_KEY_ARG:
 		argp_usage(state);	/* too many args */
