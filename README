@@ -1,11 +1,15 @@
 
-This is a CPU miner for bitcoin.
+This is a multi-threaded CPU miner for bitcoin.
 
-License: X11/MIT
-	 See http://www.opensource.org/licenses/mit-license.php
+License: GPLv2.  See COPYING for details.
 
 Dependencies:
 	libcurl			http://curl.haxx.se/libcurl/
 	jansson			http://www.digip.org/jansson/
 	OpenSSL libcrypto	http://www.openssl.org/
+
+Basic build instructions:
+	./autogen.sh
+	./configure
+	make
 

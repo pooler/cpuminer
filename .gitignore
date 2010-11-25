@@ -2,3 +2,20 @@
 minerd
 *.o
 
+autom4te.cache
+.deps
+
+Makefile
+Makefile.in
+INSTALL
+aclocal.m4
+configure
+depcomp
+missing
+install-sh
+stamp-h1
+cpuminer-config.h*
+compile
+config.log
+config.status
+
