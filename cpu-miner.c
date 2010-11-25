@@ -134,6 +134,48 @@ err_out:
 	return false;
 }
 
+static void submit_work(struct work *work)
+{
+	char *hexstr = NULL, *s = NULL;
+	json_t *val, *res;
+
+	printf("PROOF OF WORK FOUND?  submitting...\n");
+
+	/* build hex string */
+	hexstr = bin2hex(work->data, sizeof(work->data));
+	if (!hexstr)
+		goto out;
+
+	/* build JSON-RPC request */
+	if (asprintf(&s,
+	    "{\"method\": \"getwork\", \"params\": [ \"%s\" ], \"id\":1}\r\n",
+	    hexstr) < 0) {
+		fprintf(stderr, "asprintf failed\n");
+		goto out;
+	}
+
+	if (opt_debug)
+		fprintf(stderr, "DBG: sending RPC call:\n%s", s);
+
+	/* issue JSON-RPC request */
+	val = json_rpc_call(rpc_url, userpass, s);
+	if (!val) {
+		fprintf(stderr, "submit_work json_rpc_call failed\n");
+		goto out;
+	}
+
+	res = json_object_get(val, "result");
+
+	printf("PROOF OF WORK RESULT: %s\n",
+		json_is_true(res) ? "true (yay!!!)" : "false (booooo)");
+
+	json_decref(val);
+
+out:
+	free(s);
+	free(hexstr);
+}
+
 static void inc_stats(uint64_t n_hashes)
 {
 	pthread_mutex_lock(&stats_mutex);
@@ -196,48 +238,6 @@ static bool scanhash(unsigned char *midstate, unsigned char *data,
 			return false;
 		}
 	}
-}
-
-static void submit_work(struct work *work)
-{
-	char *hexstr = NULL, *s = NULL;
-	json_t *val, *res;
-
-	printf("PROOF OF WORK FOUND?  submitting...\n");
-
-	/* build hex string */
-	hexstr = bin2hex(work->data, sizeof(work->data));
-	if (!hexstr)
-		goto out;
-
-	/* build JSON-RPC request */
-	if (asprintf(&s,
-	    "{\"method\": \"getwork\", \"params\": [ \"%s\" ], \"id\":1}\r\n",
-	    hexstr) < 0) {
-		fprintf(stderr, "asprintf failed\n");
-		goto out;
-	}
-
-	if (opt_debug)
-		fprintf(stderr, "DBG: sending RPC call:\n%s", s);
-
-	/* issue JSON-RPC request */
-	val = json_rpc_call(rpc_url, userpass, s);
-	if (!val) {
-		fprintf(stderr, "submit_work json_rpc_call failed\n");
-		goto out;
-	}
-
-	res = json_object_get(val, "result");
-
-	printf("PROOF OF WORK RESULT: %s\n",
-		json_is_true(res) ? "true (yay!!!)" : "false (booooo)");
-
-	json_decref(val);
-
-out:
-	free(s);
-	free(hexstr);
 }
 
 static void *miner_thread(void *dummy)
