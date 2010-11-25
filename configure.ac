@@ -16,7 +16,6 @@ AM_PROG_CC_C_O
 dnl Checks for header files.
 AC_HEADER_STDC
 
-AC_CHECK_LIB(crypto, MD5_Init, CRYPTO_LIBS=-lcrypto)
 AC_CHECK_LIB(jansson, json_loads, JANSSON_LIBS=-ljansson)
 
 PKG_PROG_PKG_CONFIG()
@@ -24,7 +23,6 @@ PKG_PROG_PKG_CONFIG()
 LIBCURL_CHECK_CONFIG(, 7.10.1, ,
   [AC_MSG_ERROR([Missing required libcurl >= 7.10.1])])
 
-AC_SUBST(CRYPTO_LIBS)
 AC_SUBST(JANSSON_LIBS)
 
 AC_CONFIG_FILES([

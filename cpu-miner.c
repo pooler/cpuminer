@@ -21,9 +21,10 @@
 #include <argp.h>
 #include <jansson.h>
 #include <curl/curl.h>
-#include <openssl/bn.h>
 
-#define PROGRAM_NAME "minerd"
+#define PROGRAM_NAME		"minerd"
+#define DEF_RPC_URL		"http://127.0.0.1:8332/"
+#define DEF_RPC_USERPASS	"rpcuser:rpcpass"
 
 #include "sha256_generic.c"
 
@@ -39,8 +40,8 @@ static const bool opt_time = true;
 static int opt_n_threads = 1;
 static pthread_mutex_t stats_mutex = PTHREAD_MUTEX_INITIALIZER;
 static uint64_t hash_ctr;
-static char *rpc_url = "http://127.0.0.1:8332/";
-static char *userpass = "rpcuser:rpcpass";
+static char *rpc_url = DEF_RPC_URL;
+static char *userpass = DEF_RPC_USERPASS;
 
 
 static struct argp_option options[] = {
@@ -55,11 +56,11 @@ static struct argp_option options[] = {
 
 	{ "url", 1001, "URL", 0,
 	  "URL for bitcoin JSON-RPC server "
-	  "(default: http://127.0.0.1:8332/)" },
+	  "(default: " DEF_RPC_URL ")" },
 
 	{ "userpass", 1002, "USER:PASS", 0,
 	  "Username:Password pair for bitcoin JSON-RPC server "
-	  "(default: rpcuser:rpcpass)" },
+	  "(default: " DEF_RPC_USERPASS ")" },
 	{ }
 };
 
@@ -85,7 +86,7 @@ struct work {
 	unsigned char	data[128];
 	unsigned char	hash[32];
 	unsigned char	hash1[64];
-	BIGNUM		*target;
+	unsigned char	target[32];
 };
 
 static void databuf_free(struct data_buffer *db)
@@ -286,9 +287,6 @@ static void work_free(struct work *work)
 	if (!work)
 		return;
 
-	if (work->target)
-		BN_free(work->target);
-
 	free(work);
 }
 
@@ -316,8 +314,7 @@ static struct work *work_decode(const json_t *val)
 		goto err_out;
 	}
 
-	if (!BN_hex2bn(&work->target,
-		json_string_value(json_object_get(val, "target")))) {
+	if (!jobj_binary(val, "target", work->target, sizeof(work->target))) {
 		fprintf(stderr, "JSON inval target\n");
 		goto err_out;
 	}
