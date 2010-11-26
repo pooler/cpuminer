@@ -8,7 +8,6 @@
  * any later version.  See COPYING for more details.
  */
 
-#define _GNU_SOURCE
 #include "cpuminer-config.h"
 
 #include <stdio.h>
@@ -136,8 +135,9 @@ err_out:
 
 static void submit_work(struct work *work)
 {
-	char *hexstr = NULL, *s = NULL;
+	char *hexstr = NULL;
 	json_t *val, *res;
+	char s[256];
 
 	printf("PROOF OF WORK FOUND?  submitting...\n");
 
@@ -147,12 +147,9 @@ static void submit_work(struct work *work)
 		goto out;
 
 	/* build JSON-RPC request */
-	if (asprintf(&s,
-	    "{\"method\": \"getwork\", \"params\": [ \"%s\" ], \"id\":1}\r\n",
-	    hexstr) < 0) {
-		fprintf(stderr, "asprintf failed\n");
-		goto out;
-	}
+	sprintf(s,
+	      "{\"method\": \"getwork\", \"params\": [ \"%s\" ], \"id\":1}\r\n",
+		hexstr);
 
 	if (opt_debug)
 		fprintf(stderr, "DBG: sending RPC call:\n%s", s);
@@ -172,7 +169,6 @@ static void submit_work(struct work *work)
 	json_decref(val);
 
 out:
-	free(s);
 	free(hexstr);
 }
 

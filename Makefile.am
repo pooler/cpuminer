@@ -7,5 +7,5 @@ EXTRA_DIST	= sha256_generic.c
 
 minerd_SOURCES	= util.c cpu-miner.c miner.h
 minerd_LDFLAGS	= -pthread
-minerd_LDADD	= @LIBCURL@ @JANSSON_LIBS@
+minerd_LDADD	= @LIBCURL@ @JANSSON_LIBS@ @PTHREAD_LIBS@
 

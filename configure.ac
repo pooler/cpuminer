@@ -12,11 +12,13 @@ dnl Checks for programs
 AC_PROG_CC
 AC_PROG_GCC_TRADITIONAL
 AM_PROG_CC_C_O
+AC_PROG_RANLIB
 
 dnl Checks for header files.
 AC_HEADER_STDC
 
 AC_CHECK_LIB(jansson, json_loads, JANSSON_LIBS=-ljansson)
+AC_CHECK_LIB(pthread, pthread_create, PTHREAD_LIBS=-lpthread)
 
 PKG_PROG_PKG_CONFIG()
 
@@ -24,6 +26,7 @@ LIBCURL_CHECK_CONFIG(, 7.10.1, ,
   [AC_MSG_ERROR([Missing required libcurl >= 7.10.1])])
 
 AC_SUBST(JANSSON_LIBS)
+AC_SUBST(PTHREAD_LIBS)
 
 AC_CONFIG_FILES([
 	Makefile
