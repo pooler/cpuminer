@@ -20,6 +20,7 @@
 #include <pthread.h>
 #include <getopt.h>
 #include <jansson.h>
+#include "compat.h"
 #include "miner.h"
 
 #define PROGRAM_NAME		"minerd"
