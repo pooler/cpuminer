@@ -17,8 +17,17 @@ AC_PROG_RANLIB
 dnl Checks for header files.
 AC_HEADER_STDC
 
-AC_CHECK_LIB(jansson, json_loads, JANSSON_LIBS=-ljansson)
+AC_CHECK_LIB(jansson, json_loads, request_jansson=false, request_jansson=true)
 AC_CHECK_LIB(pthread, pthread_create, PTHREAD_LIBS=-lpthread)
+
+AM_CONDITIONAL([WANT_JANSSON], [test x$request_jansson = xtrue])
+
+if test x$request_jansson = xtrue
+then
+	JANSSON_LIBS="compat/jansson/libjansson.a"
+else
+	JANSSON_LIBS=-ljansson
+fi
 
 PKG_PROG_PKG_CONFIG()
 
@@ -30,6 +39,8 @@ AC_SUBST(PTHREAD_LIBS)
 
 AC_CONFIG_FILES([
 	Makefile
+	compat/Makefile
+	compat/jansson/Makefile
 	])
 AC_OUTPUT
 

@@ -1,5 +1,13 @@
 
-INCLUDES	= -pthread -fno-strict-aliasing
+if WANT_JANSSON
+JANSSON_INCLUDES= -I$(top_srcdir)/compat/jansson
+else
+JANSSON_INCLUDES=
+endif
+
+SUBDIRS		= compat
+
+INCLUDES	= -pthread -fno-strict-aliasing $(JANSSON_INCLUDES)
 
 bin_PROGRAMS	= minerd
 
