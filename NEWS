@@ -1,4 +1,11 @@
 
+Version 0.1.2 - November 26, 2010
+
+- many small cleanups and micro-optimizations
+- build win32 exe using mingw
+- RPC URL, username/password become command line arguments
+- remove unused OpenSSL dependency
+
 Version 0.1.1 - November 24, 2010
 
 - Do not build sha256_generic module separately from cpuminer.
