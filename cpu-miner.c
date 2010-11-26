@@ -18,7 +18,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <pthread.h>
-#include <argp.h>
+#include <getopt.h>
 #include <jansson.h>
 #include "miner.h"
 
@@ -44,32 +44,42 @@ static char *rpc_url = DEF_RPC_URL;
 static char *userpass = DEF_RPC_USERPASS;
 
 
-static struct argp_option options[] = {
-	{ "debug", 'D', NULL, 0,
-	  "Enable debug output" },
+struct option_help {
+	const char	*name;
+	const char	*helptext;
+};
 
-	{ "protocol-dump", 'P', NULL, 0,
-	  "Verbose dump of protocol-level activities" },
+static struct option_help options_help[] = {
+	{ "help",
+	  "(-h) Display this help text" },
 
-	{ "threads", 't', "N", 0,
-	  "Number of miner threads (default: 1)" },
+	{ "debug",
+	  "(-D) Enable debug output" },
 
-	{ "url", 1001, "URL", 0,
+	{ "protocol-dump",
+	  "(-P) Verbose dump of protocol-level activities" },
+
+	{ "threads",
+	  "(-t N) Number of miner threads (default: 1)" },
+
+	{ "url",
 	  "URL for bitcoin JSON-RPC server "
 	  "(default: " DEF_RPC_URL ")" },
 
-	{ "userpass", 1002, "USER:PASS", 0,
+	{ "userpass",
 	  "Username:Password pair for bitcoin JSON-RPC server "
 	  "(default: " DEF_RPC_USERPASS ")" },
-	{ }
 };
 
-static const char doc[] =
-PROGRAM_NAME " - CPU miner for bitcoin";
-
-static error_t parse_opt (int key, char *arg, struct argp_state *state);
-
-static const struct argp argp = { options, parse_opt, NULL, doc };
+static struct option options[] = {
+	{ "help", 0, NULL, 'h' },
+	{ "debug", 0, NULL, 'D' },
+	{ "protocol-dump", 0, NULL, 'P' },
+	{ "threads", 1, NULL, 't' },
+	{ "url", 1, NULL, 1001 },
+	{ "userpass", 1, NULL, 1002 },
+	{ }
+};
 
 struct work {
 	unsigned char	data[128];
@@ -274,7 +284,22 @@ static void *miner_thread(void *dummy)
 	return NULL;
 }
 
-static error_t parse_opt (int key, char *arg, struct argp_state *state)
+static void show_usage(void)
+{
+	int i;
+
+	printf("Summary: minerd [options]\n\nSupported options:\n");
+	for (i = 0; i < ARRAY_SIZE(options_help); i++) {
+		struct option_help *h;
+
+		h = &options_help[i];
+		printf("--%s\n%s\n\n", h->name, h->helptext);
+	}
+
+	exit(1);
+}
+
+static void parse_arg (int key, char *arg)
 {
 	int v;
 
@@ -288,33 +313,39 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 	case 't':
 		v = atoi(arg);
 		if (v < 1 || v > 9999)	/* sanity check */
-			argp_usage(state);
+			show_usage();
 
 		opt_n_threads = v;
 		break;
 	case 1001:			/* --url */
 		if (strncmp(arg, "http://", 7) &&
 		    strncmp(arg, "https://", 8))
-			argp_usage(state);
+			show_usage();
 
 		rpc_url = arg;
 		break;
 	case 1002:			/* --userpass */
 		if (!strchr(arg, ':'))
-			argp_usage(state);
+			show_usage();
 
 		userpass = arg;
 		break;
-	case ARGP_KEY_ARG:
-		argp_usage(state);	/* too many args */
-		break;
-	case ARGP_KEY_END:
-		break;
 	default:
-		return ARGP_ERR_UNKNOWN;
+		show_usage();
 	}
+}
 
-	return 0;
+static void parse_cmdline(int argc, char *argv[])
+{
+	int key;
+
+	while (1) {
+		key = getopt_long(argc, argv, "DPt:h?", options, NULL);
+		if (key < 0)
+			break;
+
+		parse_arg(key, optarg);
+	}
 }
 
 static void calc_stats(void)
@@ -339,15 +370,10 @@ static void calc_stats(void)
 
 int main (int argc, char *argv[])
 {
-	error_t aprc;
 	int i;
 
 	/* parse command line */
-	aprc = argp_parse(&argp, argc, argv, 0, NULL, NULL);
-	if (aprc) {
-		fprintf(stderr, "argp_parse failed: %s\n", strerror(aprc));
-		return 1;
-	}
+	parse_cmdline(argc, argv);
 
 	/* set our priority to the highest (aka "nicest, least intrusive") */
 	if (setpriority(PRIO_PROCESS, 0, 19))
