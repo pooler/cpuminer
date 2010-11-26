@@ -1,5 +1,6 @@
 
 minerd
+minerd.exe
 *.o
 
 autom4te.cache
@@ -18,4 +19,6 @@ cpuminer-config.h*
 compile
 config.log
 config.status
+
+mingw32-config.cache
 

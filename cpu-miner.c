@@ -16,7 +16,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <sys/time.h>
+#ifndef WIN32
 #include <sys/resource.h>
+#endif
 #include <pthread.h>
 #include <getopt.h>
 #include <jansson.h>
@@ -352,7 +354,7 @@ static void parse_cmdline(int argc, char *argv[])
 static void calc_stats(void)
 {
 	uint64_t hashes;
-	long double hd, sd;
+	double hd, sd;
 
 	pthread_mutex_lock(&stats_mutex);
 
@@ -366,7 +368,8 @@ static void calc_stats(void)
 	hd = hashes;
 	sd = STAT_SLEEP_INTERVAL;
 
-	fprintf(stderr, "wildly inaccurate HashMeter: %.2Lf khash/sec\n", hd / sd);
+	fprintf(stderr, "wildly inaccurate HashMeter: %.2f khash/sec\n",
+		hd / sd);
 }
 
 int main (int argc, char *argv[])
