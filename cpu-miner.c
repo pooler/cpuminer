@@ -119,8 +119,6 @@ struct work {
 	unsigned char	hash[32];
 };
 
-#include "sha256_generic.c"
-
 static bool jobj_binary(const json_t *obj, const char *key,
 			void *buf, size_t buflen)
 {
@@ -231,58 +229,6 @@ static void hashmeter(int thr_id, struct timeval *tv_start,
 	       khashes / secs);
 }
 
-static void runhash(void *state, void *input, const void *init)
-{
-	memcpy(state, init, 32);
-	sha256_transform(state, input);
-}
-
-const uint32_t sha256_init_state[8] = {
-	0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-	0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
-};
-
-/* suspiciously similar to ScanHash* from bitcoin */
-static bool scanhash(unsigned char *midstate, unsigned char *data,
-		     unsigned char *hash1, unsigned char *hash,
-		     unsigned long *hashes_done)
-{
-	uint32_t *hash32 = (uint32_t *) hash;
-	uint32_t *nonce = (uint32_t *)(data + 12);
-	uint32_t n = 0;
-	unsigned long stat_ctr = 0;
-
-	while (1) {
-		n++;
-		*nonce = n;
-
-		runhash(hash1, data, midstate);
-		runhash(hash, hash1, sha256_init_state);
-
-		stat_ctr++;
-
-		if (hash32[7] == 0) {
-			char *hexstr;
-
-			hexstr = bin2hex(hash, 32);
-			fprintf(stderr,
-				"DBG: found zeroes in hash:\n%s\n",
-				hexstr);
-			free(hexstr);
-
-			*hashes_done = stat_ctr;
-			return true;
-		}
-
-		if ((n & 0xffffff) == 0) {
-			if (opt_debug)
-				fprintf(stderr, "DBG: end of nonce range\n");
-			*hashes_done = stat_ctr;
-			return false;
-		}
-	}
-}
-
 static void *miner_thread(void *thr_id_int)
 {
 	int thr_id = (unsigned long) thr_id_int;
@@ -318,8 +264,8 @@ static void *miner_thread(void *thr_id_int)
 		/* scan nonces for a proof-of-work hash */
 		switch (opt_algo) {
 		case ALGO_C:
-			rc = scanhash(work.midstate, work.data + 64,
-				      work.hash1, work.hash, &hashes_done);
+			rc = scanhash_c(work.midstate, work.data + 64,
+				        work.hash1, work.hash, &hashes_done);
 			break;
 
 #ifdef WANT_SSE2_4WAY

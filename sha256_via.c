@@ -28,7 +28,7 @@ static void via_sha256(void *hash, void *buf, unsigned len)
 		     :"memory");
 }
 
-bool scanhash_via(unsigned char *midstate, const unsigned char *data_in,
+bool scanhash_via(const unsigned char *midstate, const unsigned char *data_in,
 	          unsigned char *hash1, unsigned char *hash,
 	          unsigned long *hashes_done)
 {

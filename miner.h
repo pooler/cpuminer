@@ -26,13 +26,18 @@ extern json_t *json_rpc_call(const char *url, const char *userpass,
 extern char *bin2hex(unsigned char *p, size_t len);
 extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
 
-extern unsigned int ScanHash_4WaySSE2(unsigned char *pmidstate,
+extern unsigned int ScanHash_4WaySSE2(const unsigned char *pmidstate,
 	unsigned char *pdata, unsigned char *phash1, unsigned char *phash,
 	unsigned long *nHashesDone);
 
-extern bool scanhash_via(unsigned char *midstate, const unsigned char *data_in,
+extern bool scanhash_via(const unsigned char *midstate, const unsigned char *data_in,
 	          unsigned char *hash1, unsigned char *hash,
 	          unsigned long *hashes_done);
+
+extern bool scanhash_c(const unsigned char *midstate, unsigned char *data,
+	      unsigned char *hash1, unsigned char *hash,
+	      unsigned long *hashes_done);
+
 extern int
 timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y);
 
