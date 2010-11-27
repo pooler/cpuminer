@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <sys/time.h>
 #include <jansson.h>
 
 #ifdef __SSE2__
