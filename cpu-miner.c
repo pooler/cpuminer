@@ -37,8 +37,8 @@ enum {
 };
 
 enum sha256_algos {
-	ALGO_C,
-	ALGO_4WAY
+	ALGO_C,			/* plain C */
+	ALGO_4WAY,		/* parallel SSE2 */
 };
 
 static bool opt_debug;
@@ -63,7 +63,7 @@ static struct option_help options_help[] = {
 	{ "algo XXX",
 	  "(-a XXX) Specify sha256 implementation:\n"
 	  "\tc\t\tLinux kernel sha256, implemented in C (default)"
-#ifdef __SSE2__
+#ifdef WANT_SSE2_4WAY
 	  "\n\t4way\t\ttcatm's 4-way SSE2 implementation (EXPERIMENTAL)"
 #endif
 	  },
@@ -301,18 +301,23 @@ static void *miner_thread(void *thr_id_int)
 		gettimeofday(&tv_start, NULL);
 
 		/* scan nonces for a proof-of-work hash */
-		if (opt_algo == ALGO_C)
+		switch (opt_algo) {
+		case ALGO_C:
 			rc = scanhash(work.midstate, work.data + 64,
 				      work.hash1, work.hash, &hashes_done);
-#ifdef __SSE2__
-		else {
+			break;
+
+#ifdef WANT_SSE2_4WAY
+		case ALGO_4WAY: {
 			unsigned int rc4 =
 				ScanHash_4WaySSE2(work.midstate, work.data + 64,
 						  work.hash1, work.hash,
 						  &hashes_done);
 			rc = (rc4 == -1) ? false : true;
-		}
+			}
+			break;
 #endif
+		}
 
 		hashmeter(thr_id, &tv_start, hashes_done);
 
@@ -347,7 +352,7 @@ static void parse_arg (int key, char *arg)
 	case 'a':
 		if (!strcmp(arg, "c"))
 			opt_algo = ALGO_C;
-#ifdef __SSE2__
+#ifdef WANT_SSE2_4WAY
 		else if (!strcmp(arg, "4way"))
 			opt_algo = ALGO_4WAY;
 #endif

@@ -4,6 +4,10 @@
 #include <stdbool.h>
 #include <jansson.h>
 
+#ifdef __SSE2__
+#define WANT_SSE2_4WAY 1
+#endif
+
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif

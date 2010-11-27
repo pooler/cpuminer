@@ -4,14 +4,15 @@
 
 // tcatm's 4-way 128-bit SSE2 SHA-256
 
-#ifdef __SSE2__
-
 #include <string.h>
 #include <assert.h>
 
 #include <xmmintrin.h>
 #include <stdint.h>
 #include <stdio.h>
+#include "miner.h"
+
+#ifdef WANT_SSE2_4WAY
 
 #define NPAR 32
 
@@ -467,4 +468,4 @@ static void DoubleBlockSHA256(const void* pin, void* pad, const void *pre, unsig
 
 }
 
-#endif /* __SSE2__ */
+#endif /* WANT_SSE2_4WAY */
