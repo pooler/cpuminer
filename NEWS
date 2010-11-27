@@ -1,4 +1,11 @@
 
+Version 0.2 - November 27, 2010
+
+- Add script for building a Windows installer
+- improve hash performance (hashmeter) statistics
+- add tcatm 4way sha256 implementation
+- Add experimental VIA Padlock sha256 implementation
+
 Version 0.1.2 - November 26, 2010
 
 - many small cleanups and micro-optimizations
