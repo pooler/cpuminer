@@ -64,7 +64,7 @@ static struct option_help options_help[] = {
 	  "(-a XXX) Specify sha256 implementation:\n"
 	  "\tc\t\tLinux kernel sha256, implemented in C (default)"
 #ifdef __SSE__
-	  "\n\t4way\t\ttcatm's 4-way SSE2 implementation"
+	  "\n\t4way\t\ttcatm's 4-way SSE2 implementation (EXPERIMENTAL)"
 #endif
 	  },
 
