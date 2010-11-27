@@ -42,6 +42,8 @@ bool scanhash_via(unsigned char *midstate, const unsigned char *data_in,
 
 	/* bitcoin gives us big endian input, but via wants LE,
 	 * so we reverse the swapping bitcoin has already done (extra work)
+	 * in order to permit the hardware to swap everything
+	 * back to BE again (extra work).
 	 */
 	for (i = 0; i < 128/4; i++) {
 		uint32_t *data32 = (uint32_t *) data;
