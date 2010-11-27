@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <sys/time.h>
 #ifndef WIN32
@@ -29,8 +30,6 @@
 #define DEF_RPC_URL		"http://127.0.0.1:8332/"
 #define DEF_RPC_USERPASS	"rpcuser:rpcpass"
 
-#include "sha256_generic.c"
-
 enum {
 	STAT_SLEEP_INTERVAL		= 100,
 	STAT_CTR_INTERVAL		= 10000000,
@@ -39,9 +38,10 @@ enum {
 enum sha256_algos {
 	ALGO_C,			/* plain C */
 	ALGO_4WAY,		/* parallel SSE2 */
+	ALGO_VIA,		/* VIA padlock */
 };
 
-static bool opt_debug;
+bool opt_debug = false;
 bool opt_protocol = false;
 static bool program_running = true;
 static const bool opt_time = true;
@@ -65,6 +65,9 @@ static struct option_help options_help[] = {
 	  "\tc\t\tLinux kernel sha256, implemented in C (default)"
 #ifdef WANT_SSE2_4WAY
 	  "\n\t4way\t\ttcatm's 4-way SSE2 implementation (EXPERIMENTAL)"
+#endif
+#ifdef WANT_VIA_PADLOCK
+	  "\n\tvia\t\tVIA padlock implementation (EXPERIMENTAL)"
 #endif
 	  },
 
@@ -105,6 +108,8 @@ struct work {
 
 	unsigned char	hash[32];
 };
+
+#include "sha256_generic.c"
 
 static bool jobj_binary(const json_t *obj, const char *key,
 			void *buf, size_t buflen)
@@ -222,7 +227,7 @@ static void runhash(void *state, void *input, const void *init)
 	sha256_transform(state, input);
 }
 
-static const uint32_t init_state[8] = {
+const uint32_t sha256_init_state[8] = {
 	0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
 	0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
 };
@@ -242,7 +247,7 @@ static bool scanhash(unsigned char *midstate, unsigned char *data,
 		*nonce = n;
 
 		runhash(hash1, data, midstate);
-		runhash(hash, hash1, init_state);
+		runhash(hash, hash1, sha256_init_state);
 
 		stat_ctr++;
 
@@ -317,6 +322,14 @@ static void *miner_thread(void *thr_id_int)
 			}
 			break;
 #endif
+
+#ifdef WANT_VIA_PADLOCK
+		case ALGO_VIA:
+			rc = scanhash_via(work.midstate, work.data + 64,
+					  work.hash1, work.hash,
+					  &hashes_done);
+			break;
+#endif
 		}
 
 		hashmeter(thr_id, &tv_start, hashes_done);
@@ -355,6 +368,10 @@ static void parse_arg (int key, char *arg)
 #ifdef WANT_SSE2_4WAY
 		else if (!strcmp(arg, "4way"))
 			opt_algo = ALGO_4WAY;
+#endif
+#ifdef WANT_VIA_PADLOCK
+		else if (!strcmp(arg, "via"))
+			opt_algo = ALGO_VIA;
 #endif
 		else
 			show_usage();
