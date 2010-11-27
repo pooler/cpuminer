@@ -62,28 +62,28 @@ static struct option_help options_help[] = {
 	{ "help",
 	  "(-h) Display this help text" },
 
-	{ "algo",
+	{ "algo XXX",
 	  "(-a XXX) Specify sha256 implementation:\n"
-	  "\tc\t\tLinux kernel sha256, implemented in C"
+	  "\tc\t\tLinux kernel sha256, implemented in C (default)"
 #ifdef __SSE__
 	  "\n\t4way\t\ttcatm's 4-way SSE2 implementation"
 #endif
 	  },
 
 	{ "debug",
-	  "(-D) Enable debug output" },
+	  "(-D) Enable debug output (default: off)" },
 
 	{ "protocol-dump",
-	  "(-P) Verbose dump of protocol-level activities" },
+	  "(-P) Verbose dump of protocol-level activities (default: off)" },
 
-	{ "threads",
+	{ "threads N",
 	  "(-t N) Number of miner threads (default: 1)" },
 
-	{ "url",
+	{ "url URL",
 	  "URL for bitcoin JSON-RPC server "
 	  "(default: " DEF_RPC_URL ")" },
 
-	{ "userpass",
+	{ "userpass USERNAME:PASSWORD",
 	  "Username:Password pair for bitcoin JSON-RPC server "
 	  "(default: " DEF_RPC_USERPASS ")" },
 };
@@ -317,7 +317,7 @@ static void show_usage(void)
 {
 	int i;
 
-	printf("Summary: minerd [options]\n\nSupported options:\n");
+	printf("Usage:\tminerd [options]\n\nSupported options:\n");
 	for (i = 0; i < ARRAY_SIZE(options_help); i++) {
 		struct option_help *h;
 
