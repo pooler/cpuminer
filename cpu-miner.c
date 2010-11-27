@@ -36,10 +36,16 @@ enum {
 	STAT_CTR_INTERVAL		= 10000000,
 };
 
+enum sha256_algos {
+	ALGO_C,
+	ALGO_4WAY
+};
+
 static bool opt_debug;
 bool opt_protocol = false;
 static bool program_running = true;
 static const bool opt_time = true;
+static enum sha256_algos opt_algo = ALGO_C;
 static int opt_n_threads = 1;
 static pthread_mutex_t stats_mutex = PTHREAD_MUTEX_INITIALIZER;
 static uint64_t hash_ctr;
@@ -55,6 +61,14 @@ struct option_help {
 static struct option_help options_help[] = {
 	{ "help",
 	  "(-h) Display this help text" },
+
+	{ "algo",
+	  "(-a) Specify sha256 implementation:\n"
+	  "\tc\t\tLinux kernel sha256, implemented in C"
+#ifdef __SSE__
+	  "\n\t4way\t\ttcatm's 4-way SSE2 implementation"
+#endif
+	  },
 
 	{ "debug",
 	  "(-D) Enable debug output" },
@@ -76,6 +90,7 @@ static struct option_help options_help[] = {
 
 static struct option options[] = {
 	{ "help", 0, NULL, 'h' },
+	{ "algo", 1, NULL, 'a' },
 	{ "debug", 0, NULL, 'D' },
 	{ "protocol-dump", 0, NULL, 'P' },
 	{ "threads", 1, NULL, 't' },
@@ -276,8 +291,19 @@ static void *miner_thread(void *dummy)
 		json_decref(val);
 
 		/* scan nonces for a proof-of-work hash */
-		rc = scanhash(work.midstate, work.data + 64,
-			      work.hash1, work.hash);
+		if (opt_algo == ALGO_C)
+			rc = scanhash(work.midstate, work.data + 64,
+				      work.hash1, work.hash);
+#ifdef __SSE__
+		else {
+			unsigned int hashesdone = 0;
+			unsigned int rc4 =
+				ScanHash_4WaySSE2(work.midstate, work.data + 64,
+						  work.hash1, work.hash,
+						  &hashesdone);
+			rc = (rc4 == -1) ? false : true;
+		}
+#endif
 
 		/* if nonce found, submit work */
 		if (rc)
@@ -307,6 +333,16 @@ static void parse_arg (int key, char *arg)
 	int v;
 
 	switch(key) {
+	case 'a':
+		if (!strcmp(arg, "c"))
+			opt_algo = ALGO_C;
+#ifdef __SSE__
+		else if (!strcmp(arg, "4way"))
+			opt_algo = ALGO_4WAY;
+#endif
+		else
+			show_usage();
+		break;
 	case 'D':
 		opt_debug = true;
 		break;
@@ -343,7 +379,7 @@ static void parse_cmdline(int argc, char *argv[])
 	int key;
 
 	while (1) {
-		key = getopt_long(argc, argv, "DPt:h?", options, NULL);
+		key = getopt_long(argc, argv, "a:DPt:h?", options, NULL);
 		if (key < 0)
 			break;
 

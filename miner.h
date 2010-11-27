@@ -14,4 +14,8 @@ extern json_t *json_rpc_call(const char *url, const char *userpass,
 extern char *bin2hex(unsigned char *p, size_t len);
 extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
 
+extern unsigned int ScanHash_4WaySSE2(unsigned char *pmidstate,
+	unsigned char *pdata, unsigned char *phash1, unsigned char *phash,
+	unsigned int *nHashesDone);
+
 #endif /* __MINER_H__ */

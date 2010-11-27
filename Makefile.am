@@ -13,7 +13,7 @@ bin_PROGRAMS	= minerd
 
 EXTRA_DIST	= sha256_generic.c
 
-minerd_SOURCES	= util.c cpu-miner.c miner.h compat.h
+minerd_SOURCES	= cpu-miner.c sha256_4way.c util.c miner.h compat.h
 minerd_LDFLAGS	= $(PTHREAD_FLAGS)
 minerd_LDADD	= @LIBCURL@ @JANSSON_LIBS@ @PTHREAD_LIBS@
 
