@@ -32,7 +32,7 @@
 #include "sha256_generic.c"
 
 enum {
-	STAT_SLEEP_INTERVAL		= 10,
+	STAT_SLEEP_INTERVAL		= 100,
 	STAT_CTR_INTERVAL		= 10000000,
 };
 
@@ -47,8 +47,6 @@ static bool program_running = true;
 static const bool opt_time = true;
 static enum sha256_algos opt_algo = ALGO_C;
 static int opt_n_threads = 1;
-static pthread_mutex_t stats_mutex = PTHREAD_MUTEX_INITIALIZER;
-static uint64_t hash_ctr;
 static char *rpc_url = DEF_RPC_URL;
 static char *userpass = DEF_RPC_USERPASS;
 
@@ -200,13 +198,22 @@ out:
 	free(hexstr);
 }
 
-static void inc_stats(uint64_t n_hashes)
+static void hashmeter(int thr_id, struct timeval *tv_start,
+		      unsigned long hashes_done)
 {
-	pthread_mutex_lock(&stats_mutex);
+	struct timeval tv_end, diff;
+	double khashes, secs;
 
-	hash_ctr += n_hashes;
+	gettimeofday(&tv_end, NULL);
 
-	pthread_mutex_unlock(&stats_mutex);
+	timeval_subtract(&diff, &tv_end, tv_start);
+
+	khashes = hashes_done / 1000.0;
+	secs = (double)diff.tv_sec + ((double)diff.tv_usec / 1000000.0);
+
+	printf("HashMeter(%d): %lu hashes, %.2f khash/sec\n",
+	       thr_id, hashes_done,
+	       khashes / secs);
 }
 
 static void runhash(void *state, void *input, const void *init)
@@ -222,7 +229,8 @@ static const uint32_t init_state[8] = {
 
 /* suspiciously similar to ScanHash* from bitcoin */
 static bool scanhash(unsigned char *midstate, unsigned char *data,
-		     unsigned char *hash1, unsigned char *hash)
+		     unsigned char *hash1, unsigned char *hash,
+		     unsigned long *hashes_done)
 {
 	uint32_t *hash32 = (uint32_t *) hash;
 	uint32_t *nonce = (uint32_t *)(data + 12);
@@ -236,6 +244,8 @@ static bool scanhash(unsigned char *midstate, unsigned char *data,
 		runhash(hash1, data, midstate);
 		runhash(hash, hash1, init_state);
 
+		stat_ctr++;
+
 		if (hash32[7] == 0) {
 			char *hexstr;
 
@@ -245,32 +255,29 @@ static bool scanhash(unsigned char *midstate, unsigned char *data,
 				hexstr);
 			free(hexstr);
 
+			*hashes_done = stat_ctr;
 			return true;
 		}
 
-		stat_ctr++;
-		if (stat_ctr >= STAT_CTR_INTERVAL) {
-			inc_stats(STAT_CTR_INTERVAL);
-			stat_ctr = 0;
-		}
-
 		if ((n & 0xffffff) == 0) {
-			inc_stats(stat_ctr);
-
 			if (opt_debug)
 				fprintf(stderr, "DBG: end of nonce range\n");
+			*hashes_done = stat_ctr;
 			return false;
 		}
 	}
 }
 
-static void *miner_thread(void *dummy)
+static void *miner_thread(void *thr_id_int)
 {
+	int thr_id = (unsigned long) thr_id_int;
 	static const char *rpc_req =
 		"{\"method\": \"getwork\", \"params\": [], \"id\":0}\r\n";
 
 	while (1) {
 		struct work work __attribute__((aligned(128)));
+		unsigned long hashes_done;
+		struct timeval tv_start;
 		json_t *val;
 		bool rc;
 
@@ -290,20 +297,24 @@ static void *miner_thread(void *dummy)
 
 		json_decref(val);
 
+		hashes_done = 0;
+		gettimeofday(&tv_start, NULL);
+
 		/* scan nonces for a proof-of-work hash */
 		if (opt_algo == ALGO_C)
 			rc = scanhash(work.midstate, work.data + 64,
-				      work.hash1, work.hash);
+				      work.hash1, work.hash, &hashes_done);
 #ifdef __SSE__
 		else {
-			unsigned int hashesdone = 0;
 			unsigned int rc4 =
 				ScanHash_4WaySSE2(work.midstate, work.data + 64,
 						  work.hash1, work.hash,
-						  &hashesdone);
+						  &hashes_done);
 			rc = (rc4 == -1) ? false : true;
 		}
 #endif
+
+		hashmeter(thr_id, &tv_start, hashes_done);
 
 		/* if nonce found, submit work */
 		if (rc)
@@ -387,27 +398,6 @@ static void parse_cmdline(int argc, char *argv[])
 	}
 }
 
-static void calc_stats(void)
-{
-	uint64_t hashes;
-	double hd, sd;
-
-	pthread_mutex_lock(&stats_mutex);
-
-	hashes = hash_ctr;
-	hash_ctr = 0;
-
-	pthread_mutex_unlock(&stats_mutex);
-
-	hashes = hashes / 1000;
-
-	hd = hashes;
-	sd = STAT_SLEEP_INTERVAL;
-
-	fprintf(stderr, "wildly inaccurate HashMeter: %.2f khash/sec\n",
-		hd / sd);
-}
-
 int main (int argc, char *argv[])
 {
 	int i;
@@ -423,7 +413,8 @@ int main (int argc, char *argv[])
 	for (i = 0; i < opt_n_threads; i++) {
 		pthread_t t;
 
-		if (pthread_create(&t, NULL, miner_thread, NULL)) {
+		if (pthread_create(&t, NULL, miner_thread,
+				   (void *)(unsigned long) i)) {
 			fprintf(stderr, "thread %d create failed\n", i);
 			return 1;
 		}
@@ -436,7 +427,7 @@ int main (int argc, char *argv[])
 	/* main loop */
 	while (program_running) {
 		sleep(STAT_SLEEP_INTERVAL);
-		calc_stats();
+		/* do nothing */
 	}
 
 	return 0;

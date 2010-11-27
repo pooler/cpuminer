@@ -16,6 +16,9 @@ extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
 
 extern unsigned int ScanHash_4WaySSE2(unsigned char *pmidstate,
 	unsigned char *pdata, unsigned char *phash1, unsigned char *phash,
-	unsigned int *nHashesDone);
+	unsigned long *nHashesDone);
+
+extern int
+timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y);
 
 #endif /* __MINER_H__ */
