@@ -41,6 +41,16 @@ enum sha256_algos {
 	ALGO_VIA,		/* VIA padlock */
 };
 
+static const char *algo_names[] = {
+	[ALGO_C]		= "c",
+#ifdef WANT_SSE2_4WAY
+	[ALGO_4WAY]		= "4way",
+#endif
+#ifdef WANT_VIA_PADLOCK
+	[ALGO_VIA]		= "via",
+#endif
+};
+
 bool opt_debug = false;
 bool opt_protocol = false;
 static bool program_running = true;
@@ -359,21 +369,17 @@ static void show_usage(void)
 
 static void parse_arg (int key, char *arg)
 {
-	int v;
+	int v, i;
 
 	switch(key) {
 	case 'a':
-		if (!strcmp(arg, "c"))
-			opt_algo = ALGO_C;
-#ifdef WANT_SSE2_4WAY
-		else if (!strcmp(arg, "4way"))
-			opt_algo = ALGO_4WAY;
-#endif
-#ifdef WANT_VIA_PADLOCK
-		else if (!strcmp(arg, "via"))
-			opt_algo = ALGO_VIA;
-#endif
-		else
+		for (i = 0; i < ARRAY_SIZE(algo_names); i++) {
+			if (!strcmp(arg, algo_names[i])) {
+				opt_algo = i;
+				break;
+			}
+		}
+		if (i == ARRAY_SIZE(algo_names))
 			show_usage();
 		break;
 	case 'D':
@@ -444,7 +450,10 @@ int main (int argc, char *argv[])
 		sleep(1);	/* don't pound RPC server all at once */
 	}
 
-	fprintf(stderr, "%d miner threads started.\n", opt_n_threads);
+	fprintf(stderr, "%d miner threads started, "
+		"using SHA256 '%s' algorithm.\n",
+		opt_n_threads,
+		algo_names[opt_algo]);
 
 	/* main loop */
 	while (program_running) {
