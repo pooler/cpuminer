@@ -122,6 +122,7 @@ unsigned int ScanHash_4WaySSE2(unsigned char *pmidstate, unsigned char *pdata,
                 for (i = 0; i < 32/4; i++)
                     ((unsigned int*)phash)[i] = thash[i][j];
 		*nHashesDone = nonce;
+		*nNonce_p = nonce + j;
                 return nonce + j;
             }
         }
