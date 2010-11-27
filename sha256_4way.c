@@ -4,7 +4,7 @@
 
 // tcatm's 4-way 128-bit SSE2 SHA-256
 
-#ifdef __SSE__
+#ifdef __SSE2__
 
 #include <string.h>
 #include <assert.h>
@@ -467,4 +467,4 @@ static void DoubleBlockSHA256(const void* pin, void* pad, const void *pre, unsig
 
 }
 
-#endif /* __SSE__ */
+#endif /* __SSE2__ */

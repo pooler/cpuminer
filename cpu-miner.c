@@ -63,7 +63,7 @@ static struct option_help options_help[] = {
 	{ "algo XXX",
 	  "(-a XXX) Specify sha256 implementation:\n"
 	  "\tc\t\tLinux kernel sha256, implemented in C (default)"
-#ifdef __SSE__
+#ifdef __SSE2__
 	  "\n\t4way\t\ttcatm's 4-way SSE2 implementation (EXPERIMENTAL)"
 #endif
 	  },
@@ -304,7 +304,7 @@ static void *miner_thread(void *thr_id_int)
 		if (opt_algo == ALGO_C)
 			rc = scanhash(work.midstate, work.data + 64,
 				      work.hash1, work.hash, &hashes_done);
-#ifdef __SSE__
+#ifdef __SSE2__
 		else {
 			unsigned int rc4 =
 				ScanHash_4WaySSE2(work.midstate, work.data + 64,
@@ -347,7 +347,7 @@ static void parse_arg (int key, char *arg)
 	case 'a':
 		if (!strcmp(arg, "c"))
 			opt_algo = ALGO_C;
-#ifdef __SSE__
+#ifdef __SSE2__
 		else if (!strcmp(arg, "4way"))
 			opt_algo = ALGO_4WAY;
 #endif
