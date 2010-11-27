@@ -125,9 +125,9 @@ unsigned int ScanHash_4WaySSE2(unsigned char *pmidstate, unsigned char *pdata,
             }
         }
 
-        if ((nonce & 0xffff) == 0)
+        if ((nonce & 0xffffff) == 0)
         {
-            *nHashesDone = 0xffff+1;
+            *nHashesDone = 0xffffff+1;
             return -1;
         }
     }
