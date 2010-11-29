@@ -37,6 +37,9 @@ extern bool scanhash_via(const unsigned char *midstate, const unsigned char *dat
 extern bool scanhash_c(const unsigned char *midstate, unsigned char *data,
 	      unsigned char *hash1, unsigned char *hash,
 	      unsigned long *hashes_done);
+extern bool scanhash_cryptopp(const unsigned char *midstate,unsigned char *data,
+	      unsigned char *hash1, unsigned char *hash,
+	      unsigned long *hashes_done);
 
 extern int
 timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y);

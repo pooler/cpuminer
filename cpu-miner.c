@@ -39,6 +39,7 @@ enum sha256_algos {
 	ALGO_C,			/* plain C */
 	ALGO_4WAY,		/* parallel SSE2 */
 	ALGO_VIA,		/* VIA padlock */
+	ALGO_CRYPTOPP,		/* Crypto++ */
 };
 
 static const char *algo_names[] = {
@@ -49,6 +50,7 @@ static const char *algo_names[] = {
 #ifdef WANT_VIA_PADLOCK
 	[ALGO_VIA]		= "via",
 #endif
+	[ALGO_CRYPTOPP]		= "cryptopp",
 };
 
 bool opt_debug = false;
@@ -74,11 +76,12 @@ static struct option_help options_help[] = {
 	  "(-a XXX) Specify sha256 implementation:\n"
 	  "\tc\t\tLinux kernel sha256, implemented in C (default)"
 #ifdef WANT_SSE2_4WAY
-	  "\n\t4way\t\ttcatm's 4-way SSE2 implementation (EXPERIMENTAL)"
+	  "\n\t4way\t\ttcatm's 4-way SSE2 implementation"
 #endif
 #ifdef WANT_VIA_PADLOCK
 	  "\n\tvia\t\tVIA padlock implementation (EXPERIMENTAL)"
 #endif
+	  "\n\tcryptopp\tCrypto++ library implementation (EXPERIMENTAL)"
 	  },
 
 	{ "debug",
@@ -286,6 +289,11 @@ static void *miner_thread(void *thr_id_int)
 					  &hashes_done);
 			break;
 #endif
+		case ALGO_CRYPTOPP:
+			rc = scanhash_cryptopp(work.midstate, work.data + 64,
+				        work.hash1, work.hash, &hashes_done);
+			break;
+
 		}
 
 		hashmeter(thr_id, &tv_start, hashes_done);
