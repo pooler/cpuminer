@@ -179,7 +179,7 @@ static void submit_work(struct work *work)
 {
 	char *hexstr = NULL;
 	json_t *val, *res;
-	char s[256];
+	char s[345];
 
 	printf("PROOF OF WORK FOUND?  submitting...\n");
 
