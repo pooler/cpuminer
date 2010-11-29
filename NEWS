@@ -1,4 +1,10 @@
 
+Version 0.2.1 - November 29, 2010
+
+- avoid buffer overflow when submitting solutions
+- add Crypto++ sha256 implementation (C only, ASM elided for now)
+- minor internal optimizations and cleanups
+
 Version 0.2 - November 27, 2010
 
 - Add script for building a Windows installer
