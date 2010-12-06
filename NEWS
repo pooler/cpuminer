@@ -1,4 +1,9 @@
 
+Version 0.2.2 - December 6, 2010
+
+- VIA padlock implementation works now
+- Minor build and runtime fixes
+
 Version 0.2.1 - November 29, 2010
 
 - avoid buffer overflow when submitting solutions

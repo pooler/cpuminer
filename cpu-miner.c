@@ -79,7 +79,7 @@ static struct option_help options_help[] = {
 	  "\n\t4way\t\ttcatm's 4-way SSE2 implementation"
 #endif
 #ifdef WANT_VIA_PADLOCK
-	  "\n\tvia\t\tVIA padlock implementation (EXPERIMENTAL)"
+	  "\n\tvia\t\tVIA padlock implementation"
 #endif
 	  "\n\tcryptopp\tCrypto++ library implementation (EXPERIMENTAL)"
 	  },
