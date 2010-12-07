@@ -39,7 +39,8 @@ enum sha256_algos {
 	ALGO_C,			/* plain C */
 	ALGO_4WAY,		/* parallel SSE2 */
 	ALGO_VIA,		/* VIA padlock */
-	ALGO_CRYPTOPP,		/* Crypto++ */
+	ALGO_CRYPTOPP,		/* Crypto++ (C) */
+	ALGO_CRYPTOPP_ASM32,	/* Crypto++ 32-bit assembly */
 };
 
 static const char *algo_names[] = {
@@ -51,6 +52,9 @@ static const char *algo_names[] = {
 	[ALGO_VIA]		= "via",
 #endif
 	[ALGO_CRYPTOPP]		= "cryptopp",
+#ifdef WANT_CRYPTOPP_ASM32
+	[ALGO_CRYPTOPP_ASM32]	= "cryptopp_asm32",
+#endif
 };
 
 bool opt_debug = false;
@@ -82,6 +86,9 @@ static struct option_help options_help[] = {
 	  "\n\tvia\t\tVIA padlock implementation"
 #endif
 	  "\n\tcryptopp\tCrypto++ library implementation (EXPERIMENTAL)"
+#ifdef WANT_CRYPTOPP_ASM32
+	  "\n\tcryptopp_asm32\tCrypto++ library implementation (EXPERIMENTAL)"
+#endif
 	  },
 
 	{ "debug",
@@ -294,6 +301,16 @@ static void *miner_thread(void *thr_id_int)
 				        work.hash1, work.hash, &hashes_done);
 			break;
 
+#ifdef WANT_CRYPTOPP_ASM32
+		case ALGO_CRYPTOPP_ASM32:
+			rc = scanhash_asm32(work.midstate, work.data + 64,
+				        work.hash1, work.hash, &hashes_done);
+			break;
+#endif
+
+		default:
+			/* should never happen */
+			return NULL;
 		}
 
 		hashmeter(thr_id, &tv_start, hashes_done);

@@ -14,6 +14,10 @@
 #define WANT_VIA_PADLOCK 1
 #endif
 
+#if defined(__i386__)
+#define WANT_CRYPTOPP_ASM32
+#endif
+
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
@@ -38,6 +42,9 @@ extern bool scanhash_c(const unsigned char *midstate, unsigned char *data,
 	      unsigned char *hash1, unsigned char *hash,
 	      unsigned long *hashes_done);
 extern bool scanhash_cryptopp(const unsigned char *midstate,unsigned char *data,
+	      unsigned char *hash1, unsigned char *hash,
+	      unsigned long *hashes_done);
+extern bool scanhash_asm32(const unsigned char *midstate,unsigned char *data,
 	      unsigned char *hash1, unsigned char *hash,
 	      unsigned long *hashes_done);
 
