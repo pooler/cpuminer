@@ -47,11 +47,11 @@ static inline __m128i Maj(const __m128i b, const __m128i c, const __m128i d) {
     return (b & c) ^ (b & d) ^ (c & d);
 }
 
-static inline __m128i ROTR(__m128i x, const int n) {
+static __attribute__((always_inline)) __m128i ROTR(__m128i x, const int n) {
     return _mm_srli_epi32(x, n) | _mm_slli_epi32(x, 32 - n);
 }
 
-static inline __m128i SHR(__m128i x, const int n) {
+static __attribute__((always_inline)) __m128i SHR(__m128i x, const int n) {
     return _mm_srli_epi32(x, n);
 }
 
