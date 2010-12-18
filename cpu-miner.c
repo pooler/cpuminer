@@ -85,9 +85,9 @@ static struct option_help options_help[] = {
 #ifdef WANT_VIA_PADLOCK
 	  "\n\tvia\t\tVIA padlock implementation"
 #endif
-	  "\n\tcryptopp\tCrypto++ library implementation (EXPERIMENTAL)"
+	  "\n\tcryptopp\tCrypto++ library implementation"
 #ifdef WANT_CRYPTOPP_ASM32
-	  "\n\tcryptopp_asm32\tCrypto++ library implementation (EXPERIMENTAL)"
+	  "\n\tcryptopp_asm32\tCrypto++ library implementation"
 #endif
 	  },
 

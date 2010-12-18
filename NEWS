@@ -1,4 +1,10 @@
 
+Version 0.3 - December 18, 2010
+
+- Add crypto++ 32bit assembly implementation
+- show version upon 'minerd --help'
+- work around gcc 4.5.x bug that killed 4way performance
+
 Version 0.2.2 - December 6, 2010
 
 - VIA padlock implementation works now
