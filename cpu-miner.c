@@ -33,6 +33,7 @@
 enum {
 	STAT_SLEEP_INTERVAL		= 100,
 	STAT_CTR_INTERVAL		= 10000000,
+	FAILURE_INTERVAL		= 30,
 };
 
 enum sha256_algos {
@@ -59,6 +60,7 @@ static const char *algo_names[] = {
 
 bool opt_debug = false;
 bool opt_protocol = false;
+static int opt_retries = 10;
 static bool program_running = true;
 static const bool opt_time = true;
 static enum sha256_algos opt_algo = ALGO_C;
@@ -97,6 +99,10 @@ static struct option_help options_help[] = {
 	{ "protocol-dump",
 	  "(-P) Verbose dump of protocol-level activities (default: off)" },
 
+	{ "retries N",
+	  "(-r N) Number of times to retry, if JSON-RPC call fails\n"
+	  "\t(default: 10; use -1 for \"never\")" },
+
 	{ "threads N",
 	  "(-t N) Number of miner threads (default: 1)" },
 
@@ -115,6 +121,7 @@ static struct option options[] = {
 	{ "debug", 0, NULL, 'D' },
 	{ "protocol-dump", 0, NULL, 'P' },
 	{ "threads", 1, NULL, 't' },
+	{ "retries", 1, NULL, 'r' },
 	{ "url", 1, NULL, 1001 },
 	{ "userpass", 1, NULL, 1002 },
 	{ }
@@ -242,6 +249,7 @@ static void hashmeter(int thr_id, struct timeval *tv_start,
 static void *miner_thread(void *thr_id_int)
 {
 	int thr_id = (unsigned long) thr_id_int;
+	int failures = 0;
 	static const char *rpc_req =
 		"{\"method\": \"getwork\", \"params\": [], \"id\":0}\r\n";
 
@@ -255,15 +263,35 @@ static void *miner_thread(void *thr_id_int)
 		/* obtain new work from bitcoin */
 		val = json_rpc_call(rpc_url, userpass, rpc_req);
 		if (!val) {
-			fprintf(stderr, "json_rpc_call failed\n");
-			return NULL;
+			fprintf(stderr, "json_rpc_call failed, ");
+
+			if ((opt_retries >= 0) && (++failures > opt_retries)) {
+				fprintf(stderr, "terminating thread\n");
+				return NULL;	/* exit thread */
+			}
+
+			/* pause, then restart work loop */
+			fprintf(stderr, "retry after %d seconds\n",
+				FAILURE_INTERVAL);
+			sleep(FAILURE_INTERVAL);
+			continue;
 		}
 
 		/* decode result into work state struct */
 		rc = work_decode(json_object_get(val, "result"), &work);
 		if (!rc) {
-			fprintf(stderr, "work decode failed\n");
-			return NULL;
+			fprintf(stderr, "JSON-decode of work failed, ");
+
+			if ((opt_retries >= 0) && (++failures > opt_retries)) {
+				fprintf(stderr, "terminating thread\n");
+				return NULL;	/* exit thread */
+			}
+
+			/* pause, then restart work loop */
+			fprintf(stderr, "retry after %d seconds\n",
+				FAILURE_INTERVAL);
+			sleep(FAILURE_INTERVAL);
+			continue;
 		}
 
 		json_decref(val);
@@ -318,6 +346,8 @@ static void *miner_thread(void *thr_id_int)
 		/* if nonce found, submit work */
 		if (rc)
 			submit_work(&work);
+
+		failures = 0;
 	}
 
 	return NULL;
@@ -360,6 +390,13 @@ static void parse_arg (int key, char *arg)
 		break;
 	case 'P':
 		opt_protocol = true;
+		break;
+	case 'r':
+		v = atoi(arg);
+		if (v < -1 || v > 9999)	/* sanity check */
+			show_usage();
+
+		opt_retries = v;
 		break;
 	case 't':
 		v = atoi(arg);
