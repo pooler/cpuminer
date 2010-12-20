@@ -35,7 +35,7 @@ bool scanhash_via(const unsigned char *midstate, const unsigned char *data_in,
 	unsigned char data[128] __attribute__((aligned(128)));
 	unsigned char tmp_hash1[32] __attribute__((aligned(128)));
 	uint32_t *hash32 = (uint32_t *) hash;
-	uint32_t *nonce = (uint32_t *)(data + 12);
+	uint32_t *nonce = (uint32_t *)(data + 64 + 12);
 	uint32_t n = 0;
 	unsigned long stat_ctr = 0;
 	int i;
