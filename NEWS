@@ -1,4 +1,9 @@
 
+Version 0.3.1 - December 19, 2010
+
+- Critical fix for sha256_via
+- Retry JSON-RPC failures (see --retry, under "minerd --help" output)
+
 Version 0.3 - December 18, 2010
 
 - Add crypto++ 32bit assembly implementation
