@@ -34,9 +34,7 @@ extern unsigned int ScanHash_4WaySSE2(const unsigned char *pmidstate,
 	unsigned char *pdata, unsigned char *phash1, unsigned char *phash,
 	unsigned long *nHashesDone);
 
-extern bool scanhash_via(const unsigned char *midstate, const unsigned char *data_in,
-	          unsigned char *hash1, unsigned char *hash,
-	          unsigned long *hashes_done);
+extern bool scanhash_via(unsigned char *data_inout, unsigned long *hashes_done);
 
 extern bool scanhash_c(const unsigned char *midstate, unsigned char *data,
 	      unsigned char *hash1, unsigned char *hash,

@@ -28,13 +28,13 @@ static void via_sha256(void *hash, void *buf, unsigned len)
 		     :"memory");
 }
 
-bool scanhash_via(const unsigned char *midstate, const unsigned char *data_in,
-	          unsigned char *hash1, unsigned char *hash,
-	          unsigned long *hashes_done)
+bool scanhash_via(unsigned char *data_inout, unsigned long *hashes_done)
 {
 	unsigned char data[128] __attribute__((aligned(128)));
+	unsigned char tmp_hash[32] __attribute__((aligned(128)));
 	unsigned char tmp_hash1[32] __attribute__((aligned(128)));
-	uint32_t *hash32 = (uint32_t *) hash;
+	uint32_t *data32 = (uint32_t *) data;
+	uint32_t *hash32 = (uint32_t *) tmp_hash;
 	uint32_t *nonce = (uint32_t *)(data + 64 + 12);
 	uint32_t n = 0;
 	unsigned long stat_ctr = 0;
@@ -45,10 +45,8 @@ bool scanhash_via(const unsigned char *midstate, const unsigned char *data_in,
 	 * in order to permit the hardware to swap everything
 	 * back to BE again (extra work).
 	 */
-	for (i = 0; i < 128/4; i++) {
-		uint32_t *data32 = (uint32_t *) data;
-		data32[i] = swab32(((uint32_t *)data_in)[i]);
-	}
+	for (i = 0; i < 128/4; i++)
+		data32[i] = swab32(((uint32_t *)data_inout)[i]);
 
 	while (1) {
 		n++;
@@ -63,19 +61,27 @@ bool scanhash_via(const unsigned char *midstate, const unsigned char *data_in,
 				swab32(((uint32_t *)tmp_hash1)[i]);
 
 		/* second SHA256 transform */
-		memcpy(hash, sha256_init_state, 32);
-		via_sha256(hash, tmp_hash1, 32);
+		memcpy(tmp_hash, sha256_init_state, 32);
+		via_sha256(tmp_hash, tmp_hash1, 32);
 
 		stat_ctr++;
 
 		if (hash32[7] == 0) {
 			char *hexstr;
 
-			hexstr = bin2hex(hash, 32);
+			hexstr = bin2hex(tmp_hash, 32);
 			fprintf(stderr,
 				"DBG: found zeroes in hash:\n%s\n",
 				hexstr);
 			free(hexstr);
+
+			/* swap nonce'd data back into original storage area;
+			 * TODO: only swap back the nonce, rather than all data
+			 */
+			for (i = 0; i < 128/4; i++) {
+				uint32_t *dout32 = (uint32_t *) data_inout;
+				dout32[i] = swab32(data32[i]);
+			}
 
 			*hashes_done = stat_ctr;
 			return true;

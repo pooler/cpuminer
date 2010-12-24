@@ -319,9 +319,7 @@ static void *miner_thread(void *thr_id_int)
 
 #ifdef WANT_VIA_PADLOCK
 		case ALGO_VIA:
-			rc = scanhash_via(work.midstate, work.data,
-					  work.hash1, work.hash,
-					  &hashes_done);
+			rc = scanhash_via(work.data, &hashes_done);
 			break;
 #endif
 		case ALGO_CRYPTOPP:
