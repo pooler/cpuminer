@@ -1,4 +1,8 @@
 
+Version 0.3.3 - December 27, 2010
+
+- Critical fix for sha256_cryptopp 'cryptopp_asm' algo
+
 Version 0.3.2 - December 23, 2010
 
 - Critical fix for sha256_via
