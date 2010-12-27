@@ -570,7 +570,7 @@ static void SHA256_Transform32(word32 *state, const word32 *data)
 	int i;
 
 	for (i = 0; i < 16; i++)
-		W[i] = ((word32 *)(data))[i];
+		W[i] = swab32(((word32 *)(data))[i]);
 
 	X86_SHA256_HashBlocks(state, W, 16 * 4);
 }
