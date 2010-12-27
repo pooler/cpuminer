@@ -60,6 +60,7 @@ static const char *algo_names[] = {
 
 bool opt_debug = false;
 bool opt_protocol = false;
+bool opt_quiet = false;
 static int opt_retries = 10;
 static bool program_running = true;
 static const bool opt_time = true;
@@ -93,6 +94,9 @@ static struct option_help options_help[] = {
 #endif
 	  },
 
+	{ "quiet",
+	  "(-q) Disable per-thread hashmeter output (default: off)" },
+
 	{ "debug",
 	  "(-D) Enable debug output (default: off)" },
 
@@ -118,6 +122,7 @@ static struct option_help options_help[] = {
 static struct option options[] = {
 	{ "help", 0, NULL, 'h' },
 	{ "algo", 1, NULL, 'a' },
+	{ "quiet", 0, NULL, 'q' },
 	{ "debug", 0, NULL, 'D' },
 	{ "protocol-dump", 0, NULL, 'P' },
 	{ "threads", 1, NULL, 't' },
@@ -241,9 +246,10 @@ static void hashmeter(int thr_id, struct timeval *tv_start,
 	khashes = hashes_done / 1000.0;
 	secs = (double)diff.tv_sec + ((double)diff.tv_usec / 1000000.0);
 
-	printf("HashMeter(%d): %lu hashes, %.2f khash/sec\n",
-	       thr_id, hashes_done,
-	       khashes / secs);
+	if (!opt_quiet)
+		printf("HashMeter(%d): %lu hashes, %.2f khash/sec\n",
+		       thr_id, hashes_done,
+		       khashes / secs);
 }
 
 static void *miner_thread(void *thr_id_int)
@@ -382,6 +388,9 @@ static void parse_arg (int key, char *arg)
 		}
 		if (i == ARRAY_SIZE(algo_names))
 			show_usage();
+		break;
+	case 'q':
+		opt_quiet = true;
 		break;
 	case 'D':
 		opt_debug = true;
