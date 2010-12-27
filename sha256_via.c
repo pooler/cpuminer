@@ -8,17 +8,6 @@
 
 #ifdef WANT_VIA_PADLOCK
 
-#define ___constant_swab32(x) ((uint32_t)(                       \
-        (((uint32_t)(x) & (uint32_t)0x000000ffUL) << 24) |            \
-        (((uint32_t)(x) & (uint32_t)0x0000ff00UL) <<  8) |            \
-        (((uint32_t)(x) & (uint32_t)0x00ff0000UL) >>  8) |            \
-        (((uint32_t)(x) & (uint32_t)0xff000000UL) >> 24)))
-
-static inline uint32_t swab32(uint32_t v)
-{
-	return ___constant_swab32(v);
-}
-
 static void via_sha256(void *hash, void *buf, unsigned len)
 {
 	unsigned stat = 0;
