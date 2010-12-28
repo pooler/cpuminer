@@ -83,7 +83,7 @@ static size_t upload_data_cb(void *ptr, size_t size, size_t nmemb,
 json_t *json_rpc_call(const char *url, const char *userpass, const char *rpc_req)
 {
 	CURL *curl;
-	json_t *val;
+	json_t *val, *err_val, *res_val;
 	int rc;
 	struct data_buffer all_data = { };
 	struct upload_buffer upload_data;
@@ -132,7 +132,7 @@ json_t *json_rpc_call(const char *url, const char *userpass, const char *rpc_req
 
 	val = json_loads(all_data.buf, &err);
 	if (!val) {
-		fprintf(stderr, "JSON failed(%d): %s\n", err.line, err.text);
+		fprintf(stderr, "JSON decode failed(%d): %s\n", err.line, err.text);
 		goto err_out;
 	}
 
@@ -140,6 +140,28 @@ json_t *json_rpc_call(const char *url, const char *userpass, const char *rpc_req
 		char *s = json_dumps(val, JSON_INDENT(3));
 		printf("JSON protocol response:\n%s\n", s);
 		free(s);
+	}
+
+	/* JSON-RPC valid response returns a non-null 'result',
+	 * and a null 'error'.
+	 */
+	res_val = json_object_get(val, "result");
+	err_val = json_object_get(val, "error");
+
+	if (!res_val || json_is_null(res_val) ||
+	    (err_val && !json_is_null(err_val))) {
+		char *s;
+
+		if (err_val)
+			s = json_dumps(err_val, JSON_INDENT(3));
+		else
+			s = strdup("(unknown reason)");
+
+		fprintf(stderr, "JSON-RPC call failed: %s\n", s);
+
+		free(s);
+			
+		goto err_out;
 	}
 
 	databuf_free(&all_data);
