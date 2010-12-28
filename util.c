@@ -90,10 +90,13 @@ json_t *json_rpc_call(const char *url, const char *userpass, const char *rpc_req
 	json_error_t err = { };
 	struct curl_slist *headers = NULL;
 	char len_hdr[64];
+	char curl_err_str[CURL_ERROR_SIZE];
 
 	curl = curl_easy_init();
-	if (!curl)
+	if (!curl) {
+		fprintf(stderr, "CURL initialization failed, aborting JSON-RPC call\n");
 		return NULL;
+	}
 
 	if (opt_protocol)
 		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
@@ -105,6 +108,7 @@ json_t *json_rpc_call(const char *url, const char *userpass, const char *rpc_req
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &all_data);
 	curl_easy_setopt(curl, CURLOPT_READFUNCTION, upload_data_cb);
 	curl_easy_setopt(curl, CURLOPT_READDATA, &upload_data);
+	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curl_err_str);
 	if (userpass) {
 		curl_easy_setopt(curl, CURLOPT_USERPWD, userpass);
 		curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
@@ -127,8 +131,10 @@ json_t *json_rpc_call(const char *url, const char *userpass, const char *rpc_req
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
 	rc = curl_easy_perform(curl);
-	if (rc)
+	if (rc) {
+		fprintf(stderr, "HTTP request failed: %s\n", curl_err_str);
 		goto err_out;
+	}
 
 	val = json_loads(all_data.buf, &err);
 	if (!val) {
