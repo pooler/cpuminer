@@ -31,8 +31,6 @@
 #define DEF_RPC_USERPASS	"rpcuser:rpcpass"
 
 enum {
-	STAT_SLEEP_INTERVAL		= 100,
-	STAT_CTR_INTERVAL		= 10000000,
 	FAILURE_INTERVAL		= 30,
 };
 
@@ -62,7 +60,6 @@ bool opt_debug = false;
 bool opt_protocol = false;
 bool opt_quiet = false;
 static int opt_retries = 10;
-static bool program_running = true;
 static const bool opt_time = true;
 static enum sha256_algos opt_algo = ALGO_C;
 static int opt_n_threads = 1;
@@ -446,6 +443,7 @@ static void parse_cmdline(int argc, char *argv[])
 int main (int argc, char *argv[])
 {
 	int i;
+	pthread_t *t_all;
 
 	/* parse command line */
 	parse_cmdline(argc, argv);
@@ -454,11 +452,13 @@ int main (int argc, char *argv[])
 	if (setpriority(PRIO_PROCESS, 0, 19))
 		perror("setpriority");
 
+	t_all = calloc(opt_n_threads, sizeof(pthread_t));
+	if (!t_all)
+		return 1;
+
 	/* start mining threads */
 	for (i = 0; i < opt_n_threads; i++) {
-		pthread_t t;
-
-		if (pthread_create(&t, NULL, miner_thread,
+		if (pthread_create(&t_all[i], NULL, miner_thread,
 				   (void *)(unsigned long) i)) {
 			fprintf(stderr, "thread %d create failed\n", i);
 			return 1;
@@ -472,11 +472,11 @@ int main (int argc, char *argv[])
 		opt_n_threads,
 		algo_names[opt_algo]);
 
-	/* main loop */
-	while (program_running) {
-		sleep(STAT_SLEEP_INTERVAL);
-		/* do nothing */
-	}
+	/* main loop - simply wait for all threads to exit */
+	for (i = 0; i < opt_n_threads; i++)
+		pthread_join(t_all[i], NULL);
+
+	fprintf(stderr, "all threads dead, fred. exiting.\n");
 
 	return 0;
 }
