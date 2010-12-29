@@ -1,4 +1,10 @@
 
+Version 0.5 - December 28, 2010
+
+- Exit program, when all threads have exited
+- Improve JSON-RPC failure diagnostics and resilience
+- Add --quiet option, to disable hashmeter output.
+
 Version 0.3.3 - December 27, 2010
 
 - Critical fix for sha256_cryptopp 'cryptopp_asm' algo
