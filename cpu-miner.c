@@ -432,7 +432,7 @@ static void parse_cmdline(int argc, char *argv[])
 	int key;
 
 	while (1) {
-		key = getopt_long(argc, argv, "a:DPt:h?", options, NULL);
+		key = getopt_long(argc, argv, "a:qDPr:t:h?", options, NULL);
 		if (key < 0)
 			break;
 
