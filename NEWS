@@ -1,4 +1,11 @@
 
+Version 0.6 - January 29, 2010
+
+- Fetch new work unit, if scanhash takes longer than 5 seconds (--scantime)
+- BeeCee1's sha256 4way optimizations
+- lfm's byte swap optimization (improves via, cryptopp)
+- Fix non-working short options -q, -r
+
 Version 0.5 - December 28, 2010
 
 - Exit program, when all threads have exited
