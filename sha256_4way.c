@@ -73,7 +73,7 @@ static inline void store_epi32(const __m128i x, unsigned int *x0, unsigned int *
     *x0 = box.ret[3]; *x1 = box.ret[2]; *x2 = box.ret[1]; *x3 = box.ret[0];
 }
 
-#define add4(x0, x1, x2, x3) _mm_add_epi32(_mm_add_epi32(_mm_add_epi32(x0, x1), x2), x3)
+#define add4(x0, x1, x2, x3) _mm_add_epi32(_mm_add_epi32(x0, x1),_mm_add_epi32( x2,x3))
 #define add5(x0, x1, x2, x3, x4) _mm_add_epi32(add4(x0, x1, x2, x3), x4)
 
 #define SHA256ROUND(a, b, c, d, e, f, g, h, i, w)                       \
@@ -150,11 +150,13 @@ static void DoubleBlockSHA256(const void* pin, void* pad, const void *pre, unsig
     __m128i w8, w9, w10, w11, w12, w13, w14, w15;
     __m128i T1;
     __m128i a, b, c, d, e, f, g, h;
-    __m128i nonce;
+    __m128i nonce, preNonce;
 
     /* nonce offset for vector */
     __m128i offset = _mm_set_epi32(0x00000003, 0x00000002, 0x00000001, 0x00000000);
 
+
+    preNonce = _mm_add_epi32(_mm_set1_epi32(In[3]), offset);
 
     for(k = 0; k<NPAR; k+=4) {
         w0 = _mm_set1_epi32(In[0]);
@@ -175,9 +177,7 @@ static void DoubleBlockSHA256(const void* pin, void* pad, const void *pre, unsig
         w15 = _mm_set1_epi32(In[15]);
 
         /* hack nonce into lowest byte of w3 */
-        nonce = _mm_set1_epi32(In[3]);
-        nonce = _mm_add_epi32(nonce, offset);
-        nonce = _mm_add_epi32(nonce, _mm_set1_epi32(k));
+	nonce = _mm_add_epi32(preNonce, _mm_set1_epi32(k));
         w3 = nonce;
 
         a = _mm_set1_epi32(hPre[0]);
