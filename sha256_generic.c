@@ -239,7 +239,7 @@ const uint32_t sha256_init_state[8] = {
 /* suspiciously similar to ScanHash* from bitcoin */
 bool scanhash_c(const unsigned char *midstate, unsigned char *data,
 	        unsigned char *hash1, unsigned char *hash,
-	        unsigned long *hashes_done)
+	        uint32_t max_nonce, unsigned long *hashes_done)
 {
 	uint32_t *hash32 = (uint32_t *) hash;
 	uint32_t *nonce = (uint32_t *)(data + 12);
@@ -268,7 +268,7 @@ bool scanhash_c(const unsigned char *midstate, unsigned char *data,
 			return true;
 		}
 
-		if ((n & 0xffffff) == 0) {
+		if (n >= max_nonce) {
 			if (opt_debug)
 				fprintf(stderr, "DBG: end of nonce range\n");
 			*hashes_done = stat_ctr;

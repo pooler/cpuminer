@@ -99,7 +99,8 @@ static const unsigned int pSHA256InitState[8] =
 
 
 unsigned int ScanHash_4WaySSE2(const unsigned char *pmidstate, unsigned char *pdata,
-	unsigned char *phash1, unsigned char *phash, unsigned long *nHashesDone)
+	unsigned char *phash1, unsigned char *phash,
+	uint32_t max_nonce, unsigned long *nHashesDone)
 {
     unsigned int *nNonce_p = (unsigned int*)(pdata + 12);
     unsigned int nonce = 0;
@@ -128,9 +129,9 @@ unsigned int ScanHash_4WaySSE2(const unsigned char *pmidstate, unsigned char *pd
             }
         }
 
-        if ((nonce & 0xffffff) == 0)
+        if (nonce >= max_nonce)
         {
-            *nHashesDone = 0xffffff+1;
+            *nHashesDone = nonce;
             return -1;
         }
     }

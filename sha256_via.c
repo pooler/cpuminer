@@ -17,7 +17,8 @@ static void via_sha256(void *hash, void *buf, unsigned len)
 		     :"memory");
 }
 
-bool scanhash_via(unsigned char *data_inout, unsigned long *hashes_done)
+bool scanhash_via(unsigned char *data_inout,
+		  uint32_t max_nonce, unsigned long *hashes_done)
 {
 	unsigned char data[128] __attribute__((aligned(128)));
 	unsigned char tmp_hash[32] __attribute__((aligned(128)));
@@ -76,7 +77,7 @@ bool scanhash_via(unsigned char *data_inout, unsigned long *hashes_done)
 			return true;
 		}
 
-		if ((n & 0xffffff) == 0) {
+		if (n >= max_nonce) {
 			if (opt_debug)
 				fprintf(stderr, "DBG: end of nonce range\n");
 			*hashes_done = stat_ctr;
