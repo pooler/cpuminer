@@ -230,18 +230,13 @@ out:
 	free(hexstr);
 }
 
-static void hashmeter(int thr_id, struct timeval *tv_start,
+static void hashmeter(int thr_id, const struct timeval *diff,
 		      unsigned long hashes_done)
 {
-	struct timeval tv_end, diff;
 	double khashes, secs;
 
-	gettimeofday(&tv_end, NULL);
-
-	timeval_subtract(&diff, &tv_end, tv_start);
-
 	khashes = hashes_done / 1000.0;
-	secs = (double)diff.tv_sec + ((double)diff.tv_usec / 1000000.0);
+	secs = (double)diff->tv_sec + ((double)diff->tv_usec / 1000000.0);
 
 	if (!opt_quiet)
 		printf("HashMeter(%d): %lu hashes, %.2f khash/sec\n",
@@ -259,7 +254,7 @@ static void *miner_thread(void *thr_id_int)
 	while (1) {
 		struct work work __attribute__((aligned(128)));
 		unsigned long hashes_done;
-		struct timeval tv_start;
+		struct timeval tv_start, tv_end, diff;
 		json_t *val;
 		bool rc;
 
@@ -342,7 +337,10 @@ static void *miner_thread(void *thr_id_int)
 			return NULL;
 		}
 
-		hashmeter(thr_id, &tv_start, hashes_done);
+		gettimeofday(&tv_end, NULL);
+		timeval_subtract(&diff, &tv_end, &tv_start);
+
+		hashmeter(thr_id, &diff, hashes_done);
 
 		/* if nonce found, submit work */
 		if (rc)
