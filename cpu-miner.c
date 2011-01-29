@@ -60,6 +60,7 @@ bool opt_debug = false;
 bool opt_protocol = false;
 bool opt_quiet = false;
 static int opt_retries = 10;
+static int opt_scantime = 5;
 static const bool opt_time = true;
 static enum sha256_algos opt_algo = ALGO_C;
 static int opt_n_threads = 1;
@@ -104,6 +105,10 @@ static struct option_help options_help[] = {
 	  "(-r N) Number of times to retry, if JSON-RPC call fails\n"
 	  "\t(default: 10; use -1 for \"never\")" },
 
+	{ "scantime N",
+	  "(-s N) Upper bound on time spent scanning current work,\n"
+	  "\tin seconds. (default: 5)" },
+
 	{ "threads N",
 	  "(-t N) Number of miner threads (default: 1)" },
 
@@ -124,6 +129,7 @@ static struct option options[] = {
 	{ "protocol-dump", 0, NULL, 'P' },
 	{ "threads", 1, NULL, 't' },
 	{ "retries", 1, NULL, 'r' },
+	{ "scantime", 1, NULL, 's' },
 	{ "url", 1, NULL, 1001 },
 	{ "userpass", 1, NULL, 1002 },
 	{ }
@@ -255,6 +261,7 @@ static void *miner_thread(void *thr_id_int)
 		struct work work __attribute__((aligned(128)));
 		unsigned long hashes_done;
 		struct timeval tv_start, tv_end, diff;
+		uint32_t max_nonce = 0xffffff;
 		json_t *val;
 		bool rc;
 
@@ -302,7 +309,7 @@ static void *miner_thread(void *thr_id_int)
 		case ALGO_C:
 			rc = scanhash_c(work.midstate, work.data + 64,
 				        work.hash1, work.hash,
-					0xffffff, &hashes_done);
+					max_nonce, &hashes_done);
 			break;
 
 #ifdef WANT_SSE2_4WAY
@@ -310,7 +317,7 @@ static void *miner_thread(void *thr_id_int)
 			unsigned int rc4 =
 				ScanHash_4WaySSE2(work.midstate, work.data + 64,
 						  work.hash1, work.hash,
-						  0xffffff, &hashes_done);
+						  max_nonce, &hashes_done);
 			rc = (rc4 == -1) ? false : true;
 			}
 			break;
@@ -318,20 +325,20 @@ static void *miner_thread(void *thr_id_int)
 
 #ifdef WANT_VIA_PADLOCK
 		case ALGO_VIA:
-			rc = scanhash_via(work.data, 0xffffff, &hashes_done);
+			rc = scanhash_via(work.data, max_nonce, &hashes_done);
 			break;
 #endif
 		case ALGO_CRYPTOPP:
 			rc = scanhash_cryptopp(work.midstate, work.data + 64,
 				        work.hash1, work.hash,
-					0xffffff, &hashes_done);
+					max_nonce, &hashes_done);
 			break;
 
 #ifdef WANT_CRYPTOPP_ASM32
 		case ALGO_CRYPTOPP_ASM32:
 			rc = scanhash_asm32(work.midstate, work.data + 64,
 				        work.hash1, work.hash,
-					0xffffff, &hashes_done);
+					max_nonce, &hashes_done);
 			break;
 #endif
 
@@ -340,10 +347,23 @@ static void *miner_thread(void *thr_id_int)
 			return NULL;
 		}
 
+		/* record scanhash elapsed time */
 		gettimeofday(&tv_end, NULL);
 		timeval_subtract(&diff, &tv_end, &tv_start);
 
 		hashmeter(thr_id, &diff, hashes_done);
+
+		/* adjust max_nonce to meet target scan time */
+		if (diff.tv_sec > (opt_scantime * 2))
+			max_nonce /= 2;			/* large decrease */
+		else if (diff.tv_sec > opt_scantime)
+			max_nonce -= 1000;		/* small decrease */
+		else if (diff.tv_sec < (opt_scantime - 1))
+			max_nonce += 1000;		/* small increase */
+
+		/* catch stupidly slow cases, such as simulators */
+		if (max_nonce < 1000)			
+			max_nonce = 1000;
 
 		/* if nonce found, submit work */
 		if (rc)
@@ -403,6 +423,13 @@ static void parse_arg (int key, char *arg)
 
 		opt_retries = v;
 		break;
+	case 's':
+		v = atoi(arg);
+		if (v < 1 || v > 9999)	/* sanity check */
+			show_usage();
+
+		opt_scantime = v;
+		break;
 	case 't':
 		v = atoi(arg);
 		if (v < 1 || v > 9999)	/* sanity check */
@@ -433,7 +460,7 @@ static void parse_cmdline(int argc, char *argv[])
 	int key;
 
 	while (1) {
-		key = getopt_long(argc, argv, "a:qDPr:t:h?", options, NULL);
+		key = getopt_long(argc, argv, "a:qDPr:s:t:h?", options, NULL);
 		if (key < 0)
 			break;
 
