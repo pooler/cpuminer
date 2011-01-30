@@ -203,12 +203,12 @@ static void submit_work(struct work *work)
 	json_t *val, *res;
 	char s[345];
 
-	printf("PROOF OF WORK FOUND?  submitting...\n");
-
 	/* build hex string */
 	hexstr = bin2hex(work->data, sizeof(work->data));
-	if (!hexstr)
+	if (!hexstr) {
+		fprintf(stderr, "submit_work OOM\n");
 		goto out;
+	}
 
 	/* build JSON-RPC request */
 	sprintf(s,
