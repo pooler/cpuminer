@@ -110,13 +110,7 @@ bool scanhash_cryptopp(const unsigned char *midstate, unsigned char *data,
 		stat_ctr++;
 
 		if (hash32[7] == 0) {
-			char *hexstr;
-
-			hexstr = bin2hex(hash, 32);
-			fprintf(stderr,
-				"DBG: found zeroes in hash:\n%s\n",
-				hexstr);
-			free(hexstr);
+			print_pow(hash);
 
 			*hashes_done = stat_ctr;
 			return true;
@@ -601,13 +595,7 @@ bool scanhash_asm32(const unsigned char *midstate, unsigned char *data,
 		stat_ctr++;
 
 		if (hash32[7] == 0) {
-			char *hexstr;
-
-			hexstr = bin2hex(hash, 32);
-			fprintf(stderr,
-				"DBG: found zeroes in hash:\n%s\n",
-				hexstr);
-			free(hexstr);
+			print_pow(hash);
 
 			*hashes_done = stat_ctr;
 			return true;

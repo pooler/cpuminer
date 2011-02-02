@@ -57,13 +57,7 @@ bool scanhash_via(unsigned char *data_inout,
 		stat_ctr++;
 
 		if (hash32[7] == 0) {
-			char *hexstr;
-
-			hexstr = bin2hex(tmp_hash, 32);
-			fprintf(stderr,
-				"DBG: found zeroes in hash:\n%s\n",
-				hexstr);
-			free(hexstr);
+			print_pow(tmp_hash);
 
 			/* swap nonce'd data back into original storage area;
 			 * TODO: only swap back the nonce, rather than all data

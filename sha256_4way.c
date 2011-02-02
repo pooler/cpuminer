@@ -123,6 +123,9 @@ unsigned int ScanHash_4WaySSE2(const unsigned char *pmidstate, unsigned char *pd
 
                 for (i = 0; i < 32/4; i++)
                     ((unsigned int*)phash)[i] = thash[i][j];
+
+		print_pow(phash);
+
 		*nHashesDone = nonce;
 		*nNonce_p = nonce + j;
                 return nonce + j;

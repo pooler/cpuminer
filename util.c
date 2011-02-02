@@ -255,3 +255,14 @@ timeval_subtract (
   return x->tv_sec < y->tv_sec;
 }
 
+void print_pow(const unsigned char *hash)
+{
+	char *hexstr;
+	unsigned char hash_swap[32];
+
+	swap256(hash_swap, hash);
+	hexstr = bin2hex(hash_swap, 32);
+	fprintf(stderr, "PoW found: %s\n", hexstr);
+	free(hexstr);
+}
+

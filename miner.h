@@ -27,6 +27,21 @@ static inline uint32_t swab32(uint32_t v)
 	return __builtin_bswap32(v);
 }
 
+static inline void swap256(void *dest_p, const void *src_p)
+{
+	uint32_t *dest = dest_p;
+	const uint32_t *src = src_p;
+
+	dest[0] = src[7];
+	dest[1] = src[6];
+	dest[2] = src[5];
+	dest[3] = src[4];
+	dest[4] = src[3];
+	dest[5] = src[2];
+	dest[6] = src[1];
+	dest[7] = src[0];
+}
+
 extern bool opt_debug;
 extern bool opt_protocol;
 extern const uint32_t sha256_init_state[];
@@ -54,5 +69,7 @@ extern bool scanhash_asm32(const unsigned char *midstate,unsigned char *data,
 
 extern int
 timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y);
+
+extern void print_pow(const unsigned char *hash);
 
 #endif /* __MINER_H__ */
