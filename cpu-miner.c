@@ -30,10 +30,6 @@
 #define DEF_RPC_URL		"http://127.0.0.1:8332/"
 #define DEF_RPC_USERPASS	"rpcuser:rpcpass"
 
-enum {
-	FAILURE_INTERVAL		= 30,
-};
-
 enum sha256_algos {
 	ALGO_C,			/* plain C */
 	ALGO_4WAY,		/* parallel SSE2 */
@@ -60,6 +56,7 @@ bool opt_debug = false;
 bool opt_protocol = false;
 bool opt_quiet = false;
 static int opt_retries = 10;
+static int opt_fail_pause = 30;
 static int opt_scantime = 5;
 static const bool opt_time = true;
 static enum sha256_algos opt_algo = ALGO_C;
@@ -105,6 +102,10 @@ static struct option_help options_help[] = {
 	  "(-r N) Number of times to retry, if JSON-RPC call fails\n"
 	  "\t(default: 10; use -1 for \"never\")" },
 
+	{ "retry-pause N",
+	  "(-R N) Number of seconds to pause, between retries\n"
+	  "\t(default: 30)" },
+
 	{ "scantime N",
 	  "(-s N) Upper bound on time spent scanning current work,\n"
 	  "\tin seconds. (default: 5)" },
@@ -129,6 +130,7 @@ static struct option options[] = {
 	{ "protocol-dump", 0, NULL, 'P' },
 	{ "threads", 1, NULL, 't' },
 	{ "retries", 1, NULL, 'r' },
+	{ "retry-pause", 1, NULL, 'R' },
 	{ "scantime", 1, NULL, 's' },
 	{ "url", 1, NULL, 1001 },
 	{ "userpass", 1, NULL, 1002 },
@@ -277,8 +279,8 @@ static void *miner_thread(void *thr_id_int)
 
 			/* pause, then restart work loop */
 			fprintf(stderr, "retry after %d seconds\n",
-				FAILURE_INTERVAL);
-			sleep(FAILURE_INTERVAL);
+				opt_fail_pause);
+			sleep(opt_fail_pause);
 			continue;
 		}
 
@@ -294,8 +296,8 @@ static void *miner_thread(void *thr_id_int)
 
 			/* pause, then restart work loop */
 			fprintf(stderr, "retry after %d seconds\n",
-				FAILURE_INTERVAL);
-			sleep(FAILURE_INTERVAL);
+				opt_fail_pause);
+			sleep(opt_fail_pause);
 			continue;
 		}
 
@@ -424,6 +426,13 @@ static void parse_arg (int key, char *arg)
 			show_usage();
 
 		opt_retries = v;
+		break;
+	case 'R':
+		v = atoi(arg);
+		if (v < 1 || v > 9999)	/* sanity check */
+			show_usage();
+
+		opt_fail_pause = v;
 		break;
 	case 's':
 		v = atoi(arg);
