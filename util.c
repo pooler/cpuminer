@@ -255,14 +255,45 @@ timeval_subtract (
   return x->tv_sec < y->tv_sec;
 }
 
-void print_pow(const unsigned char *hash)
+bool fulltest(const unsigned char *hash, const unsigned char *target)
 {
-	char *hexstr;
-	unsigned char hash_swap[32];
+	unsigned char hash_swap[32], target_swap[32];
+	uint32_t *hash32 = (uint32_t *) hash_swap;
+	uint32_t *target32 = (uint32_t *) target_swap;
+	int i;
+	bool rc = true;
+	char *hash_str, *target_str;
 
 	swap256(hash_swap, hash);
-	hexstr = bin2hex(hash_swap, 32);
-	fprintf(stderr, "PoW found: %s\n", hexstr);
-	free(hexstr);
-}
+	swap256(target_swap, target);
 
+	for (i = 0; i < 32/4; i++) {
+		uint32_t h32tmp = swab32(hash32[i]);
+		uint32_t t32tmp = target32[i];
+
+		target32[i] = swab32(target32[i]);	/* for printing */
+
+		if (h32tmp > t32tmp) {
+			rc = false;
+			break;
+		}
+		if (h32tmp < t32tmp) {
+			rc = true;
+			break;
+		}
+	}
+
+	hash_str = bin2hex(hash_swap, 32);
+	target_str = bin2hex(target_swap, 32);
+
+	fprintf(stderr, " Proof: %s\nTarget: %s\nTrgVal? %s\n",
+		hash_str,
+		target_str,
+		rc ? "YES (hash < target)" :
+		     "no (false positive; hash > target)");
+
+	free(hash_str);
+	free(target_str);
+
+	return rc;
+}

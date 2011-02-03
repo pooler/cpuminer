@@ -308,7 +308,7 @@ static void *miner_thread(void *thr_id_int)
 		switch (opt_algo) {
 		case ALGO_C:
 			rc = scanhash_c(work.midstate, work.data + 64,
-				        work.hash1, work.hash,
+				        work.hash1, work.hash, work.target,
 					max_nonce, &hashes_done);
 			break;
 
@@ -317,6 +317,7 @@ static void *miner_thread(void *thr_id_int)
 			unsigned int rc4 =
 				ScanHash_4WaySSE2(work.midstate, work.data + 64,
 						  work.hash1, work.hash,
+						  work.target,
 						  max_nonce, &hashes_done);
 			rc = (rc4 == -1) ? false : true;
 			}
@@ -325,19 +326,20 @@ static void *miner_thread(void *thr_id_int)
 
 #ifdef WANT_VIA_PADLOCK
 		case ALGO_VIA:
-			rc = scanhash_via(work.data, max_nonce, &hashes_done);
+			rc = scanhash_via(work.data, work.target,
+					  max_nonce, &hashes_done);
 			break;
 #endif
 		case ALGO_CRYPTOPP:
 			rc = scanhash_cryptopp(work.midstate, work.data + 64,
-				        work.hash1, work.hash,
+				        work.hash1, work.hash, work.target,
 					max_nonce, &hashes_done);
 			break;
 
 #ifdef WANT_CRYPTOPP_ASM32
 		case ALGO_CRYPTOPP_ASM32:
 			rc = scanhash_asm32(work.midstate, work.data + 64,
-				        work.hash1, work.hash,
+				        work.hash1, work.hash, work.target,
 					max_nonce, &hashes_done);
 			break;
 #endif

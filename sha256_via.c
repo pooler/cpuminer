@@ -18,6 +18,7 @@ static void via_sha256(void *hash, void *buf, unsigned len)
 }
 
 bool scanhash_via(unsigned char *data_inout,
+		  const unsigned char *target,
 		  uint32_t max_nonce, unsigned long *hashes_done)
 {
 	unsigned char data[128] __attribute__((aligned(128)));
@@ -56,9 +57,7 @@ bool scanhash_via(unsigned char *data_inout,
 
 		stat_ctr++;
 
-		if (hash32[7] == 0) {
-			print_pow(tmp_hash);
-
+		if ((hash32[7] == 0) && fulltest(tmp_hash, target)) {
 			/* swap nonce'd data back into original storage area;
 			 * TODO: only swap back the nonce, rather than all data
 			 */
