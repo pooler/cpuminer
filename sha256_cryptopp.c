@@ -116,8 +116,6 @@ bool scanhash_cryptopp(const unsigned char *midstate, unsigned char *data,
 		}
 
 		if (n >= max_nonce) {
-			if (opt_debug)
-				fprintf(stderr, "DBG: end of nonce range\n");
 			*hashes_done = stat_ctr;
 			return false;
 		}

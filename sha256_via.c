@@ -71,8 +71,6 @@ bool scanhash_via(unsigned char *data_inout,
 		}
 
 		if (n >= max_nonce) {
-			if (opt_debug)
-				fprintf(stderr, "DBG: end of nonce range\n");
 			*hashes_done = stat_ctr;
 			return false;
 		}
