@@ -54,7 +54,7 @@ static const char *algo_names[] = {
 
 bool opt_debug = false;
 bool opt_protocol = false;
-bool opt_quiet = false;
+static bool opt_quiet = false;
 static int opt_retries = 10;
 static int opt_fail_pause = 30;
 static int opt_scantime = 5;
@@ -258,12 +258,12 @@ static void *miner_thread(void *thr_id_int)
 	int failures = 0;
 	static const char *rpc_req =
 		"{\"method\": \"getwork\", \"params\": [], \"id\":0}\r\n";
+	uint32_t max_nonce = 0xffffff;
 
 	while (1) {
 		struct work work __attribute__((aligned(128)));
 		unsigned long hashes_done;
 		struct timeval tv_start, tv_end, diff;
-		uint32_t max_nonce = 0xffffff;
 		json_t *val;
 		bool rc;
 
@@ -360,14 +360,12 @@ static void *miner_thread(void *thr_id_int)
 		/* adjust max_nonce to meet target scan time */
 		if (diff.tv_sec > (opt_scantime * 2))
 			max_nonce /= 2;			/* large decrease */
-		else if (diff.tv_sec > opt_scantime)
-			max_nonce -= 1000;		/* small decrease */
-		else if (diff.tv_sec < (opt_scantime - 1))
-			max_nonce += 1000;		/* small increase */
-
-		/* catch stupidly slow cases, such as simulators */
-		if (max_nonce < 1000)			
-			max_nonce = 1000;
+		else if ((diff.tv_sec > opt_scantime) &&
+			 (max_nonce > 1500000))
+			max_nonce -= 1000000;		/* small decrease */
+		else if ((diff.tv_sec < opt_scantime) &&
+			 (max_nonce < 0xffffec76))
+			max_nonce += 100000;		/* small increase */
 
 		/* if nonce found, submit work */
 		if (rc)
