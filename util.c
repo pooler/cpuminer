@@ -283,17 +283,19 @@ bool fulltest(const unsigned char *hash, const unsigned char *target)
 		}
 	}
 
-	hash_str = bin2hex(hash_swap, 32);
-	target_str = bin2hex(target_swap, 32);
+	if (opt_debug) {
+		hash_str = bin2hex(hash_swap, 32);
+		target_str = bin2hex(target_swap, 32);
 
-	fprintf(stderr, " Proof: %s\nTarget: %s\nTrgVal? %s\n",
-		hash_str,
-		target_str,
-		rc ? "YES (hash < target)" :
-		     "no (false positive; hash > target)");
+		fprintf(stderr, " Proof: %s\nTarget: %s\nTrgVal? %s\n",
+			hash_str,
+			target_str,
+			rc ? "YES (hash < target)" :
+			     "no (false positive; hash > target)");
 
-	free(hash_str);
-	free(target_str);
+		free(hash_str);
+		free(target_str);
+	}
 
 	return rc;
 }
