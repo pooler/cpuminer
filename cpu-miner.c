@@ -23,6 +23,7 @@
 #include <pthread.h>
 #include <getopt.h>
 #include <jansson.h>
+#include <curl/curl.h>
 #include "compat.h"
 #include "miner.h"
 
@@ -199,7 +200,7 @@ err_out:
 	return false;
 }
 
-static void submit_work(struct work *work)
+static void submit_work(CURL *curl, struct work *work)
 {
 	char *hexstr = NULL;
 	json_t *val, *res;
@@ -221,7 +222,7 @@ static void submit_work(struct work *work)
 		fprintf(stderr, "DBG: sending RPC call:\n%s", s);
 
 	/* issue JSON-RPC request */
-	val = json_rpc_call(rpc_url, userpass, s);
+	val = json_rpc_call(curl, rpc_url, userpass, s);
 	if (!val) {
 		fprintf(stderr, "submit_work json_rpc_call failed\n");
 		goto out;
@@ -259,6 +260,13 @@ static void *miner_thread(void *thr_id_int)
 	static const char *rpc_req =
 		"{\"method\": \"getwork\", \"params\": [], \"id\":0}\r\n";
 	uint32_t max_nonce = 0xffffff;
+	CURL *curl;
+
+	curl = curl_easy_init();
+	if (!curl) {
+		fprintf(stderr, "CURL initialization failed\n");
+		return NULL;
+	}
 
 	while (1) {
 		struct work work __attribute__((aligned(128)));
@@ -268,7 +276,7 @@ static void *miner_thread(void *thr_id_int)
 		bool rc;
 
 		/* obtain new work from bitcoin */
-		val = json_rpc_call(rpc_url, userpass, rpc_req);
+		val = json_rpc_call(curl, rpc_url, userpass, rpc_req);
 		if (!val) {
 			fprintf(stderr, "json_rpc_call failed, ");
 
@@ -369,10 +377,12 @@ static void *miner_thread(void *thr_id_int)
 
 		/* if nonce found, submit work */
 		if (rc)
-			submit_work(&work);
+			submit_work(curl, &work);
 
 		failures = 0;
 	}
+
+	curl_easy_cleanup(curl);
 
 	return NULL;
 }

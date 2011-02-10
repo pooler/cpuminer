@@ -80,9 +80,9 @@ static size_t upload_data_cb(void *ptr, size_t size, size_t nmemb,
 	return len;
 }
 
-json_t *json_rpc_call(const char *url, const char *userpass, const char *rpc_req)
+json_t *json_rpc_call(CURL *curl, const char *url,
+		      const char *userpass, const char *rpc_req)
 {
-	CURL *curl;
 	json_t *val, *err_val, *res_val;
 	int rc;
 	struct data_buffer all_data = { };
@@ -92,11 +92,7 @@ json_t *json_rpc_call(const char *url, const char *userpass, const char *rpc_req
 	char len_hdr[64];
 	char curl_err_str[CURL_ERROR_SIZE];
 
-	curl = curl_easy_init();
-	if (!curl) {
-		fprintf(stderr, "CURL initialization failed, aborting JSON-RPC call\n");
-		return NULL;
-	}
+	/* it is assumed that 'curl' is freshly [re]initialized at this pt */
 
 	if (opt_protocol)
 		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
@@ -172,13 +168,13 @@ json_t *json_rpc_call(const char *url, const char *userpass, const char *rpc_req
 
 	databuf_free(&all_data);
 	curl_slist_free_all(headers);
-	curl_easy_cleanup(curl);
+	curl_easy_reset(curl);
 	return val;
 
 err_out:
 	databuf_free(&all_data);
 	curl_slist_free_all(headers);
-	curl_easy_cleanup(curl);
+	curl_easy_reset(curl);
 	return NULL;
 }
 

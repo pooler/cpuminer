@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <sys/time.h>
 #include <jansson.h>
+#include <curl/curl.h>
 
 #ifdef __SSE2__
 #define WANT_SSE2_4WAY 1
@@ -45,7 +46,7 @@ static inline void swap256(void *dest_p, const void *src_p)
 extern bool opt_debug;
 extern bool opt_protocol;
 extern const uint32_t sha256_init_state[];
-extern json_t *json_rpc_call(const char *url, const char *userpass,
+extern json_t *json_rpc_call(CURL *curl, const char *url, const char *userpass,
 			     const char *rpc_req);
 extern char *bin2hex(unsigned char *p, size_t len);
 extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
