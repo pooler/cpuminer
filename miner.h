@@ -15,6 +15,12 @@
 #define WANT_VIA_PADLOCK 1
 #endif
 
+#if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
+#define WANT_BUILTIN_BSWAP
+#else
+#include <byteswap.h>
+#endif
+
 #if defined(__i386__)
 #define WANT_CRYPTOPP_ASM32
 #endif
@@ -25,7 +31,11 @@
 
 static inline uint32_t swab32(uint32_t v)
 {
+#ifdef WANT_BUILTIN_BSWAP
 	return __builtin_bswap32(v);
+#else
+	return bswap_32(v);
+#endif
 }
 
 static inline void swap256(void *dest_p, const void *src_p)
