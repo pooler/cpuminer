@@ -1,5 +1,11 @@
 
-Version 0.6.1 - February 4, 2010
+Version 0.7 - February 12, 2011
+
+- Re-use CURL object, thereby reuseing DNS cache and HTTP connections
+- Use bswap_32, if compiler intrinsic is not available
+- Disable full target validation (as opposed to simply H==0) for now
+
+Version 0.6.1 - February 4, 2011
 
 - Fully validate "hash < target", rather than simply stopping our scan
   if the high 32 bits are 00000000.
@@ -9,7 +15,7 @@ Version 0.6.1 - February 4, 2010
   scan takes longer than 5 seconds (--scantime), the miner will slowly
   reduce the number of hashes you work on, before fetching a new work unit.
 
-Version 0.6 - January 29, 2010
+Version 0.6 - January 29, 2011
 
 - Fetch new work unit, if scanhash takes longer than 5 seconds (--scantime)
 - BeeCee1's sha256 4way optimizations
