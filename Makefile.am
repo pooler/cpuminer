@@ -5,6 +5,8 @@ else
 JANSSON_INCLUDES=
 endif
 
+EXTRA_DIST	= example-cfg.json
+
 SUBDIRS		= compat
 
 INCLUDES	= $(PTHREAD_FLAGS) -fno-strict-aliasing $(JANSSON_INCLUDES)

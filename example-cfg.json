@@ -1,0 +1,12 @@
+{
+	"_comment" : "Any command line argument may be used in this file",
+
+	"url" : "http://127.0.0.1:8332",
+	"userpass" : "rpcuser:rpcpass",
+
+	"algo" : "4way",
+	"threads" : "4",
+
+	"quiet" : true,
+	"debug" : true
+}

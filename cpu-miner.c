@@ -59,11 +59,12 @@ static bool opt_quiet = false;
 static int opt_retries = 10;
 static int opt_fail_pause = 30;
 static int opt_scantime = 5;
+static json_t *opt_config;
 static const bool opt_time = true;
 static enum sha256_algos opt_algo = ALGO_C;
 static int opt_n_threads = 1;
-static char *rpc_url = DEF_RPC_URL;
-static char *userpass = DEF_RPC_USERPASS;
+static char *rpc_url;
+static char *userpass;
 
 
 struct option_help {
@@ -74,6 +75,10 @@ struct option_help {
 static struct option_help options_help[] = {
 	{ "help",
 	  "(-h) Display this help text" },
+
+	{ "config FILE",
+	  "(-c FILE) JSON-format configuration file (default: none)\n"
+	  "See example-cfg.json for an example configuration." },
 
 	{ "algo XXX",
 	  "(-a XXX) Specify sha256 implementation:\n"
@@ -126,6 +131,7 @@ static struct option_help options_help[] = {
 static struct option options[] = {
 	{ "help", 0, NULL, 'h' },
 	{ "algo", 1, NULL, 'a' },
+	{ "config", 1, NULL, 'c' },
 	{ "quiet", 0, NULL, 'q' },
 	{ "debug", 0, NULL, 'D' },
 	{ "protocol-dump", 0, NULL, 'P' },
@@ -419,6 +425,17 @@ static void parse_arg (int key, char *arg)
 		if (i == ARRAY_SIZE(algo_names))
 			show_usage();
 		break;
+	case 'c': {
+		json_error_t err;
+		if (opt_config)
+			json_decref(opt_config);
+		opt_config = json_load_file(arg, &err);
+		if (!json_is_object(opt_config)) {
+			fprintf(stderr, "JSON decode of %s failed\n", arg);
+			show_usage();
+		}
+		break;
+	}
 	case 'q':
 		opt_quiet = true;
 		break;
@@ -461,16 +478,50 @@ static void parse_arg (int key, char *arg)
 		    strncmp(arg, "https://", 8))
 			show_usage();
 
-		rpc_url = arg;
+		free(rpc_url);
+		rpc_url = strdup(arg);
 		break;
 	case 1002:			/* --userpass */
 		if (!strchr(arg, ':'))
 			show_usage();
 
-		userpass = arg;
+		free(userpass);
+		userpass = strdup(arg);
 		break;
 	default:
 		show_usage();
+	}
+}
+
+static void parse_config(void)
+{
+	int i;
+	json_t *val;
+
+	if (!json_is_object(opt_config))
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(options); i++) {
+		if (!options[i].name)
+			break;
+		if (!strcmp(options[i].name, "config"))
+			continue;
+
+		val = json_object_get(opt_config, options[i].name);
+		if (!val)
+			continue;
+
+		if (options[i].has_arg && json_is_string(val)) {
+			char *s = strdup(json_string_value(val));
+			if (!s)
+				break;
+			parse_arg(options[i].val, s);
+			free(s);
+		} else if (!options[i].has_arg && json_is_true(val))
+			parse_arg(options[i].val, "");
+		else
+			fprintf(stderr, "JSON option %s invalid\n",
+				options[i].name);
 	}
 }
 
@@ -479,18 +530,23 @@ static void parse_cmdline(int argc, char *argv[])
 	int key;
 
 	while (1) {
-		key = getopt_long(argc, argv, "a:qDPr:s:t:h?", options, NULL);
+		key = getopt_long(argc, argv, "a:c:qDPr:s:t:h?", options, NULL);
 		if (key < 0)
 			break;
 
 		parse_arg(key, optarg);
 	}
+
+	parse_config();
 }
 
 int main (int argc, char *argv[])
 {
 	int i;
 	pthread_t *t_all;
+
+	rpc_url = strdup(DEF_RPC_URL);
+	userpass = strdup(DEF_RPC_USERPASS);
 
 	/* parse command line */
 	parse_cmdline(argc, argv);
