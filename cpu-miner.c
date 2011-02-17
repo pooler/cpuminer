@@ -17,6 +17,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <time.h>
 #ifndef WIN32
 #include <sys/resource.h>
 #endif
@@ -210,7 +211,11 @@ static void submit_work(CURL *curl, struct work *work)
 {
 	char *hexstr = NULL;
 	json_t *val, *res;
-	char s[345];
+	char s[345], timestr[64];
+	time_t now;
+	struct tm *tm;
+
+	now = time(NULL);
 
 	/* build hex string */
 	hexstr = bin2hex(work->data, sizeof(work->data));
@@ -236,8 +241,11 @@ static void submit_work(CURL *curl, struct work *work)
 
 	res = json_object_get(val, "result");
 
-	printf("PROOF OF WORK RESULT: %s\n",
-		json_is_true(res) ? "true (yay!!!)" : "false (booooo)");
+	tm = localtime(&now);
+	strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S", tm);
+
+	printf("[%s] PROOF OF WORK RESULT: %s\n",
+	       timestr, json_is_true(res) ? "true (yay!!!)" : "false (booooo)");
 
 	json_decref(val);
 
