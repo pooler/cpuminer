@@ -118,7 +118,7 @@ unsigned int ScanHash_4WaySSE2(const unsigned char *pmidstate, unsigned char *pd
 
         for (j = 0; j < NPAR; j++)
         {
-            if (thash[7][j] == 0)
+            if (unlikely(thash[7][j] == 0))
             {
 		int i;
 

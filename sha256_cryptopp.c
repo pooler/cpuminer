@@ -110,7 +110,7 @@ bool scanhash_cryptopp(const unsigned char *midstate, unsigned char *data,
 
 		stat_ctr++;
 
-		if ((hash32[7] == 0) && fulltest(hash, target)) {
+		if (unlikely((hash32[7] == 0) && fulltest(hash, target))) {
 			*hashes_done = stat_ctr;
 			return true;
 		}
@@ -592,7 +592,7 @@ bool scanhash_asm32(const unsigned char *midstate, unsigned char *data,
 
 		stat_ctr++;
 
-		if ((hash32[7] == 0) && fulltest(hash, target)) {
+		if (unlikely((hash32[7] == 0) && fulltest(hash, target))) {
 			fulltest(hash, target);
 
 			*hashes_done = stat_ctr;

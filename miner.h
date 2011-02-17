@@ -21,6 +21,14 @@
 #include <byteswap.h>
 #endif
 
+#if defined(__GNUC__) && (__GNUC__ > 2) && defined(__OPTIMIZE__)
+#undef unlikely
+#define unlikely(expr) (__builtin_expect((expr), 0))
+#else
+#undef unlikely
+#define unlikely(expr) (expr)
+#endif
+
 #if defined(__i386__)
 #define WANT_CRYPTOPP_ASM32
 #endif

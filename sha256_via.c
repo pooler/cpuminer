@@ -57,7 +57,7 @@ bool scanhash_via(unsigned char *data_inout,
 
 		stat_ctr++;
 
-		if ((hash32[7] == 0) && fulltest(tmp_hash, target)) {
+		if (unlikely((hash32[7] == 0) && fulltest(tmp_hash, target))) {
 			/* swap nonce'd data back into original storage area;
 			 * TODO: only swap back the nonce, rather than all data
 			 */
