@@ -245,6 +245,24 @@ out:
 	free(hexstr);
 }
 
+static bool get_work(CURL *curl, struct work *work)
+{
+	static const char *rpc_req =
+		"{\"method\": \"getwork\", \"params\": [], \"id\":0}\r\n";
+	json_t *val;
+	bool rc;
+
+	val = json_rpc_call(curl, rpc_url, userpass, rpc_req);
+	if (!val)
+		return false;
+
+	rc = work_decode(json_object_get(val, "result"), work);
+
+	json_decref(val);
+
+	return rc;
+}
+
 static void hashmeter(int thr_id, const struct timeval *diff,
 		      unsigned long hashes_done)
 {
@@ -263,8 +281,6 @@ static void *miner_thread(void *thr_id_int)
 {
 	int thr_id = (unsigned long) thr_id_int;
 	int failures = 0;
-	static const char *rpc_req =
-		"{\"method\": \"getwork\", \"params\": [], \"id\":0}\r\n";
 	uint32_t max_nonce = 0xffffff;
 	CURL *curl;
 
@@ -278,12 +294,10 @@ static void *miner_thread(void *thr_id_int)
 		struct work work __attribute__((aligned(128)));
 		unsigned long hashes_done;
 		struct timeval tv_start, tv_end, diff;
-		json_t *val;
 		bool rc;
 
 		/* obtain new work from bitcoin */
-		val = json_rpc_call(curl, rpc_url, userpass, rpc_req);
-		if (!val) {
+		if (!get_work(curl, &work)) {
 			fprintf(stderr, "json_rpc_call failed, ");
 
 			if ((opt_retries >= 0) && (++failures > opt_retries)) {
@@ -297,25 +311,6 @@ static void *miner_thread(void *thr_id_int)
 			sleep(opt_fail_pause);
 			continue;
 		}
-
-		/* decode result into work state struct */
-		rc = work_decode(json_object_get(val, "result"), &work);
-		if (!rc) {
-			fprintf(stderr, "JSON-decode of work failed, ");
-
-			if ((opt_retries >= 0) && (++failures > opt_retries)) {
-				fprintf(stderr, "terminating thread\n");
-				return NULL;	/* exit thread */
-			}
-
-			/* pause, then restart work loop */
-			fprintf(stderr, "retry after %d seconds\n",
-				opt_fail_pause);
-			sleep(opt_fail_pause);
-			continue;
-		}
-
-		json_decref(val);
 
 		hashes_done = 0;
 		gettimeofday(&tv_start, NULL);
