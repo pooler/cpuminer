@@ -40,26 +40,28 @@ static const unsigned int sha256_consts[] = {
 
 
 static inline __m128i Ch(const __m128i b, const __m128i c, const __m128i d) {
-    return (b & c) ^ (~b & d);
+    return _mm_xor_si128(_mm_and_si128(b,c),_mm_andnot_si128(b,d));
 }
 
 static inline __m128i Maj(const __m128i b, const __m128i c, const __m128i d) {
-    return (b & c) ^ (b & d) ^ (c & d);
+    return _mm_xor_si128(_mm_xor_si128(_mm_and_si128(b,c),_mm_and_si128(b,d)),_mm_and_si128(c,d));
 }
 
-static __attribute__((always_inline)) __m128i ROTR(__m128i x, const int n) {
-    return _mm_srli_epi32(x, n) | _mm_slli_epi32(x, 32 - n);
+static __attribute__((always_inline)) __m128i  ROTR(__m128i x, const int n) {
+    return _mm_or_si128(_mm_srli_epi32(x, n),_mm_slli_epi32(x, 32 - n));
 }
 
-static __attribute__((always_inline)) __m128i SHR(__m128i x, const int n) {
+static  __attribute__((always_inline))  __m128i SHR(__m128i x, const int n) {
     return _mm_srli_epi32(x, n);
 }
 
 /* SHA256 Functions */
-#define BIGSIGMA0_256(x)    (ROTR((x), 2) ^ ROTR((x), 13) ^ ROTR((x), 22))
-#define BIGSIGMA1_256(x)    (ROTR((x), 6) ^ ROTR((x), 11) ^ ROTR((x), 25))
-#define SIGMA0_256(x)       (ROTR((x), 7) ^ ROTR((x), 18) ^ SHR((x), 3))
-#define SIGMA1_256(x)       (ROTR((x), 17) ^ ROTR((x), 19) ^ SHR((x), 10))
+#define BIGSIGMA0_256(x)    (_mm_xor_si128(_mm_xor_si128(ROTR((x), 2),ROTR((x), 13)),ROTR((x), 22)))
+#define BIGSIGMA1_256(x)    (_mm_xor_si128(_mm_xor_si128(ROTR((x), 6),ROTR((x), 11)),ROTR((x), 25)))
+
+
+#define SIGMA0_256(x)       (_mm_xor_si128(_mm_xor_si128(ROTR((x), 7),ROTR((x), 18)), SHR((x), 3 )))
+#define SIGMA1_256(x)       (_mm_xor_si128(_mm_xor_si128(ROTR((x),17),ROTR((x), 19)), SHR((x), 10)))
 
 static inline unsigned int store32(const __m128i x, int i) {
     union { unsigned int ret[4]; __m128i x; } box;
