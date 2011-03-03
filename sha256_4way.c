@@ -452,12 +452,16 @@ static void DoubleBlockSHA256(const void* pin, void* pad, const void *pre, unsig
         SHA256ROUND(f, g, h, a, b, c, d, e, 59, w11);
         w12 = add4(SIGMA1_256(w10), w5, SIGMA0_256(w13), w12);
         SHA256ROUND(e, f, g, h, a, b, c, d, 60, w12);
+
+	/* Skip last 3-rounds; not necessary for H==0 */
+#if 0
         w13 = add4(SIGMA1_256(w11), w6, SIGMA0_256(w14), w13);
         SHA256ROUND(d, e, f, g, h, a, b, c, 61, w13);
         w14 = add4(SIGMA1_256(w12), w7, SIGMA0_256(w15), w14);
         SHA256ROUND(c, d, e, f, g, h, a, b, 62, w14);
         w15 = add4(SIGMA1_256(w13), w8, SIGMA0_256(w0), w15);
         SHA256ROUND(b, c, d, e, f, g, h, a, 63, w15);
+#endif
 
         /* store resulsts directly in thash */
 #define store_2(x,i)  \
