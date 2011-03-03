@@ -1,4 +1,16 @@
 
+Version 0.7.1 - March 2, 2011
+
+- Add support for JSON-format configuration file.  See example
+  file example-cfg.json.  Any long argument on the command line
+  may be stored in the config file.
+- Timestamp each solution found
+- Improve sha256_4way performance.  NOTE: This optimization makes
+  the 'hash' debug-print output for sha256_way incorrect.
+- Use __builtin_expect() intrinsic as compiler micro-optimization
+- Build on Intel compiler
+- HTTP library now follows HTTP redirects
+
 Version 0.7 - February 12, 2011
 
 - Re-use CURL object, thereby reuseing DNS cache and HTTP connections
