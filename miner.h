@@ -15,6 +15,10 @@
 #define WANT_VIA_PADLOCK 1
 #endif
 
+#if defined(__x86_64__) && defined(__SSE2__) && defined(HAS_YASM)
+#define WANT_X8664_SSE2 1
+#endif
+
 #if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
 #define WANT_BUILTIN_BSWAP
 #else
@@ -70,6 +74,11 @@ extern char *bin2hex(unsigned char *p, size_t len);
 extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
 
 extern unsigned int ScanHash_4WaySSE2(const unsigned char *pmidstate,
+	unsigned char *pdata, unsigned char *phash1, unsigned char *phash,
+	const unsigned char *ptarget,
+	uint32_t max_nonce, unsigned long *nHashesDone);
+
+extern unsigned int scanhash_sse2_amd64(const unsigned char *pmidstate,
 	unsigned char *pdata, unsigned char *phash1, unsigned char *phash,
 	const unsigned char *ptarget,
 	uint32_t max_nonce, unsigned long *nHashesDone);

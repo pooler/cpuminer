@@ -38,6 +38,7 @@ enum sha256_algos {
 	ALGO_VIA,		/* VIA padlock */
 	ALGO_CRYPTOPP,		/* Crypto++ (C) */
 	ALGO_CRYPTOPP_ASM32,	/* Crypto++ 32-bit assembly */
+	ALGO_SSE2_64,		/* SSE2 for x86_64 */
 };
 
 static const char *algo_names[] = {
@@ -51,6 +52,9 @@ static const char *algo_names[] = {
 	[ALGO_CRYPTOPP]		= "cryptopp",
 #ifdef WANT_CRYPTOPP_ASM32
 	[ALGO_CRYPTOPP_ASM32]	= "cryptopp_asm32",
+#endif
+#ifdef WANT_X8664_SSE2
+	[ALGO_SSE2_64]		= "sse2_64",
 #endif
 };
 
@@ -93,6 +97,9 @@ static struct option_help options_help[] = {
 	  "\n\tcryptopp\tCrypto++ C/C++ implementation"
 #ifdef WANT_CRYPTOPP_ASM32
 	  "\n\tcryptopp_asm32\tCrypto++ 32-bit assembler implementation"
+#endif
+#ifdef WANT_X8664_SSE2
+	  "\n\tsse2_64\t\tSSE2 implementation for x86_64 machines"
 #endif
 	  },
 
@@ -330,6 +337,18 @@ static void *miner_thread(void *thr_id_int)
 				        work.hash1, work.hash, work.target,
 					max_nonce, &hashes_done);
 			break;
+
+#ifdef WANT_X8664_SSE2
+		case ALGO_SSE2_64: {
+			unsigned int rc5 =
+			        scanhash_sse2_64(work.midstate, work.data + 64,
+						 work.hash1, work.hash,
+						 work.target,
+					         max_nonce, &hashes_done);
+			rc = (rc5 == -1) ? false : true;
+			}
+			break;	
+#endif
 
 #ifdef WANT_SSE2_4WAY
 		case ALGO_4WAY: {
