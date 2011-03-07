@@ -57,7 +57,6 @@ int scanhash_sse2_64(const unsigned char *pmidstate, unsigned char *pdata,
     uint32_t m_midstate[8], m_w[16], m_w1[16];
     __m128i m_4w[64], m_4hash[64], m_4hash1[64];
     __m128i offset;
-    __m128i g_4sha256_hinit[8];
     int i;
 
     /* For debugging */

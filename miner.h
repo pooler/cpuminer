@@ -99,6 +99,10 @@ extern bool scanhash_asm32(const unsigned char *midstate,unsigned char *data,
 	      unsigned char *hash1, unsigned char *hash,
 	      const unsigned char *target,
 	      uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_sse2_64(const unsigned char *pmidstate, unsigned char *pdata,
+	unsigned char *phash1, unsigned char *phash,
+	const unsigned char *ptarget,
+	uint32_t max_nonce, unsigned long *nHashesDone);
 
 extern int
 timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y);
