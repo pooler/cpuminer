@@ -55,7 +55,11 @@ else
   if test "$yamajor" -ge "1" ; then
     if test "$yamajor" -eq "1" ; then
       if test "$yaminor" -ge "0" ; then
-        if test "$yamini" -ge "1"; then
+        if test "$yaminor" -eq "0"; then
+          if test "$yamini" -ge "1"; then
+            has_yasm=true
+          fi
+        else
           has_yasm=true
         fi
       fi
