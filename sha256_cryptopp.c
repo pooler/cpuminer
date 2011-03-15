@@ -540,7 +540,7 @@ static void CRYPTOPP_FASTCALL X86_SHA256_HashBlocks(word32 *state, const word32 
 
 #ifdef __GNUC__
 	".att_syntax prefix;"
-	: 
+	:
 	: "c" (state), "d" (data), "S" (SHA256_K+48), "D" (len)
 	#if CRYPTOPP_BOOL_X64
 		, "m" (workspace[0])
