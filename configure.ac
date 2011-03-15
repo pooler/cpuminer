@@ -33,6 +33,7 @@ AC_CHECK_LIB(jansson, json_loads, request_jansson=false, request_jansson=true)
 AC_CHECK_LIB(pthread, pthread_create, PTHREAD_LIBS=-lpthread)
 
 AM_CONDITIONAL([WANT_JANSSON], [test x$request_jansson = xtrue])
+AM_CONDITIONAL([HAVE_WINDOWS], [test x$have_win32 = xtrue])
 
 if test x$request_jansson = xtrue
 then

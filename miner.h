@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/time.h>
+#include <pthread.h>
 #include <jansson.h>
 #include <curl/curl.h>
 

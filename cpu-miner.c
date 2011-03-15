@@ -21,7 +21,6 @@
 #ifndef WIN32
 #include <sys/resource.h>
 #endif
-#include <pthread.h>
 #include <getopt.h>
 #include <jansson.h>
 #include <curl/curl.h>
