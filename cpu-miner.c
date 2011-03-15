@@ -4,7 +4,7 @@
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option) 
+ * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.  See COPYING for more details.
  */
 
@@ -31,6 +31,25 @@
 #define PROGRAM_NAME		"minerd"
 #define DEF_RPC_URL		"http://127.0.0.1:8332/"
 #define DEF_RPC_USERPASS	"rpcuser:rpcpass"
+
+struct thr_info {
+	int		id;
+	pthread_t	pth;
+	struct thread_q	*q;
+};
+
+enum workio_commands {
+	WC_GET_WORK,
+	WC_SUBMIT_WORK,
+};
+
+struct workio_cmd {
+	enum workio_commands	cmd;
+	struct thr_info		*thr;
+	union {
+		struct work	*work;
+	} u;
+};
 
 enum sha256_algos {
 	ALGO_C,			/* plain C */
@@ -70,6 +89,8 @@ static enum sha256_algos opt_algo = ALGO_C;
 static int opt_n_threads = 1;
 static char *rpc_url;
 static char *userpass;
+static struct thr_info *thr_info;
+static int work_thr_id;
 
 
 struct option_help {
@@ -214,20 +235,21 @@ err_out:
 	return false;
 }
 
-static void submit_work(CURL *curl, struct work *work)
+static bool submit_upstream_work(CURL *curl, const struct work *work)
 {
 	char *hexstr = NULL;
 	json_t *val, *res;
 	char s[345], timestr[64];
 	time_t now;
 	struct tm *tm;
+	bool rc = false;
 
 	now = time(NULL);
 
 	/* build hex string */
 	hexstr = bin2hex(work->data, sizeof(work->data));
 	if (!hexstr) {
-		fprintf(stderr, "submit_work OOM\n");
+		fprintf(stderr, "submit_upstream_work OOM\n");
 		goto out;
 	}
 
@@ -242,7 +264,7 @@ static void submit_work(CURL *curl, struct work *work)
 	/* issue JSON-RPC request */
 	val = json_rpc_call(curl, rpc_url, userpass, s);
 	if (!val) {
-		fprintf(stderr, "submit_work json_rpc_call failed\n");
+		fprintf(stderr, "submit_upstream_work json_rpc_call failed\n");
 		goto out;
 	}
 
@@ -256,11 +278,14 @@ static void submit_work(CURL *curl, struct work *work)
 
 	json_decref(val);
 
+	rc = true;
+
 out:
 	free(hexstr);
+	return rc;
 }
 
-static bool get_work(CURL *curl, struct work *work)
+static bool get_upstream_work(CURL *curl, struct work *work)
 {
 	static const char *rpc_req =
 		"{\"method\": \"getwork\", \"params\": [], \"id\":0}\r\n";
@@ -278,6 +303,120 @@ static bool get_work(CURL *curl, struct work *work)
 	return rc;
 }
 
+static void workio_cmd_free(struct workio_cmd *wc)
+{
+	if (!wc)
+		return;
+
+	switch (wc->cmd) {
+	case WC_SUBMIT_WORK:
+		free(wc->u.work);
+		break;
+	default: /* do nothing */
+		break;
+	}
+
+	memset(wc, 0, sizeof(*wc));	/* poison */
+	free(wc);
+}
+
+static bool workio_get_work(struct workio_cmd *wc, CURL *curl)
+{
+	struct work *ret_work;
+	int failures = 0;
+
+	ret_work = calloc(1, sizeof(*ret_work));
+	if (!ret_work)
+		return false;
+
+	/* obtain new work from bitcoin via JSON-RPC */
+	while (!get_upstream_work(curl, ret_work)) {
+		fprintf(stderr, "json_rpc_call failed, ");
+
+		if ((opt_retries >= 0) && (++failures > opt_retries)) {
+			fprintf(stderr, "terminating workio thread\n");
+			free(ret_work);
+			return false;
+		}
+
+		/* pause, then restart work-request loop */
+		fprintf(stderr, "retry after %d seconds\n",
+			opt_fail_pause);
+		sleep(opt_fail_pause);
+	}
+
+	/* send work to requesting thread */
+	if (!tq_push(wc->thr->q, ret_work))
+		free(ret_work);
+
+	return true;
+}
+
+static bool workio_submit_work(struct workio_cmd *wc, CURL *curl)
+{
+	int failures = 0;
+
+	/* submit solution to bitcoin via JSON-RPC */
+	while (!submit_upstream_work(curl, wc->u.work)) {
+		if ((opt_retries >= 0) && (++failures > opt_retries)) {
+			fprintf(stderr, "...terminating workio thread\n");
+			return false;
+		}
+
+		/* pause, then restart work-request loop */
+		fprintf(stderr, "...retry after %d seconds\n",
+			opt_fail_pause);
+		sleep(opt_fail_pause);
+	}
+
+	return true;
+}
+
+static void *workio_thread(void *userdata)
+{
+	struct thr_info *mythr = userdata;
+	CURL *curl;
+	bool ok = true;
+
+	curl = curl_easy_init();
+	if (!curl) {
+		fprintf(stderr, "CURL initialization failed\n");
+		return NULL;
+	}
+
+	while (ok) {
+		struct workio_cmd *wc;
+
+		/* wait for workio_cmd sent to us, on our queue */
+		wc = tq_pop(mythr->q, NULL);
+		if (!wc) {
+			ok = false;
+			break;
+		}
+
+		/* process workio_cmd */
+		switch (wc->cmd) {
+		case WC_GET_WORK:
+			ok = workio_get_work(wc, curl);
+			break;
+		case WC_SUBMIT_WORK:
+			ok = workio_submit_work(wc, curl);
+			break;
+
+		default:		/* should never happen */
+			ok = false;
+			break;
+		}
+
+		workio_cmd_free(wc);
+	}
+
+	tq_freeze(mythr->q);
+	curl_easy_cleanup(curl);
+
+	return NULL;
+}
+
 static void hashmeter(int thr_id, const struct timeval *diff,
 		      unsigned long hashes_done)
 {
@@ -292,18 +431,70 @@ static void hashmeter(int thr_id, const struct timeval *diff,
 		       khashes / secs);
 }
 
-static void *miner_thread(void *thr_id_int)
+static bool get_work(struct thr_info *thr, struct work *work)
 {
-	int thr_id = (unsigned long) thr_id_int;
-	int failures = 0;
-	uint32_t max_nonce = 0xffffff;
-	CURL *curl;
+	struct workio_cmd *wc;
+	struct work *work_heap;
 
-	curl = curl_easy_init();
-	if (!curl) {
-		fprintf(stderr, "CURL initialization failed\n");
-		return NULL;
+	/* fill out work request message */
+	wc = calloc(1, sizeof(*wc));
+	if (!wc)
+		return false;
+
+	wc->cmd = WC_GET_WORK;
+	wc->thr = thr;
+
+	/* send work request to workio thread */
+	if (!tq_push(thr_info[work_thr_id].q, wc)) {
+		workio_cmd_free(wc);
+		return false;
 	}
+
+	/* wait for response, a unit of work */
+	work_heap = tq_pop(thr->q, NULL);
+	if (!work_heap)
+		return false;
+
+	/* copy returned work into storage provided by caller */
+	memcpy(work, work_heap, sizeof(*work));
+	free(work_heap);
+
+	return true;
+}
+
+static bool submit_work(struct thr_info *thr, const struct work *work_in)
+{
+	struct workio_cmd *wc;
+
+	/* fill out work request message */
+	wc = calloc(1, sizeof(*wc));
+	if (!wc)
+		return false;
+
+	wc->u.work = malloc(sizeof(*work_in));
+	if (!wc->u.work)
+		goto err_out;
+
+	wc->cmd = WC_SUBMIT_WORK;
+	wc->thr = thr;
+	memcpy(wc->u.work, work_in, sizeof(*work_in));
+
+	/* send solution to workio thread */
+	if (!tq_push(thr_info[work_thr_id].q, wc))
+		goto err_out;
+
+	return true;
+
+err_out:
+	workio_cmd_free(wc);
+	return false;
+}
+
+static void *miner_thread(void *userdata)
+{
+	struct thr_info *mythr = userdata;
+	int thr_id = mythr->id;
+	uint32_t max_nonce = 0xffffff;
 
 	while (1) {
 		struct work work __attribute__((aligned(128)));
@@ -311,20 +502,11 @@ static void *miner_thread(void *thr_id_int)
 		struct timeval tv_start, tv_end, diff;
 		bool rc;
 
-		/* obtain new work from bitcoin */
-		if (!get_work(curl, &work)) {
-			fprintf(stderr, "json_rpc_call failed, ");
-
-			if ((opt_retries >= 0) && (++failures > opt_retries)) {
-				fprintf(stderr, "terminating thread\n");
-				return NULL;	/* exit thread */
-			}
-
-			/* pause, then restart work loop */
-			fprintf(stderr, "retry after %d seconds\n",
-				opt_fail_pause);
-			sleep(opt_fail_pause);
-			continue;
+		/* obtain new work from internal workio thread */
+		if (!get_work(mythr, &work)) {
+			fprintf(stderr, "work retrieval failed, exiting "
+				"mining thread %d\n", mythr->id);
+			goto out;
 		}
 
 		hashes_done = 0;
@@ -347,7 +529,7 @@ static void *miner_thread(void *thr_id_int)
 					         max_nonce, &hashes_done);
 			rc = (rc5 == -1) ? false : true;
 			}
-			break;	
+			break;
 #endif
 
 #ifdef WANT_SSE2_4WAY
@@ -384,7 +566,7 @@ static void *miner_thread(void *thr_id_int)
 
 		default:
 			/* should never happen */
-			return NULL;
+			goto out;
 		}
 
 		/* record scanhash elapsed time */
@@ -404,13 +586,12 @@ static void *miner_thread(void *thr_id_int)
 			max_nonce += 100000;		/* small increase */
 
 		/* if nonce found, submit work */
-		if (rc)
-			submit_work(curl, &work);
-
-		failures = 0;
+		if (rc && !submit_work(mythr, &work))
+			break;
 	}
 
-	curl_easy_cleanup(curl);
+out:
+	tq_freeze(mythr->q);
 
 	return NULL;
 }
@@ -564,8 +745,8 @@ static void parse_cmdline(int argc, char *argv[])
 
 int main (int argc, char *argv[])
 {
+	struct thr_info *thr;
 	int i;
-	pthread_t *t_all;
 
 	rpc_url = strdup(DEF_RPC_URL);
 	userpass = strdup(DEF_RPC_USERPASS);
@@ -577,14 +758,33 @@ int main (int argc, char *argv[])
 	if (setpriority(PRIO_PROCESS, 0, 19))
 		perror("setpriority");
 
-	t_all = calloc(opt_n_threads, sizeof(pthread_t));
-	if (!t_all)
+	thr_info = calloc(opt_n_threads + 1, sizeof(*thr));
+	if (!thr_info)
 		return 1;
+
+	work_thr_id = opt_n_threads;
+	thr = &thr_info[work_thr_id];
+	thr->id = opt_n_threads;
+	thr->q = tq_new();
+	if (!thr->q)
+		return 1;
+
+	/* start work I/O thread */
+	if (pthread_create(&thr->pth, NULL, workio_thread, thr)) {
+		fprintf(stderr, "workio thread create failed\n");
+		return 1;
+	}
 
 	/* start mining threads */
 	for (i = 0; i < opt_n_threads; i++) {
-		if (pthread_create(&t_all[i], NULL, miner_thread,
-				   (void *)(unsigned long) i)) {
+		thr = &thr_info[i];
+
+		thr->id = i;
+		thr->q = tq_new();
+		if (!thr->q)
+			return 1;
+
+		if (pthread_create(&thr->pth, NULL, miner_thread, thr)) {
 			fprintf(stderr, "thread %d create failed\n", i);
 			return 1;
 		}
@@ -597,11 +797,10 @@ int main (int argc, char *argv[])
 		opt_n_threads,
 		algo_names[opt_algo]);
 
-	/* main loop - simply wait for all threads to exit */
-	for (i = 0; i < opt_n_threads; i++)
-		pthread_join(t_all[i], NULL);
+	/* main loop - simply wait for workio thread to exit */
+	pthread_join(thr_info[work_thr_id].pth, NULL);
 
-	fprintf(stderr, "all threads dead, fred. exiting.\n");
+	fprintf(stderr, "workio thread dead, exiting.\n");
 
 	return 0;
 }

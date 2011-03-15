@@ -70,7 +70,7 @@ extern bool opt_protocol;
 extern const uint32_t sha256_init_state[];
 extern json_t *json_rpc_call(CURL *curl, const char *url, const char *userpass,
 			     const char *rpc_req);
-extern char *bin2hex(unsigned char *p, size_t len);
+extern char *bin2hex(const unsigned char *p, size_t len);
 extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
 
 extern unsigned int ScanHash_4WaySSE2(const unsigned char *pmidstate,
@@ -108,5 +108,14 @@ extern int
 timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y);
 
 extern bool fulltest(const unsigned char *hash, const unsigned char *target);
+
+struct thread_q;
+
+extern struct thread_q *tq_new(void);
+extern void tq_free(struct thread_q *tq);
+extern bool tq_push(struct thread_q *tq, void *data);
+extern void *tq_pop(struct thread_q *tq, const struct timespec *abstime);
+extern void tq_freeze(struct thread_q *tq);
+extern void tq_thaw(struct thread_q *tq);
 
 #endif /* __MINER_H__ */
