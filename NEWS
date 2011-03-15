@@ -1,4 +1,13 @@
 
+Version 0.7.2 - March 14, 2011
+
+- Add port of ufasoft's sse2 assembly implementation (Linux only)
+  This is a substantial speed improvement on Intel CPUs.
+
+- Move all JSON-RPC I/O to separate thread.  This reduces the
+  number of HTTP connections from one-per-thread to one, reducing resource
+  usage on upstream bitcoind / pool server.
+
 Version 0.7.1 - March 2, 2011
 
 - Add support for JSON-format configuration file.  See example
