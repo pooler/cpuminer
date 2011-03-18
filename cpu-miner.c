@@ -90,6 +90,7 @@ static char *rpc_url;
 static char *userpass;
 static struct thr_info *thr_info;
 static int work_thr_id;
+struct work_restart *work_restart = NULL;
 
 
 struct option_help {
@@ -514,7 +515,7 @@ static void *miner_thread(void *userdata)
 		/* scan nonces for a proof-of-work hash */
 		switch (opt_algo) {
 		case ALGO_C:
-			rc = scanhash_c(work.midstate, work.data + 64,
+			rc = scanhash_c(thr_id, work.midstate, work.data + 64,
 				        work.hash1, work.hash, work.target,
 					max_nonce, &hashes_done);
 			break;
@@ -522,7 +523,7 @@ static void *miner_thread(void *userdata)
 #ifdef WANT_X8664_SSE2
 		case ALGO_SSE2_64: {
 			unsigned int rc5 =
-			        scanhash_sse2_64(work.midstate, work.data + 64,
+			        scanhash_sse2_64(thr_id, work.midstate, work.data + 64,
 						 work.hash1, work.hash,
 						 work.target,
 					         max_nonce, &hashes_done);
@@ -534,7 +535,7 @@ static void *miner_thread(void *userdata)
 #ifdef WANT_SSE2_4WAY
 		case ALGO_4WAY: {
 			unsigned int rc4 =
-				ScanHash_4WaySSE2(work.midstate, work.data + 64,
+				ScanHash_4WaySSE2(thr_id, work.midstate, work.data + 64,
 						  work.hash1, work.hash,
 						  work.target,
 						  max_nonce, &hashes_done);
@@ -545,19 +546,19 @@ static void *miner_thread(void *userdata)
 
 #ifdef WANT_VIA_PADLOCK
 		case ALGO_VIA:
-			rc = scanhash_via(work.data, work.target,
+			rc = scanhash_via(thr_id, work.data, work.target,
 					  max_nonce, &hashes_done);
 			break;
 #endif
 		case ALGO_CRYPTOPP:
-			rc = scanhash_cryptopp(work.midstate, work.data + 64,
+			rc = scanhash_cryptopp(thr_id, work.midstate, work.data + 64,
 				        work.hash1, work.hash, work.target,
 					max_nonce, &hashes_done);
 			break;
 
 #ifdef WANT_CRYPTOPP_ASM32
 		case ALGO_CRYPTOPP_ASM32:
-			rc = scanhash_asm32(work.midstate, work.data + 64,
+			rc = scanhash_asm32(thr_id, work.midstate, work.data + 64,
 				        work.hash1, work.hash, work.target,
 					max_nonce, &hashes_done);
 			break;
@@ -593,6 +594,14 @@ out:
 	tq_freeze(mythr->q);
 
 	return NULL;
+}
+
+void restart_threads(void)
+{
+	int i;
+
+	for (i = 0; i < opt_n_threads; i++)
+		work_restart[i].restart = 1;
 }
 
 static void show_usage(void)
@@ -759,6 +768,10 @@ int main (int argc, char *argv[])
 
 	thr_info = calloc(opt_n_threads + 1, sizeof(*thr));
 	if (!thr_info)
+		return 1;
+
+	work_restart = calloc(opt_n_threads, sizeof(*work_restart));
+	if (!work_restart)
 		return 1;
 
 	work_thr_id = opt_n_threads;

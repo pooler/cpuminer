@@ -91,7 +91,8 @@ static void runhash(void *state, const void *input, const void *init)
 }
 
 /* suspiciously similar to ScanHash* from bitcoin */
-bool scanhash_cryptopp(const unsigned char *midstate, unsigned char *data,
+bool scanhash_cryptopp(int thr_id, const unsigned char *midstate,
+		unsigned char *data,
 	        unsigned char *hash1, unsigned char *hash,
 		const unsigned char *target,
 	        uint32_t max_nonce, unsigned long *hashes_done)
@@ -100,6 +101,8 @@ bool scanhash_cryptopp(const unsigned char *midstate, unsigned char *data,
 	uint32_t *nonce = (uint32_t *)(data + 12);
 	uint32_t n = 0;
 	unsigned long stat_ctr = 0;
+
+	work_restart[thr_id].restart = 0;
 
 	while (1) {
 		n++;
@@ -115,7 +118,7 @@ bool scanhash_cryptopp(const unsigned char *midstate, unsigned char *data,
 			return true;
 		}
 
-		if (n >= max_nonce) {
+		if ((n >= max_nonce) || work_restart[thr_id].restart) {
 			*hashes_done = stat_ctr;
 			return false;
 		}
@@ -573,7 +576,8 @@ static void runhash32(void *state, const void *input, const void *init)
 }
 
 /* suspiciously similar to ScanHash* from bitcoin */
-bool scanhash_asm32(const unsigned char *midstate, unsigned char *data,
+bool scanhash_asm32(int thr_id, const unsigned char *midstate,
+		unsigned char *data,
 	        unsigned char *hash1, unsigned char *hash,
 		const unsigned char *target,
 	        uint32_t max_nonce, unsigned long *hashes_done)
@@ -582,6 +586,8 @@ bool scanhash_asm32(const unsigned char *midstate, unsigned char *data,
 	uint32_t *nonce = (uint32_t *)(data + 12);
 	uint32_t n = 0;
 	unsigned long stat_ctr = 0;
+
+	work_restart[thr_id].restart = 0;
 
 	while (1) {
 		n++;
@@ -599,7 +605,7 @@ bool scanhash_asm32(const unsigned char *midstate, unsigned char *data,
 			return true;
 		}
 
-		if (n >= max_nonce) {
+		if ((n >= max_nonce) || work_restart[thr_id].restart) {
 			if (opt_debug)
 				fprintf(stderr, "DBG: end of nonce range\n");
 			*hashes_done = stat_ctr;

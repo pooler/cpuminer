@@ -74,33 +74,33 @@ extern json_t *json_rpc_call(CURL *curl, const char *url, const char *userpass,
 extern char *bin2hex(const unsigned char *p, size_t len);
 extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
 
-extern unsigned int ScanHash_4WaySSE2(const unsigned char *pmidstate,
+extern unsigned int ScanHash_4WaySSE2(int, const unsigned char *pmidstate,
 	unsigned char *pdata, unsigned char *phash1, unsigned char *phash,
 	const unsigned char *ptarget,
 	uint32_t max_nonce, unsigned long *nHashesDone);
 
-extern unsigned int scanhash_sse2_amd64(const unsigned char *pmidstate,
+extern unsigned int scanhash_sse2_amd64(int, const unsigned char *pmidstate,
 	unsigned char *pdata, unsigned char *phash1, unsigned char *phash,
 	const unsigned char *ptarget,
 	uint32_t max_nonce, unsigned long *nHashesDone);
 
-extern bool scanhash_via(unsigned char *data_inout,
+extern bool scanhash_via(int, unsigned char *data_inout,
 	const unsigned char *target,
 	uint32_t max_nonce, unsigned long *hashes_done);
 
-extern bool scanhash_c(const unsigned char *midstate, unsigned char *data,
+extern bool scanhash_c(int, const unsigned char *midstate, unsigned char *data,
 	      unsigned char *hash1, unsigned char *hash,
 	      const unsigned char *target,
 	      uint32_t max_nonce, unsigned long *hashes_done);
-extern bool scanhash_cryptopp(const unsigned char *midstate,unsigned char *data,
+extern bool scanhash_cryptopp(int, const unsigned char *midstate,unsigned char *data,
 	      unsigned char *hash1, unsigned char *hash,
 	      const unsigned char *target,
 	      uint32_t max_nonce, unsigned long *hashes_done);
-extern bool scanhash_asm32(const unsigned char *midstate,unsigned char *data,
+extern bool scanhash_asm32(int, const unsigned char *midstate,unsigned char *data,
 	      unsigned char *hash1, unsigned char *hash,
 	      const unsigned char *target,
 	      uint32_t max_nonce, unsigned long *hashes_done);
-extern int scanhash_sse2_64(const unsigned char *pmidstate, unsigned char *pdata,
+extern int scanhash_sse2_64(int, const unsigned char *pmidstate, unsigned char *pdata,
 	unsigned char *phash1, unsigned char *phash,
 	const unsigned char *ptarget,
 	uint32_t max_nonce, unsigned long *nHashesDone);
@@ -111,6 +111,13 @@ timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y);
 extern bool fulltest(const unsigned char *hash, const unsigned char *target);
 
 struct thread_q;
+
+struct work_restart {
+	volatile unsigned long	restart;
+};
+
+extern struct work_restart *work_restart;
+extern void restart_threads(void);
 
 extern struct thread_q *tq_new(void);
 extern void tq_free(struct thread_q *tq);
