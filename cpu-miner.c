@@ -500,6 +500,7 @@ static void *miner_thread(void *userdata)
 		struct work work __attribute__((aligned(128)));
 		unsigned long hashes_done;
 		struct timeval tv_start, tv_end, diff;
+		uint64_t max64;
 		bool rc;
 
 		/* obtain new work from internal workio thread */
@@ -576,14 +577,10 @@ static void *miner_thread(void *userdata)
 		hashmeter(thr_id, &diff, hashes_done);
 
 		/* adjust max_nonce to meet target scan time */
-		if (diff.tv_sec > (opt_scantime * 2))
-			max_nonce /= 2;			/* large decrease */
-		else if ((diff.tv_sec > opt_scantime) &&
-			 (max_nonce > 1500000))
-			max_nonce -= 1000000;		/* small decrease */
-		else if ((diff.tv_sec < opt_scantime) &&
-			 (max_nonce < 0xffffec76))
-			max_nonce += 100000;		/* small increase */
+		max64 = ((uint64_t)hashes_done * opt_scantime) / diff.tv_sec;
+		if (max64 > 0xfffffffaULL)
+			max64 = 0xfffffffaULL;
+		max_nonce = max64;
 
 		/* if nonce found, submit work */
 		if (rc && !submit_work(mythr, &work))
