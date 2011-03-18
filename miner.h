@@ -114,6 +114,7 @@ struct thread_q;
 
 struct work_restart {
 	volatile unsigned long	restart;
+	char			padding[128 - sizeof(unsigned long)];
 };
 
 extern struct work_restart *work_restart;
