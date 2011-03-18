@@ -13,6 +13,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <string.h>
 #include <jansson.h>
 #include <curl/curl.h>
@@ -27,6 +28,10 @@ struct data_buffer {
 struct upload_buffer {
 	const void	*buf;
 	size_t		len;
+};
+
+struct header_info {
+	char		*lp_path;
 };
 
 struct tq_ent {
@@ -95,8 +100,62 @@ static size_t upload_data_cb(void *ptr, size_t size, size_t nmemb,
 	return len;
 }
 
+static size_t resp_hdr_cb(void *ptr, size_t size, size_t nmemb, void *user_data)
+{
+	struct header_info *hi = user_data;
+	size_t remlen, slen, ptrlen = size * nmemb;
+	char *rem, *val = NULL, *key = NULL;
+	void *tmp;
+
+	if (opt_protocol)
+		printf("In resp_hdr_cb\n");
+
+	val = calloc(1, ptrlen);
+	key = calloc(1, ptrlen);
+	if (!key || !val)
+		goto out;
+
+	tmp = memchr(ptr, ':', ptrlen);
+	if (!tmp || (tmp == ptr))	/* skip empty keys / blanks */
+		goto out;
+	slen = tmp - ptr;
+	if ((slen + 1) == ptrlen)	/* skip key w/ no value */
+		goto out;
+	memcpy(key, ptr, slen);		/* store & nul term key */
+	key[slen] = 0;
+
+	rem = ptr + slen + 1;		/* trim value's leading whitespace */
+	remlen = ptrlen - slen - 1;
+	while ((remlen > 0) && (isspace(*rem))) {
+		remlen--;
+		rem++;
+	}
+
+	memcpy(val, rem, remlen);	/* store value, trim trailing ws */
+	val[remlen] = 0;
+	while ((*val) && (isspace(val[strlen(val) - 1]))) {
+		val[strlen(val) - 1] = 0;
+	}
+	if (!*val)			/* skip blank value */
+		goto out;
+
+	if (opt_protocol)
+		printf("HTTP hdr(%s): %s\n", key, val);
+
+	if (!strcasecmp("X-Long-Polling", key)) {
+		hi->lp_path = val;	/* steal memory reference */
+		val = NULL;
+	}
+
+out:
+	free(key);
+	free(val);
+	return ptrlen;
+}
+
 json_t *json_rpc_call(CURL *curl, const char *url,
-		      const char *userpass, const char *rpc_req)
+		      const char *userpass, const char *rpc_req,
+		      bool longpoll_scan, bool longpoll)
 {
 	json_t *val, *err_val, *res_val;
 	int rc;
@@ -106,8 +165,14 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	struct curl_slist *headers = NULL;
 	char len_hdr[64];
 	char curl_err_str[CURL_ERROR_SIZE];
+	long timeout = longpoll ? (60 * 60) : (60 * 10);
+	struct header_info hi = { };
+	bool lp_scanning = false;
 
 	/* it is assumed that 'curl' is freshly [re]initialized at this pt */
+
+	if (longpoll_scan)
+		lp_scanning = want_longpoll && !have_longpoll;
 
 	if (opt_protocol)
 		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
@@ -121,6 +186,11 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	curl_easy_setopt(curl, CURLOPT_READDATA, &upload_data);
 	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curl_err_str);
 	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+	curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
+	if (lp_scanning) {
+		curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, resp_hdr_cb);
+		curl_easy_setopt(curl, CURLOPT_HEADERDATA, &hi);
+	}
 	if (userpass) {
 		curl_easy_setopt(curl, CURLOPT_USERPWD, userpass);
 		curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
@@ -147,6 +217,15 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 		fprintf(stderr, "HTTP request failed: %s\n", curl_err_str);
 		goto err_out;
 	}
+
+	/* If X-Long-Polling was found, activate long polling */
+	if (hi.lp_path) {
+		have_longpoll = true;
+		opt_scantime = 60;
+		tq_push(thr_info[longpoll_thr_id].q, hi.lp_path);
+	} else
+		free(hi.lp_path);
+	hi.lp_path = NULL;
 
 	val = json_loads(all_data.buf, &err);
 	if (!val) {

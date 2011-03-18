@@ -42,6 +42,12 @@
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
 
+struct thr_info {
+	int		id;
+	pthread_t	pth;
+	struct thread_q	*q;
+};
+
 static inline uint32_t swab32(uint32_t v)
 {
 #ifdef WANT_BUILTIN_BSWAP
@@ -70,7 +76,7 @@ extern bool opt_debug;
 extern bool opt_protocol;
 extern const uint32_t sha256_init_state[];
 extern json_t *json_rpc_call(CURL *curl, const char *url, const char *userpass,
-			     const char *rpc_req);
+			     const char *rpc_req, bool, bool);
 extern char *bin2hex(const unsigned char *p, size_t len);
 extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
 
@@ -110,6 +116,9 @@ timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y);
 
 extern bool fulltest(const unsigned char *hash, const unsigned char *target);
 
+extern int opt_scantime;
+extern bool want_longpoll;
+extern bool have_longpoll;
 struct thread_q;
 
 struct work_restart {
@@ -117,8 +126,9 @@ struct work_restart {
 	char			padding[128 - sizeof(unsigned long)];
 };
 
+extern struct thr_info *thr_info;
+extern int longpoll_thr_id;
 extern struct work_restart *work_restart;
-extern void restart_threads(void);
 
 extern struct thread_q *tq_new(void);
 extern void tq_free(struct thread_q *tq);

@@ -31,12 +31,6 @@
 #define DEF_RPC_URL		"http://127.0.0.1:8332/"
 #define DEF_RPC_USERPASS	"rpcuser:rpcpass"
 
-struct thr_info {
-	int		id;
-	pthread_t	pth;
-	struct thread_q	*q;
-};
-
 enum workio_commands {
 	WC_GET_WORK,
 	WC_SUBMIT_WORK,
@@ -78,18 +72,21 @@ static const char *algo_names[] = {
 
 bool opt_debug = false;
 bool opt_protocol = false;
+bool want_longpoll = true;
+bool have_longpoll = false;
 static bool opt_quiet = false;
 static int opt_retries = 10;
 static int opt_fail_pause = 30;
-static int opt_scantime = 5;
+int opt_scantime = 5;
 static json_t *opt_config;
 static const bool opt_time = true;
 static enum sha256_algos opt_algo = ALGO_C;
 static int opt_n_threads = 1;
 static char *rpc_url;
 static char *userpass;
-static struct thr_info *thr_info;
+struct thr_info *thr_info;
 static int work_thr_id;
+int longpoll_thr_id;
 struct work_restart *work_restart = NULL;
 
 
@@ -129,6 +126,9 @@ static struct option_help options_help[] = {
 
 	{ "debug",
 	  "(-D) Enable debug output (default: off)" },
+
+	{ "no-longpoll",
+	  "Disable X-Long-Polling support (default: enabled)" },
 
 	{ "protocol-dump",
 	  "(-P) Verbose dump of protocol-level activities (default: off)" },
@@ -170,6 +170,7 @@ static struct option options[] = {
 	{ "scantime", 1, NULL, 's' },
 	{ "url", 1, NULL, 1001 },
 	{ "userpass", 1, NULL, 1002 },
+	{ "no-longpoll", 0, NULL, 1003 },
 	{ }
 };
 
@@ -262,7 +263,7 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 		fprintf(stderr, "DBG: sending RPC call:\n%s", s);
 
 	/* issue JSON-RPC request */
-	val = json_rpc_call(curl, rpc_url, userpass, s);
+	val = json_rpc_call(curl, rpc_url, userpass, s, false, false);
 	if (!val) {
 		fprintf(stderr, "submit_upstream_work json_rpc_call failed\n");
 		goto out;
@@ -285,14 +286,16 @@ out:
 	return rc;
 }
 
+static const char *rpc_req =
+	"{\"method\": \"getwork\", \"params\": [], \"id\":0}\r\n";
+
 static bool get_upstream_work(CURL *curl, struct work *work)
 {
-	static const char *rpc_req =
-		"{\"method\": \"getwork\", \"params\": [], \"id\":0}\r\n";
 	json_t *val;
 	bool rc;
 
-	val = json_rpc_call(curl, rpc_url, userpass, rpc_req);
+	val = json_rpc_call(curl, rpc_url, userpass, rpc_req,
+			    want_longpoll, false);
 	if (!val)
 		return false;
 
@@ -593,12 +596,74 @@ out:
 	return NULL;
 }
 
-void restart_threads(void)
+static void restart_threads(void)
 {
 	int i;
 
 	for (i = 0; i < opt_n_threads; i++)
 		work_restart[i].restart = 1;
+}
+
+static void *longpoll_thread(void *userdata)
+{
+	struct thr_info *mythr = userdata;
+	CURL *curl = NULL;
+	char *copy_start, *hdr_path, *lp_url = NULL;
+	bool need_slash = false;
+	int failures = 0;
+
+	hdr_path = tq_pop(mythr->q, NULL);
+	if (!hdr_path)
+		goto out;
+	copy_start = (*hdr_path == '/') ? (hdr_path + 1) : hdr_path;
+	if (rpc_url[strlen(rpc_url) - 1] != '/')
+		need_slash = true;
+
+	lp_url = malloc(strlen(rpc_url) + strlen(copy_start) + 2);
+	if (!lp_url)
+		goto out;
+
+	sprintf(lp_url, "%s%s%s", rpc_url, need_slash ? "/" : "", copy_start);
+
+	fprintf(stderr, "Long-polling activated for %s\n", lp_url);
+
+	curl = curl_easy_init();
+	if (!curl) {
+		fprintf(stderr, "CURL initialization failed\n");
+		goto out;
+	}
+
+	while (1) {
+		json_t *val;
+
+		val = json_rpc_call(curl, lp_url, userpass, rpc_req,
+				    false, true);
+		if (val) {
+			failures = 0;
+			json_decref(val);
+			fprintf(stderr, "LONGPOLL detected new block\n");
+			restart_threads();
+		} else {
+			if (failures++ < 10) {
+				sleep(30);
+				fprintf(stderr,
+					"longpoll failed, sleeping for 30s\n");
+			} else {
+				fprintf(stderr,
+					"longpoll failed, ending thread\n");
+				goto out;
+			}
+		}
+	}
+
+out:
+	free(hdr_path);
+	free(lp_url);
+	tq_freeze(mythr->q);
+	if (curl)
+		curl_easy_cleanup(curl);
+
+	return NULL;
 }
 
 static void show_usage(void)
@@ -696,6 +761,9 @@ static void parse_arg (int key, char *arg)
 		free(userpass);
 		userpass = strdup(arg);
 		break;
+	case 1003:
+		want_longpoll = false;
+		break;
 	default:
 		show_usage();
 	}
@@ -763,17 +831,18 @@ int main (int argc, char *argv[])
 	if (setpriority(PRIO_PROCESS, 0, 19))
 		perror("setpriority");
 
-	thr_info = calloc(opt_n_threads + 1, sizeof(*thr));
-	if (!thr_info)
-		return 1;
-
 	work_restart = calloc(opt_n_threads, sizeof(*work_restart));
 	if (!work_restart)
 		return 1;
 
+	thr_info = calloc(opt_n_threads + 2, sizeof(*thr));
+	if (!thr_info)
+		return 1;
+
+	/* init workio thread info */
 	work_thr_id = opt_n_threads;
 	thr = &thr_info[work_thr_id];
-	thr->id = opt_n_threads;
+	thr->id = work_thr_id;
 	thr->q = tq_new();
 	if (!thr->q)
 		return 1;
@@ -783,6 +852,23 @@ int main (int argc, char *argv[])
 		fprintf(stderr, "workio thread create failed\n");
 		return 1;
 	}
+
+	/* init longpoll thread info */
+	if (want_longpoll) {
+		longpoll_thr_id = opt_n_threads + 1;
+		thr = &thr_info[longpoll_thr_id];
+		thr->id = longpoll_thr_id;
+		thr->q = tq_new();
+		if (!thr->q)
+			return 1;
+
+		/* start longpoll thread */
+		if (pthread_create(&thr->pth, NULL, longpoll_thread, thr)) {
+			fprintf(stderr, "longpoll thread create failed\n");
+			return 1;
+		}
+	} else
+		longpoll_thr_id = -1;
 
 	/* start mining threads */
 	for (i = 0; i < opt_n_threads; i++) {
