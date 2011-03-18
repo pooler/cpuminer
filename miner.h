@@ -8,6 +8,33 @@
 #include <jansson.h>
 #include <curl/curl.h>
 
+#ifdef STDC_HEADERS
+# include <stdlib.h>
+# include <stddef.h>
+#else
+# ifdef HAVE_STDLIB_H
+#  include <stdlib.h>
+# endif
+#endif
+#ifdef HAVE_ALLOCA_H
+# include <alloca.h>
+#elif defined __GNUC__
+# define alloca __builtin_alloca
+#elif defined _AIX
+# define alloca __alloca
+#elif defined _MSC_VER
+# include <malloc.h>
+# define alloca _alloca
+#else
+# ifndef HAVE_ALLOCA
+#  ifdef  __cplusplus
+extern "C"
+#  endif
+void *alloca (size_t);
+# endif
+#endif
+
+
 #ifdef __SSE2__
 #define WANT_SSE2_4WAY 1
 #endif
@@ -24,6 +51,14 @@
 #define WANT_BUILTIN_BSWAP
 #else
 #include <byteswap.h>
+#endif
+
+#ifdef HAVE_SYSLOG_H
+#include <syslog.h>
+#else
+enum {
+	LOG_INFO,
+};
 #endif
 
 #if defined(__GNUC__) && (__GNUC__ > 2) && defined(__OPTIMIZE__)
@@ -126,10 +161,13 @@ struct work_restart {
 	char			padding[128 - sizeof(unsigned long)];
 };
 
+extern pthread_mutex_t time_lock;
+extern bool use_syslog;
 extern struct thr_info *thr_info;
 extern int longpoll_thr_id;
 extern struct work_restart *work_restart;
 
+extern void applog(int prio, const char *fmt, ...);
 extern struct thread_q *tq_new(void);
 extern void tq_free(struct thread_q *tq);
 extern bool tq_push(struct thread_q *tq, void *data);

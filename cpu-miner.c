@@ -74,6 +74,7 @@ bool opt_debug = false;
 bool opt_protocol = false;
 bool want_longpoll = true;
 bool have_longpoll = false;
+bool use_syslog = false;
 static bool opt_quiet = false;
 static int opt_retries = 10;
 static int opt_fail_pause = 30;
@@ -88,6 +89,7 @@ struct thr_info *thr_info;
 static int work_thr_id;
 int longpoll_thr_id;
 struct work_restart *work_restart = NULL;
+pthread_mutex_t time_lock;
 
 
 struct option_help {
@@ -145,6 +147,11 @@ static struct option_help options_help[] = {
 	  "(-s N) Upper bound on time spent scanning current work,\n"
 	  "\tin seconds. (default: 5)" },
 
+#ifdef HAVE_SYSLOG_H
+	{ "syslog",
+	  "Use system log for output messages (default: standard error)" },
+#endif
+
 	{ "threads N",
 	  "(-t N) Number of miner threads (default: 1)" },
 
@@ -171,6 +178,11 @@ static struct option options[] = {
 	{ "url", 1, NULL, 1001 },
 	{ "userpass", 1, NULL, 1002 },
 	{ "no-longpoll", 0, NULL, 1003 },
+
+#ifdef HAVE_SYSLOG_H
+	{ "syslog", 0, NULL, 1004 },
+#endif
+
 	{ }
 };
 
@@ -240,12 +252,8 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 {
 	char *hexstr = NULL;
 	json_t *val, *res;
-	char s[345], timestr[64];
-	time_t now;
-	struct tm *tm;
+	char s[345];
 	bool rc = false;
-
-	now = time(NULL);
 
 	/* build hex string */
 	hexstr = bin2hex(work->data, sizeof(work->data));
@@ -271,11 +279,8 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 
 	res = json_object_get(val, "result");
 
-	tm = localtime(&now);
-	strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S", tm);
-
-	printf("[%s] PROOF OF WORK RESULT: %s\n",
-	       timestr, json_is_true(res) ? "true (yay!!!)" : "false (booooo)");
+	applog(LOG_INFO, "PROOF OF WORK RESULT: %s",
+	       json_is_true(res) ? "true (yay!!!)" : "false (booooo)");
 
 	json_decref(val);
 
@@ -429,7 +434,7 @@ static void hashmeter(int thr_id, const struct timeval *diff,
 	secs = (double)diff->tv_sec + ((double)diff->tv_usec / 1000000.0);
 
 	if (!opt_quiet)
-		printf("HashMeter(%d): %lu hashes, %.2f khash/sec\n",
+		applog(LOG_INFO, "thread %d: %lu hashes, %.2f khash/sec\n",
 		       thr_id, hashes_done,
 		       khashes / secs);
 }
@@ -625,7 +630,7 @@ static void *longpoll_thread(void *userdata)
 
 	sprintf(lp_url, "%s%s%s", rpc_url, need_slash ? "/" : "", copy_start);
 
-	fprintf(stderr, "Long-polling activated for %s\n", lp_url);
+	applog(LOG_INFO, "Long-polling activated for %s", lp_url);
 
 	curl = curl_easy_init();
 	if (!curl) {
@@ -641,7 +646,8 @@ static void *longpoll_thread(void *userdata)
 		if (val) {
 			failures = 0;
 			json_decref(val);
-			fprintf(stderr, "LONGPOLL detected new block\n");
+
+			applog(LOG_INFO, "LONGPOLL detected new block");
 			restart_threads();
 		} else {
 			if (failures++ < 10) {
@@ -764,6 +770,9 @@ static void parse_arg (int key, char *arg)
 	case 1003:
 		want_longpoll = false;
 		break;
+	case 1004:
+		use_syslog = true;
+		break;
 	default:
 		show_usage();
 	}
@@ -827,6 +836,13 @@ int main (int argc, char *argv[])
 	/* parse command line */
 	parse_cmdline(argc, argv);
 
+	pthread_mutex_init(&time_lock, NULL);
+
+#ifdef HAVE_SYSLOG_H
+	if (use_syslog)
+		openlog("cpuminer", LOG_PID, LOG_USER);
+#endif
+
 	/* set our priority to the highest (aka "nicest, least intrusive") */
 	if (setpriority(PRIO_PROCESS, 0, 19))
 		perror("setpriority");
@@ -887,7 +903,7 @@ int main (int argc, char *argv[])
 		sleep(1);	/* don't pound RPC server all at once */
 	}
 
-	fprintf(stderr, "%d miner threads started, "
+	applog(LOG_INFO, "%d miner threads started, "
 		"using SHA256 '%s' algorithm.\n",
 		opt_n_threads,
 		algo_names[opt_algo]);
@@ -895,7 +911,7 @@ int main (int argc, char *argv[])
 	/* main loop - simply wait for workio thread to exit */
 	pthread_join(thr_info[work_thr_id].pth, NULL);
 
-	fprintf(stderr, "workio thread dead, exiting.\n");
+	applog(LOG_INFO, "workio thread dead, exiting.");
 
 	return 0;
 }

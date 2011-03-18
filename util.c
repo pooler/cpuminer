@@ -14,9 +14,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <stdarg.h>
 #include <string.h>
 #include <jansson.h>
 #include <curl/curl.h>
+#include <time.h>
 #include "miner.h"
 #include "elist.h"
 
@@ -47,6 +49,47 @@ struct thread_q {
 	pthread_mutex_t		mutex;
 	pthread_cond_t		cond;
 };
+
+void applog(int prio, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+
+#ifdef HAVE_SYSLOG_H
+	if (use_syslog) {
+		vsyslog(prio, fmt, ap);
+	}
+#else
+	if (0) {}
+#endif
+	else {
+		char *f;
+		int len;
+		struct timeval tv = { };
+		struct tm tm, *tm_p;
+
+		gettimeofday(&tv, NULL);
+
+		pthread_mutex_lock(&time_lock);
+		tm_p = localtime(&tv.tv_sec);
+		memcpy(&tm, tm_p, sizeof(tm));
+		pthread_mutex_unlock(&time_lock);
+
+		len = 40 + strlen(fmt) + 2;
+		f = alloca(len);
+		sprintf(f, "[%d-%02d-%02d %02d:%02d:%02d] %s\n",
+			tm.tm_year + 1900,
+			tm.tm_mon,
+			tm.tm_mday,
+			tm.tm_hour,
+			tm.tm_min,
+			tm.tm_sec,
+			fmt);
+		vfprintf(stderr, f, ap);	/* atomic write to stderr */
+	}
+	va_end(ap);
+}
 
 static void databuf_free(struct data_buffer *db)
 {

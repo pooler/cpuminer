@@ -16,6 +16,9 @@ AC_PROG_RANLIB
 
 dnl Checks for header files.
 AC_HEADER_STDC
+AC_CHECK_HEADERS(syslog.h)
+
+AC_FUNC_ALLOCA
 
 case $host in
   *-*-mingw*)
