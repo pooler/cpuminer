@@ -29,7 +29,9 @@
 
 #define PROGRAM_NAME		"minerd"
 #define DEF_RPC_URL		"http://127.0.0.1:8332/"
-#define DEF_RPC_USERPASS	"rpcuser:rpcpass"
+#define DEF_RPC_USERNAME	"rpcuser"
+#define DEF_RPC_PASSWORD	"rpcpass"
+#define DEF_RPC_USERPASS	DEF_RPC_USERNAME ":" DEF_RPC_PASSWORD
 
 enum workio_commands {
 	WC_GET_WORK,
@@ -84,7 +86,8 @@ static const bool opt_time = true;
 static enum sha256_algos opt_algo = ALGO_C;
 static int opt_n_threads = 1;
 static char *rpc_url;
-static char *userpass;
+static char *rpc_userpass;
+static char *rpc_user, *rpc_pass;
 struct thr_info *thr_info;
 static int work_thr_id;
 int longpoll_thr_id;
@@ -162,26 +165,35 @@ static struct option_help options_help[] = {
 	{ "userpass USERNAME:PASSWORD",
 	  "Username:Password pair for bitcoin JSON-RPC server "
 	  "(default: " DEF_RPC_USERPASS ")" },
+
+	{ "user USERNAME",
+	  "(-u USERNAME) Username for bitcoin JSON-RPC server "
+	  "(default: " DEF_RPC_USERNAME ")" },
+
+	{ "pass PASSWORD",
+	  "(-p USERNAME) Password for bitcoin JSON-RPC server "
+	  "(default: " DEF_RPC_PASSWORD ")" },
 };
 
 static struct option options[] = {
-	{ "help", 0, NULL, 'h' },
 	{ "algo", 1, NULL, 'a' },
 	{ "config", 1, NULL, 'c' },
-	{ "quiet", 0, NULL, 'q' },
 	{ "debug", 0, NULL, 'D' },
+	{ "help", 0, NULL, 'h' },
+	{ "no-longpoll", 0, NULL, 1003 },
+	{ "pass", 1, NULL, 'p' },
 	{ "protocol-dump", 0, NULL, 'P' },
+	{ "quiet", 0, NULL, 'q' },
 	{ "threads", 1, NULL, 't' },
 	{ "retries", 1, NULL, 'r' },
 	{ "retry-pause", 1, NULL, 'R' },
 	{ "scantime", 1, NULL, 's' },
-	{ "url", 1, NULL, 1001 },
-	{ "userpass", 1, NULL, 1002 },
-	{ "no-longpoll", 0, NULL, 1003 },
-
 #ifdef HAVE_SYSLOG_H
 	{ "syslog", 0, NULL, 1004 },
 #endif
+	{ "url", 1, NULL, 1001 },
+	{ "user", 1, NULL, 'u' },
+	{ "userpass", 1, NULL, 1002 },
 
 	{ }
 };
@@ -271,7 +283,7 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 		applog(LOG_DEBUG, "DBG: sending RPC call: %s", s);
 
 	/* issue JSON-RPC request */
-	val = json_rpc_call(curl, rpc_url, userpass, s, false, false);
+	val = json_rpc_call(curl, rpc_url, rpc_userpass, s, false, false);
 	if (!val) {
 		applog(LOG_ERR, "submit_upstream_work json_rpc_call failed");
 		goto out;
@@ -299,7 +311,7 @@ static bool get_upstream_work(CURL *curl, struct work *work)
 	json_t *val;
 	bool rc;
 
-	val = json_rpc_call(curl, rpc_url, userpass, rpc_req,
+	val = json_rpc_call(curl, rpc_url, rpc_userpass, rpc_req,
 			    want_longpoll, false);
 	if (!val)
 		return false;
@@ -644,7 +656,7 @@ static void *longpoll_thread(void *userdata)
 	while (1) {
 		json_t *val;
 
-		val = json_rpc_call(curl, lp_url, userpass, rpc_req,
+		val = json_rpc_call(curl, lp_url, rpc_userpass, rpc_req,
 				    false, true);
 		if (val) {
 			failures = 0;
@@ -724,6 +736,10 @@ static void parse_arg (int key, char *arg)
 	case 'D':
 		opt_debug = true;
 		break;
+	case 'p':
+		free(rpc_pass);
+		rpc_pass = strdup(arg);
+		break;
 	case 'P':
 		opt_protocol = true;
 		break;
@@ -755,6 +771,10 @@ static void parse_arg (int key, char *arg)
 
 		opt_n_threads = v;
 		break;
+	case 'u':
+		free(rpc_user);
+		rpc_user = strdup(arg);
+		break;
 	case 1001:			/* --url */
 		if (strncmp(arg, "http://", 7) &&
 		    strncmp(arg, "https://", 8))
@@ -767,8 +787,8 @@ static void parse_arg (int key, char *arg)
 		if (!strchr(arg, ':'))
 			show_usage();
 
-		free(userpass);
-		userpass = strdup(arg);
+		free(rpc_userpass);
+		rpc_userpass = strdup(arg);
 		break;
 	case 1003:
 		want_longpoll = false;
@@ -834,10 +854,17 @@ int main (int argc, char *argv[])
 	int i;
 
 	rpc_url = strdup(DEF_RPC_URL);
-	userpass = strdup(DEF_RPC_USERPASS);
+	rpc_userpass = strdup(DEF_RPC_USERPASS);
 
 	/* parse command line */
 	parse_cmdline(argc, argv);
+
+	if (!rpc_userpass && rpc_user && rpc_pass) {
+		rpc_userpass = malloc(strlen(rpc_user) + strlen(rpc_pass) + 2);
+		if (!rpc_userpass)
+			return 1;
+		sprintf(rpc_userpass, "%s:%s", rpc_user, rpc_pass);
+	}
 
 	pthread_mutex_init(&time_lock, NULL);
 
