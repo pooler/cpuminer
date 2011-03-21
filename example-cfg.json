@@ -3,11 +3,11 @@
 	"_comment2" : "may be used in this JSON configuration file",
 
 	"url" : "http://127.0.0.1:8332",
-	"userpass" : "rpcuser:rpcpass",
+	"user" : "rpcuser",
+	"pass" : "rpcpass",
 
-	"algo" : "4way",
+	"algo" : "sse2_64",
 	"threads" : "4",
 
 	"quiet" : true,
-	"debug" : true
 }
