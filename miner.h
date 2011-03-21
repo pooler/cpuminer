@@ -1,6 +1,8 @@
 #ifndef __MINER_H__
 #define __MINER_H__
 
+#include "cpuminer-config.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/time.h>

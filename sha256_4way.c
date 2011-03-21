@@ -4,6 +4,7 @@
 
 // tcatm's 4-way 128-bit SSE2 SHA-256
 
+#include "cpuminer-config.h"
 #include "miner.h"
 
 #ifdef WANT_SSE2_4WAY
