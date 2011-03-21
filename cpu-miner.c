@@ -203,12 +203,12 @@ static bool jobj_binary(const json_t *obj, const char *key,
 
 	tmp = json_object_get(obj, key);
 	if (!tmp) {
-		fprintf(stderr, "JSON key '%s' not found\n", key);
+		applog(LOG_ERR, "JSON key '%s' not found", key);
 		return false;
 	}
 	hexstr = json_string_value(tmp);
 	if (!hexstr) {
-		fprintf(stderr, "JSON key '%s' is not a string\n", key);
+		applog(LOG_ERR, "JSON key '%s' is not a string", key);
 		return false;
 	}
 	if (!hex2bin(buf, hexstr, buflen))
@@ -221,22 +221,22 @@ static bool work_decode(const json_t *val, struct work *work)
 {
 	if (!jobj_binary(val, "midstate",
 			 work->midstate, sizeof(work->midstate))) {
-		fprintf(stderr, "JSON inval midstate\n");
+		applog(LOG_ERR, "JSON inval midstate");
 		goto err_out;
 	}
 
 	if (!jobj_binary(val, "data", work->data, sizeof(work->data))) {
-		fprintf(stderr, "JSON inval data\n");
+		applog(LOG_ERR, "JSON inval data");
 		goto err_out;
 	}
 
 	if (!jobj_binary(val, "hash1", work->hash1, sizeof(work->hash1))) {
-		fprintf(stderr, "JSON inval hash1\n");
+		applog(LOG_ERR, "JSON inval hash1");
 		goto err_out;
 	}
 
 	if (!jobj_binary(val, "target", work->target, sizeof(work->target))) {
-		fprintf(stderr, "JSON inval target\n");
+		applog(LOG_ERR, "JSON inval target");
 		goto err_out;
 	}
 
@@ -258,7 +258,7 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 	/* build hex string */
 	hexstr = bin2hex(work->data, sizeof(work->data));
 	if (!hexstr) {
-		fprintf(stderr, "submit_upstream_work OOM\n");
+		applog(LOG_ERR, "submit_upstream_work OOM");
 		goto out;
 	}
 
@@ -268,12 +268,12 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 		hexstr);
 
 	if (opt_debug)
-		fprintf(stderr, "DBG: sending RPC call:\n%s", s);
+		applog(LOG_DEBUG, "DBG: sending RPC call: %s", s);
 
 	/* issue JSON-RPC request */
 	val = json_rpc_call(curl, rpc_url, userpass, s, false, false);
 	if (!val) {
-		fprintf(stderr, "submit_upstream_work json_rpc_call failed\n");
+		applog(LOG_ERR, "submit_upstream_work json_rpc_call failed");
 		goto out;
 	}
 
@@ -339,16 +339,14 @@ static bool workio_get_work(struct workio_cmd *wc, CURL *curl)
 
 	/* obtain new work from bitcoin via JSON-RPC */
 	while (!get_upstream_work(curl, ret_work)) {
-		fprintf(stderr, "json_rpc_call failed, ");
-
 		if ((opt_retries >= 0) && (++failures > opt_retries)) {
-			fprintf(stderr, "terminating workio thread\n");
+			applog(LOG_ERR, "json_rpc_call failed, terminating workio thread");
 			free(ret_work);
 			return false;
 		}
 
 		/* pause, then restart work-request loop */
-		fprintf(stderr, "retry after %d seconds\n",
+		applog(LOG_ERR, "json_rpc_call failed, retry after %d seconds",
 			opt_fail_pause);
 		sleep(opt_fail_pause);
 	}
@@ -367,12 +365,12 @@ static bool workio_submit_work(struct workio_cmd *wc, CURL *curl)
 	/* submit solution to bitcoin via JSON-RPC */
 	while (!submit_upstream_work(curl, wc->u.work)) {
 		if ((opt_retries >= 0) && (++failures > opt_retries)) {
-			fprintf(stderr, "...terminating workio thread\n");
+			applog(LOG_ERR, "...terminating workio thread");
 			return false;
 		}
 
 		/* pause, then restart work-request loop */
-		fprintf(stderr, "...retry after %d seconds\n",
+		applog(LOG_ERR, "...retry after %d seconds",
 			opt_fail_pause);
 		sleep(opt_fail_pause);
 	}
@@ -388,7 +386,7 @@ static void *workio_thread(void *userdata)
 
 	curl = curl_easy_init();
 	if (!curl) {
-		fprintf(stderr, "CURL initialization failed\n");
+		applog(LOG_ERR, "CURL initialization failed");
 		return NULL;
 	}
 
@@ -513,8 +511,8 @@ static void *miner_thread(void *userdata)
 
 		/* obtain new work from internal workio thread */
 		if (!get_work(mythr, &work)) {
-			fprintf(stderr, "work retrieval failed, exiting "
-				"mining thread %d\n", mythr->id);
+			applog(LOG_ERR, "work retrieval failed, exiting "
+				"mining thread %d", mythr->id);
 			goto out;
 		}
 
@@ -639,7 +637,7 @@ static void *longpoll_thread(void *userdata)
 
 	curl = curl_easy_init();
 	if (!curl) {
-		fprintf(stderr, "CURL initialization failed\n");
+		applog(LOG_ERR, "CURL initialization failed");
 		goto out;
 	}
 
@@ -657,10 +655,10 @@ static void *longpoll_thread(void *userdata)
 		} else {
 			if (failures++ < 10) {
 				sleep(30);
-				fprintf(stderr,
+				applog(LOG_ERR,
 					"longpoll failed, sleeping for 30s\n");
 			} else {
-				fprintf(stderr,
+				applog(LOG_ERR,
 					"longpoll failed, ending thread\n");
 				goto out;
 			}
@@ -715,7 +713,7 @@ static void parse_arg (int key, char *arg)
 			json_decref(opt_config);
 		opt_config = json_load_file(arg, &err);
 		if (!json_is_object(opt_config)) {
-			fprintf(stderr, "JSON decode of %s failed\n", arg);
+			applog(LOG_ERR, "JSON decode of %s failed", arg);
 			show_usage();
 		}
 		break;
@@ -810,7 +808,7 @@ static void parse_config(void)
 		} else if (!options[i].has_arg && json_is_true(val))
 			parse_arg(options[i].val, "");
 		else
-			fprintf(stderr, "JSON option %s invalid\n",
+			applog(LOG_ERR, "JSON option %s invalid",
 				options[i].name);
 	}
 }
@@ -870,7 +868,7 @@ int main (int argc, char *argv[])
 
 	/* start work I/O thread */
 	if (pthread_create(&thr->pth, NULL, workio_thread, thr)) {
-		fprintf(stderr, "workio thread create failed\n");
+		applog(LOG_ERR, "workio thread create failed");
 		return 1;
 	}
 
@@ -885,7 +883,7 @@ int main (int argc, char *argv[])
 
 		/* start longpoll thread */
 		if (pthread_create(&thr->pth, NULL, longpoll_thread, thr)) {
-			fprintf(stderr, "longpoll thread create failed\n");
+			applog(LOG_ERR, "longpoll thread create failed");
 			return 1;
 		}
 	} else
@@ -901,7 +899,7 @@ int main (int argc, char *argv[])
 			return 1;
 
 		if (pthread_create(&thr->pth, NULL, miner_thread, thr)) {
-			fprintf(stderr, "thread %d create failed\n", i);
+			applog(LOG_ERR, "thread %d create failed", i);
 			return 1;
 		}
 

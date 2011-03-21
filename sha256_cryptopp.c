@@ -608,8 +608,6 @@ bool scanhash_asm32(int thr_id, const unsigned char *midstate,
 		}
 
 		if ((n >= max_nonce) || work_restart[thr_id].restart) {
-			if (opt_debug)
-				fprintf(stderr, "DBG: end of nonce range\n");
 			*hashes_done = stat_ctr;
 			return false;
 		}

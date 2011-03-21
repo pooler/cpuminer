@@ -59,7 +59,10 @@ void *alloca (size_t);
 #include <syslog.h>
 #else
 enum {
+	LOG_ERR,
+	LOG_WARNING,
 	LOG_INFO,
+	LOG_DEBUG,
 };
 #endif
 

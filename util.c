@@ -150,9 +150,6 @@ static size_t resp_hdr_cb(void *ptr, size_t size, size_t nmemb, void *user_data)
 	char *rem, *val = NULL, *key = NULL;
 	void *tmp;
 
-	if (opt_protocol)
-		printf("In resp_hdr_cb\n");
-
 	val = calloc(1, ptrlen);
 	key = calloc(1, ptrlen);
 	if (!key || !val)
@@ -183,7 +180,7 @@ static size_t resp_hdr_cb(void *ptr, size_t size, size_t nmemb, void *user_data)
 		goto out;
 
 	if (opt_protocol)
-		printf("HTTP hdr(%s): %s\n", key, val);
+		applog(LOG_DEBUG, "HTTP hdr(%s): %s", key, val);
 
 	if (!strcasecmp("X-Long-Polling", key)) {
 		hi->lp_path = val;	/* steal memory reference */
@@ -241,7 +238,7 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	curl_easy_setopt(curl, CURLOPT_POST, 1);
 
 	if (opt_protocol)
-		printf("JSON protocol request:\n%s\n", rpc_req);
+		applog(LOG_DEBUG, "JSON protocol request:\n%s\n", rpc_req);
 
 	upload_data.buf = rpc_req;
 	upload_data.len = strlen(rpc_req);
@@ -257,7 +254,7 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 
 	rc = curl_easy_perform(curl);
 	if (rc) {
-		fprintf(stderr, "HTTP request failed: %s\n", curl_err_str);
+		applog(LOG_ERR, "HTTP request failed: %s", curl_err_str);
 		goto err_out;
 	}
 
@@ -272,13 +269,13 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 
 	val = json_loads(all_data.buf, &err);
 	if (!val) {
-		fprintf(stderr, "JSON decode failed(%d): %s\n", err.line, err.text);
+		applog(LOG_ERR, "JSON decode failed(%d): %s", err.line, err.text);
 		goto err_out;
 	}
 
 	if (opt_protocol) {
 		char *s = json_dumps(val, JSON_INDENT(3));
-		printf("JSON protocol response:\n%s\n", s);
+		applog(LOG_DEBUG, "JSON protocol response:\n%s", s);
 		free(s);
 	}
 
@@ -297,7 +294,7 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 		else
 			s = strdup("(unknown reason)");
 
-		fprintf(stderr, "JSON-RPC call failed: %s\n", s);
+		applog(LOG_ERR, "JSON-RPC call failed: %s", s);
 
 		free(s);
 
@@ -336,7 +333,7 @@ bool hex2bin(unsigned char *p, const char *hexstr, size_t len)
 		unsigned int v;
 
 		if (!hexstr[1]) {
-			fprintf(stderr, "hex2bin str truncated\n");
+			applog(LOG_ERR, "hex2bin str truncated");
 			return false;
 		}
 
@@ -345,8 +342,7 @@ bool hex2bin(unsigned char *p, const char *hexstr, size_t len)
 		hex_byte[2] = 0;
 
 		if (sscanf(hex_byte, "%x", &v) != 1) {
-			fprintf(stderr, "hex2bin sscanf '%s' failed\n",
-				hex_byte);
+			applog(LOG_ERR, "hex2bin sscanf '%s' failed", hex_byte);
 			return false;
 		}
 
@@ -421,7 +417,7 @@ bool fulltest(const unsigned char *hash, const unsigned char *target)
 		hash_str = bin2hex(hash_swap, 32);
 		target_str = bin2hex(target_swap, 32);
 
-		fprintf(stderr, " Proof: %s\nTarget: %s\nTrgVal? %s\n",
+		applog(LOG_DEBUG, " Proof: %s\nTarget: %s\nTrgVal? %s",
 			hash_str,
 			target_str,
 			rc ? "YES (hash < target)" :
