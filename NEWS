@@ -1,4 +1,16 @@
 
+Version 0.8 - March 21, 2011
+
+- Support long polling: http://deepbit.net/longpolling.php
+
+- Adjust max workload based on scantime (default 5 seconds,
+  or 60 seconds for longpoll)
+
+- Standardize program output, and support syslog on Unix platforms
+
+- Suport --user/--pass options (and "user" and "pass" in config file),
+  as an alternative to the current --userpass
+
 Version 0.7.2 - March 14, 2011
 
 - Add port of ufasoft's sse2 assembly implementation (Linux only)
