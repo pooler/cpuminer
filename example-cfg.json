@@ -9,5 +9,5 @@
 	"algo" : "sse2_64",
 	"threads" : "4",
 
-	"quiet" : true,
+	"quiet" : true
 }
