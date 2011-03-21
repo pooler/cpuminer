@@ -434,7 +434,7 @@ static void hashmeter(int thr_id, const struct timeval *diff,
 	secs = (double)diff->tv_sec + ((double)diff->tv_usec / 1000000.0);
 
 	if (!opt_quiet)
-		applog(LOG_INFO, "thread %d: %lu hashes, %.2f khash/sec\n",
+		applog(LOG_INFO, "thread %d: %lu hashes, %.2f khash/sec",
 		       thr_id, hashes_done,
 		       khashes / secs);
 }
