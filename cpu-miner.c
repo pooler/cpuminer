@@ -585,10 +585,15 @@ static void *miner_thread(void *userdata)
 		hashmeter(thr_id, &diff, hashes_done);
 
 		/* adjust max_nonce to meet target scan time */
-		max64 = ((uint64_t)hashes_done * opt_scantime) / diff.tv_sec;
-		if (max64 > 0xfffffffaULL)
-			max64 = 0xfffffffaULL;
-		max_nonce = max64;
+		if (diff.tv_usec > 500000)
+			diff.tv_sec++;
+		if (diff.tv_sec > 0) {
+			max64 =
+			   ((uint64_t)hashes_done * opt_scantime) / diff.tv_sec;
+			if (max64 > 0xfffffffaULL)
+				max64 = 0xfffffffaULL;
+			max_nonce = max64;
+		}
 
 		/* if nonce found, submit work */
 		if (rc && !submit_work(mythr, &work))
