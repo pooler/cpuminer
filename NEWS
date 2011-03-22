@@ -1,4 +1,13 @@
 
+Version 0.8.1 - March 22, 2011
+
+- Make --user, --pass actually work
+
+- Add User-Agent HTTP header to requests, so that server operators may
+  more easily identify the miner client.
+
+- Fix minor bug in example JSON config file
+
 Version 0.8 - March 21, 2011
 
 - Support long polling: http://deepbit.net/longpolling.php
