@@ -171,7 +171,7 @@ static struct option_help options_help[] = {
 	  "(default: " DEF_RPC_USERNAME ")" },
 
 	{ "pass PASSWORD",
-	  "(-p USERNAME) Password for bitcoin JSON-RPC server "
+	  "(-p PASSWORD) Password for bitcoin JSON-RPC server "
 	  "(default: " DEF_RPC_PASSWORD ")" },
 };
 
@@ -668,10 +668,10 @@ static void *longpoll_thread(void *userdata)
 			if (failures++ < 10) {
 				sleep(30);
 				applog(LOG_ERR,
-					"longpoll failed, sleeping for 30s\n");
+					"longpoll failed, sleeping for 30s");
 			} else {
 				applog(LOG_ERR,
-					"longpoll failed, ending thread\n");
+					"longpoll failed, ending thread");
 				goto out;
 			}
 		}
@@ -854,12 +854,15 @@ int main (int argc, char *argv[])
 	int i;
 
 	rpc_url = strdup(DEF_RPC_URL);
-	rpc_userpass = strdup(DEF_RPC_USERPASS);
 
 	/* parse command line */
 	parse_cmdline(argc, argv);
 
-	if (!rpc_userpass && rpc_user && rpc_pass) {
+	if (!rpc_userpass) {
+		if (!rpc_user || !rpc_pass) {
+			applog(LOG_ERR, "No login credentials supplied");
+			return 1;
+		}
 		rpc_userpass = malloc(strlen(rpc_user) + strlen(rpc_pass) + 2);
 		if (!rpc_userpass)
 			return 1;
@@ -934,7 +937,7 @@ int main (int argc, char *argv[])
 	}
 
 	applog(LOG_INFO, "%d miner threads started, "
-		"using SHA256 '%s' algorithm.\n",
+		"using SHA256 '%s' algorithm.",
 		opt_n_threads,
 		algo_names[opt_algo]);
 
