@@ -635,15 +635,25 @@ static void *longpoll_thread(void *userdata)
 	hdr_path = tq_pop(mythr->q, NULL);
 	if (!hdr_path)
 		goto out;
-	copy_start = (*hdr_path == '/') ? (hdr_path + 1) : hdr_path;
-	if (rpc_url[strlen(rpc_url) - 1] != '/')
-		need_slash = true;
 
-	lp_url = malloc(strlen(rpc_url) + strlen(copy_start) + 2);
-	if (!lp_url)
-		goto out;
+	/* full URL */
+	if (strstr(hdr_path, "://")) {
+		lp_url = hdr_path;
+		hdr_path = NULL;
+	}
+	
+	/* absolute path, on current server */
+	else {
+		copy_start = (*hdr_path == '/') ? (hdr_path + 1) : hdr_path;
+		if (rpc_url[strlen(rpc_url) - 1] != '/')
+			need_slash = true;
 
-	sprintf(lp_url, "%s%s%s", rpc_url, need_slash ? "/" : "", copy_start);
+		lp_url = malloc(strlen(rpc_url) + strlen(copy_start) + 2);
+		if (!lp_url)
+			goto out;
+
+		sprintf(lp_url, "%s%s%s", rpc_url, need_slash ? "/" : "", copy_start);
+	}
 
 	applog(LOG_INFO, "Long-polling activated for %s", lp_url);
 
