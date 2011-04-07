@@ -72,7 +72,7 @@ else
     has_yasm=false
   fi
 fi
-if test "x$has_yasm" != "x" ; then
+if test "x$has_yasm" == "xtrue" ; then
   AC_MSG_RESULT([yes])
 else
   AC_MSG_RESULT([no])
