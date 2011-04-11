@@ -19,6 +19,8 @@ cpuminer-config.h*
 compile
 config.log
 config.status
+config.guess
+config.sub
 
 mingw32-config.cache
 
