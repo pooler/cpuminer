@@ -1,4 +1,12 @@
 
+Version 1.0 - May 9, 2011
+
+- jansson 2.0 compatibility
+- correct off-by-one in date (month) display output
+- fix platform detection
+- improve yasm configure bits
+- support full URL, in X-Long-Polling header
+
 Version 0.8.1 - March 22, 2011
 
 - Make --user, --pass actually work
