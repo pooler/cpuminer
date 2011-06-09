@@ -856,7 +856,10 @@ static void parse_arg (int key, char *arg)
 		show_usage();
 	}
 
-#ifndef WIN32
+#ifdef WIN32
+	if (!opt_n_threads)
+		opt_n_threads = 1;
+#else
 	num_processors = sysconf(_SC_NPROCESSORS_ONLN);
 	if (!opt_n_threads)
 		opt_n_threads = num_processors;
