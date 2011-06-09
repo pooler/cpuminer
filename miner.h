@@ -87,12 +87,14 @@ enum {
 };
 #endif
 
+#undef unlikely
+#undef likely
 #if defined(__GNUC__) && (__GNUC__ > 2) && defined(__OPTIMIZE__)
-#undef unlikely
-#define unlikely(expr) (__builtin_expect((expr), 0))
+#define unlikely(expr) (__builtin_expect(!!(expr), 0))
+#define likely(expr) (__builtin_expect(!!(expr), 1))
 #else
-#undef unlikely
 #define unlikely(expr) (expr)
+#define likely(expr) (expr)
 #endif
 
 #if defined(__i386__)

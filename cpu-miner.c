@@ -9,6 +9,7 @@
  */
 
 #include "cpuminer-config.h"
+#define _GNU_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,35 @@
 #define DEF_RPC_PASSWORD	"rpcpass"
 #define DEF_RPC_USERPASS	DEF_RPC_USERNAME ":" DEF_RPC_PASSWORD
 
+#ifdef __linux /* Linux specific policy and affinity management */
+#include <sched.h>
+static inline void drop_policy(void)
+{
+	struct sched_param param;
+
+	if (unlikely(sched_setscheduler(0, SCHED_IDLE, &param) == -1))
+		sched_setscheduler(0, SCHED_BATCH, &param);
+}
+
+static inline void affine_to_cpu(int id, int cpu)
+{
+	cpu_set_t set;
+
+	CPU_ZERO(&set);
+	CPU_SET(cpu, &set);
+	sched_setaffinity(0, sizeof(&set), &set);
+	applog(LOG_INFO, "Binding thread %d to cpu %d", id, cpu);
+}
+#else
+static inline void drop_policy(void)
+{
+}
+
+static inline void affine_to_cpu(int id, int cpu)
+{
+}
+#endif
+		
 enum workio_commands {
 	WC_GET_WORK,
 	WC_SUBMIT_WORK,
@@ -83,8 +113,13 @@ static int opt_fail_pause = 30;
 int opt_scantime = 5;
 static json_t *opt_config;
 static const bool opt_time = true;
+#ifdef WANT_X8664_SSE2
+static enum sha256_algos opt_algo = ALGO_SSE2_64;
+#else
 static enum sha256_algos opt_algo = ALGO_C;
-static int opt_n_threads = 1;
+#endif
+static int opt_n_threads;
+static int num_processors;
 static char *rpc_url;
 static char *rpc_userpass;
 static char *rpc_user, *rpc_pass;
@@ -214,12 +249,12 @@ static bool jobj_binary(const json_t *obj, const char *key,
 	json_t *tmp;
 
 	tmp = json_object_get(obj, key);
-	if (!tmp) {
+	if (unlikely(!tmp)) {
 		applog(LOG_ERR, "JSON key '%s' not found", key);
 		return false;
 	}
 	hexstr = json_string_value(tmp);
-	if (!hexstr) {
+	if (unlikely(!hexstr)) {
 		applog(LOG_ERR, "JSON key '%s' is not a string", key);
 		return false;
 	}
@@ -231,23 +266,23 @@ static bool jobj_binary(const json_t *obj, const char *key,
 
 static bool work_decode(const json_t *val, struct work *work)
 {
-	if (!jobj_binary(val, "midstate",
-			 work->midstate, sizeof(work->midstate))) {
+	if (unlikely(!jobj_binary(val, "midstate",
+			 work->midstate, sizeof(work->midstate)))) {
 		applog(LOG_ERR, "JSON inval midstate");
 		goto err_out;
 	}
 
-	if (!jobj_binary(val, "data", work->data, sizeof(work->data))) {
+	if (unlikely(!jobj_binary(val, "data", work->data, sizeof(work->data)))) {
 		applog(LOG_ERR, "JSON inval data");
 		goto err_out;
 	}
 
-	if (!jobj_binary(val, "hash1", work->hash1, sizeof(work->hash1))) {
+	if (unlikely(!jobj_binary(val, "hash1", work->hash1, sizeof(work->hash1)))) {
 		applog(LOG_ERR, "JSON inval hash1");
 		goto err_out;
 	}
 
-	if (!jobj_binary(val, "target", work->target, sizeof(work->target))) {
+	if (unlikely(!jobj_binary(val, "target", work->target, sizeof(work->target)))) {
 		applog(LOG_ERR, "JSON inval target");
 		goto err_out;
 	}
@@ -269,7 +304,7 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 
 	/* build hex string */
 	hexstr = bin2hex(work->data, sizeof(work->data));
-	if (!hexstr) {
+	if (unlikely(!hexstr)) {
 		applog(LOG_ERR, "submit_upstream_work OOM");
 		goto out;
 	}
@@ -284,7 +319,7 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 
 	/* issue JSON-RPC request */
 	val = json_rpc_call(curl, rpc_url, rpc_userpass, s, false, false);
-	if (!val) {
+	if (unlikely(!val)) {
 		applog(LOG_ERR, "submit_upstream_work json_rpc_call failed");
 		goto out;
 	}
@@ -351,7 +386,7 @@ static bool workio_get_work(struct workio_cmd *wc, CURL *curl)
 
 	/* obtain new work from bitcoin via JSON-RPC */
 	while (!get_upstream_work(curl, ret_work)) {
-		if ((opt_retries >= 0) && (++failures > opt_retries)) {
+		if (unlikely((opt_retries >= 0) && (++failures > opt_retries))) {
 			applog(LOG_ERR, "json_rpc_call failed, terminating workio thread");
 			free(ret_work);
 			return false;
@@ -376,7 +411,7 @@ static bool workio_submit_work(struct workio_cmd *wc, CURL *curl)
 
 	/* submit solution to bitcoin via JSON-RPC */
 	while (!submit_upstream_work(curl, wc->u.work)) {
-		if ((opt_retries >= 0) && (++failures > opt_retries)) {
+		if (unlikely((opt_retries >= 0) && (++failures > opt_retries))) {
 			applog(LOG_ERR, "...terminating workio thread");
 			return false;
 		}
@@ -397,7 +432,7 @@ static void *workio_thread(void *userdata)
 	bool ok = true;
 
 	curl = curl_easy_init();
-	if (!curl) {
+	if (unlikely(!curl)) {
 		applog(LOG_ERR, "CURL initialization failed");
 		return NULL;
 	}
@@ -514,6 +549,17 @@ static void *miner_thread(void *userdata)
 	int thr_id = mythr->id;
 	uint32_t max_nonce = 0xffffff;
 
+	/* Set worker threads to nice 19 and then preferentially to SCHED_IDLE
+	 * and if that fails, then SCHED_BATCH. No need for this to be an
+	 * error if it fails */
+	setpriority(PRIO_PROCESS, 0, 19);
+	drop_policy();
+
+	/* Cpu affinity only makes sense if the number of threads is a multiple
+	 * of the number of CPUs */
+	if (!(opt_n_threads % num_processors))
+		affine_to_cpu(mythr->id, mythr->id % num_processors);
+
 	while (1) {
 		struct work work __attribute__((aligned(128)));
 		unsigned long hashes_done;
@@ -522,7 +568,7 @@ static void *miner_thread(void *userdata)
 		bool rc;
 
 		/* obtain new work from internal workio thread */
-		if (!get_work(mythr, &work)) {
+		if (unlikely(!get_work(mythr, &work))) {
 			applog(LOG_ERR, "work retrieval failed, exiting "
 				"mining thread %d", mythr->id);
 			goto out;
@@ -658,7 +704,7 @@ static void *longpoll_thread(void *userdata)
 	applog(LOG_INFO, "Long-polling activated for %s", lp_url);
 
 	curl = curl_easy_init();
-	if (!curl) {
+	if (unlikely(!curl)) {
 		applog(LOG_ERR, "CURL initialization failed");
 		goto out;
 	}
@@ -668,7 +714,7 @@ static void *longpoll_thread(void *userdata)
 
 		val = json_rpc_call(curl, lp_url, rpc_userpass, rpc_req,
 				    false, true);
-		if (val) {
+		if (likely(val)) {
 			failures = 0;
 			json_decref(val);
 
@@ -809,6 +855,9 @@ static void parse_arg (int key, char *arg)
 	default:
 		show_usage();
 	}
+	num_processors = sysconf(_SC_NPROCESSORS_ONLN);
+	if (!opt_n_threads)
+		opt_n_threads = num_processors;
 }
 
 static void parse_config(void)
@@ -886,10 +935,6 @@ int main (int argc, char *argv[])
 		openlog("cpuminer", LOG_PID, LOG_USER);
 #endif
 
-	/* set our priority to the highest (aka "nicest, least intrusive") */
-	if (setpriority(PRIO_PROCESS, 0, 19))
-		perror("setpriority");
-
 	work_restart = calloc(opt_n_threads, sizeof(*work_restart));
 	if (!work_restart)
 		return 1;
@@ -922,7 +967,7 @@ int main (int argc, char *argv[])
 			return 1;
 
 		/* start longpoll thread */
-		if (pthread_create(&thr->pth, NULL, longpoll_thread, thr)) {
+		if (unlikely(pthread_create(&thr->pth, NULL, longpoll_thread, thr))) {
 			applog(LOG_ERR, "longpoll thread create failed");
 			return 1;
 		}
@@ -938,7 +983,7 @@ int main (int argc, char *argv[])
 		if (!thr->q)
 			return 1;
 
-		if (pthread_create(&thr->pth, NULL, miner_thread, thr)) {
+		if (unlikely(pthread_create(&thr->pth, NULL, miner_thread, thr))) {
 			applog(LOG_ERR, "thread %d create failed", i);
 			return 1;
 		}

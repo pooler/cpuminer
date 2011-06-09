@@ -100,13 +100,13 @@ int scanhash_sse2_64(int thr_id, const unsigned char *pmidstate,
 
 	for (j = 0; j < 4; j++) {
 	    mi.m = m_4hash[7];
-	    if (mi.i[j] == 0)
+	    if (unlikely(mi.i[j] == 0))
 		break;
         }
 
 	/* If j = true, we found a hit...so check it */
 	/* Use the C version for a check... */
-	if (j != 4) {
+	if (unlikely(j != 4)) {
 		for (i = 0; i < 8; i++) {
 		    mi.m = m_4hash[i];
 		    *(uint32_t *)&(phash)[i*4] = mi.i[j];
@@ -121,12 +121,12 @@ int scanhash_sse2_64(int thr_id, const unsigned char *pmidstate,
 
 	nonce += 4;
 
-        if ((nonce >= max_nonce) || work_restart[thr_id].restart)
+        if (unlikely((nonce >= max_nonce) || work_restart[thr_id].restart))
         {
             *nHashesDone = nonce;
             return -1;
-        }
-    }
+	}
+   }
 }
 
 #endif /* WANT_X8664_SSE2 */
