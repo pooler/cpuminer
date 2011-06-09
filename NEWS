@@ -1,3 +1,9 @@
+- Linux x86_64 optimisations - Con Kolivas
+- Optimise for x86_64 by default by using sse2_64 algo
+- Detects CPUs and sets number of threads accordingly
+- Uses CPU affinity for each thread where appropriate
+- Sets scheduling policy to lowest possible
+- Minor performance tweaks
 
 Version 1.0.1 - May 14, 2011
 
