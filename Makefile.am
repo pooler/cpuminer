@@ -19,6 +19,7 @@ minerd_SOURCES	= elist.h miner.h compat.h			\
 		  sha256_cryptopp.c sha256_sse2_amd64.c
 minerd_LDFLAGS	= $(PTHREAD_FLAGS)
 minerd_LDADD	= @LIBCURL@ @JANSSON_LIBS@ @PTHREAD_LIBS@
+minerd_CPPFLAGS = @LIBCURL_CPPFLAGS@
 
 if HAVE_x86_64
 if HAS_YASM
