@@ -855,9 +855,12 @@ static void parse_arg (int key, char *arg)
 	default:
 		show_usage();
 	}
+
+#ifndef WIN32
 	num_processors = sysconf(_SC_NPROCESSORS_ONLN);
 	if (!opt_n_threads)
 		opt_n_threads = num_processors;
+#endif /* !WIN32 */
 }
 
 static void parse_config(void)
