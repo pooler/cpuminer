@@ -40,8 +40,12 @@ static inline void drop_policy(void)
 {
 	struct sched_param param;
 
+#ifdef SCHED_IDLE
 	if (unlikely(sched_setscheduler(0, SCHED_IDLE, &param) == -1))
+#endif
+#ifdef SCHED_BATCH
 		sched_setscheduler(0, SCHED_BATCH, &param);
+#endif
 }
 
 static inline void affine_to_cpu(int id, int cpu)
