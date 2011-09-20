@@ -14,7 +14,7 @@ INCLUDES	= $(PTHREAD_FLAGS) -fno-strict-aliasing $(JANSSON_INCLUDES)
 bin_PROGRAMS	= minerd
 
 minerd_SOURCES	= elist.h miner.h compat.h			\
-		  cpu-miner.c util.c				\
+		  cpu-miner.c util.c scrypt.c			\
 		  sha256_generic.c sha256_4way.c sha256_via.c	\
 		  sha256_cryptopp.c sha256_sse2_amd64.c
 minerd_LDFLAGS	= $(PTHREAD_FLAGS)

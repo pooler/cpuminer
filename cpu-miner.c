@@ -87,6 +87,7 @@ enum sha256_algos {
 	ALGO_CRYPTOPP,		/* Crypto++ (C) */
 	ALGO_CRYPTOPP_ASM32,	/* Crypto++ 32-bit assembly */
 	ALGO_SSE2_64,		/* SSE2 for x86_64 */
+	ALGO_SCRYPT,		/* scrypt(1024,1,1) */
 };
 
 static const char *algo_names[] = {
@@ -104,6 +105,7 @@ static const char *algo_names[] = {
 #ifdef WANT_X8664_SSE2
 	[ALGO_SSE2_64]		= "sse2_64",
 #endif
+	[ALGO_SCRYPT]		= "scrypt",
 };
 
 bool opt_debug = false;
@@ -552,6 +554,7 @@ static void *miner_thread(void *userdata)
 	struct thr_info *mythr = userdata;
 	int thr_id = mythr->id;
 	uint32_t max_nonce = 0xffffff;
+	unsigned char *scratchbuf = NULL;
 
 	/* Set worker threads to nice 19 and then preferentially to SCHED_IDLE
 	 * and if that fails, then SCHED_BATCH. No need for this to be an
@@ -563,6 +566,12 @@ static void *miner_thread(void *userdata)
 	 * of the number of CPUs */
 	if (!(opt_n_threads % num_processors))
 		affine_to_cpu(mythr->id, mythr->id % num_processors);
+	
+	if (opt_algo == ALGO_SCRYPT)
+	{
+		scratchbuf = malloc(131583);
+		max_nonce = 0xffff;
+	}
 
 	while (1) {
 		struct work work __attribute__((aligned(128)));
@@ -632,6 +641,11 @@ static void *miner_thread(void *userdata)
 					max_nonce, &hashes_done);
 			break;
 #endif
+
+		case ALGO_SCRYPT:
+			rc = scanhash_scrypt(thr_id, work.data, scratchbuf,
+			                     work.target, max_nonce, &hashes_done);
+			break;
 
 		default:
 			/* should never happen */

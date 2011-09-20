@@ -173,6 +173,9 @@ extern int scanhash_sse2_64(int, const unsigned char *pmidstate, unsigned char *
 	unsigned char *phash1, unsigned char *phash,
 	const unsigned char *ptarget,
 	uint32_t max_nonce, unsigned long *nHashesDone);
+extern int scanhash_scrypt(int, unsigned char *pdata, unsigned char *scratchbuf,
+	const unsigned char *ptarget,
+	uint32_t max_nonce, unsigned long *nHashesDone);
 
 extern int
 timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y);
