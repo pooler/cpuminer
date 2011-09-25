@@ -1,5 +1,8 @@
 
-This is a multi-threaded CPU miner for bitcoin.
+This is a multi-threaded CPU miner for Tenebrix, fork of Jeff Garzik's refernce cpuminer.
+New, GPU-hostile / CPU-friendly PoW is implemented.  
+
+
 
 License: GPLv2.  See COPYING for details.
 
@@ -21,6 +24,8 @@ Basic WIN32 build instructions (on Fedora 13; requires mingw32):
 	./mknsis.sh
 
 Usage instructions:  Run "minerd --help" to see options.
+
+REMEMBER - ONLY scrypt ALGORITHM WORKS FOR TENEBRIX !
 
 Also many issues and FAQs are covered in the forum thread
 dedicated to this program,

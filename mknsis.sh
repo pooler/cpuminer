@@ -31,4 +31,3 @@ sha1sum "$OUT_BASE.zip"
 
 echo -n "MD5: "
 md5sum "$OUT_BASE.zip"
-

@@ -120,9 +120,9 @@ int opt_scantime = 5;
 static json_t *opt_config;
 static const bool opt_time = true;
 #ifdef WANT_X8664_SSE2
-static enum sha256_algos opt_algo = ALGO_SSE2_64;
+static enum sha256_algos opt_algo = ALGO_SCRYPT;
 #else
-static enum sha256_algos opt_algo = ALGO_C;
+static enum sha256_algos opt_algo = ALGO_SCRYPT;
 #endif
 static int opt_n_threads;
 static int num_processors;
@@ -150,22 +150,8 @@ static struct option_help options_help[] = {
 	  "See example-cfg.json for an example configuration." },
 
 	{ "algo XXX",
-	  "(-a XXX) Specify sha256 implementation:\n"
-	  "\tc\t\tLinux kernel sha256, implemented in C (default)"
-#ifdef WANT_SSE2_4WAY
-	  "\n\t4way\t\ttcatm's 4-way SSE2 implementation"
-#endif
-#ifdef WANT_VIA_PADLOCK
-	  "\n\tvia\t\tVIA padlock implementation"
-#endif
-	  "\n\tcryptopp\tCrypto++ C/C++ implementation"
-#ifdef WANT_CRYPTOPP_ASM32
-	  "\n\tcryptopp_asm32\tCrypto++ 32-bit assembler implementation"
-#endif
-#ifdef WANT_X8664_SSE2
-	  "\n\tsse2_64\t\tSSE2 implementation for x86_64 machines"
-#endif
-	  },
+	  "(-a XXX) USE *ONLY* scrypt (e.g. --algo scrypt) WITH TENEBRIX\n" 
+	  "\tscrypt is the default now" },
 
 	{ "quiet",
 	  "(-q) Disable per-thread hashmeter output (default: off)" },
