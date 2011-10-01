@@ -686,6 +686,8 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 	uint32_t n = 0;
 	uint32_t Htarg = *(uint32_t *)(ptarget + 28);
 	int i;
+
+	work_restart[thr_id].restart = 0;
 	
 	for (i = 0; i < 80/4; i++)
 		((uint32_t *)data)[i] = swab32(((uint32_t *)pdata)[i]);
