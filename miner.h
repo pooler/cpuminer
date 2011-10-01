@@ -37,18 +37,6 @@ void *alloca (size_t);
 #endif
 
 
-#ifdef __SSE2__
-#define WANT_SSE2_4WAY 1
-#endif
-
-#if defined(__i386__) || defined(__x86_64__)
-#define WANT_VIA_PADLOCK 1
-#endif
-
-#if defined(__x86_64__) && defined(__SSE2__) && defined(HAS_YASM)
-#define WANT_X8664_SSE2 1
-#endif
-
 #if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
 #define WANT_BUILTIN_BSWAP
 #else
@@ -97,10 +85,6 @@ enum {
 #define likely(expr) (expr)
 #endif
 
-#if defined(__i386__)
-#define WANT_CRYPTOPP_ASM32
-#endif
-
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
@@ -143,36 +127,6 @@ extern json_t *json_rpc_call(CURL *curl, const char *url, const char *userpass,
 extern char *bin2hex(const unsigned char *p, size_t len);
 extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
 
-extern unsigned int ScanHash_4WaySSE2(int, const unsigned char *pmidstate,
-	unsigned char *pdata, unsigned char *phash1, unsigned char *phash,
-	const unsigned char *ptarget,
-	uint32_t max_nonce, unsigned long *nHashesDone);
-
-extern unsigned int scanhash_sse2_amd64(int, const unsigned char *pmidstate,
-	unsigned char *pdata, unsigned char *phash1, unsigned char *phash,
-	const unsigned char *ptarget,
-	uint32_t max_nonce, unsigned long *nHashesDone);
-
-extern bool scanhash_via(int, unsigned char *data_inout,
-	const unsigned char *target,
-	uint32_t max_nonce, unsigned long *hashes_done);
-
-extern bool scanhash_c(int, const unsigned char *midstate, unsigned char *data,
-	      unsigned char *hash1, unsigned char *hash,
-	      const unsigned char *target,
-	      uint32_t max_nonce, unsigned long *hashes_done);
-extern bool scanhash_cryptopp(int, const unsigned char *midstate,unsigned char *data,
-	      unsigned char *hash1, unsigned char *hash,
-	      const unsigned char *target,
-	      uint32_t max_nonce, unsigned long *hashes_done);
-extern bool scanhash_asm32(int, const unsigned char *midstate,unsigned char *data,
-	      unsigned char *hash1, unsigned char *hash,
-	      const unsigned char *target,
-	      uint32_t max_nonce, unsigned long *hashes_done);
-extern int scanhash_sse2_64(int, const unsigned char *pmidstate, unsigned char *pdata,
-	unsigned char *phash1, unsigned char *phash,
-	const unsigned char *ptarget,
-	uint32_t max_nonce, unsigned long *nHashesDone);
 extern int scanhash_scrypt(int, unsigned char *pdata, unsigned char *scratchbuf,
 	const unsigned char *ptarget,
 	uint32_t max_nonce, unsigned long *nHashesDone);

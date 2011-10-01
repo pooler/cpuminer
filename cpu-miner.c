@@ -81,30 +81,10 @@ struct workio_cmd {
 };
 
 enum sha256_algos {
-	ALGO_C,			/* plain C */
-	ALGO_4WAY,		/* parallel SSE2 */
-	ALGO_VIA,		/* VIA padlock */
-	ALGO_CRYPTOPP,		/* Crypto++ (C) */
-	ALGO_CRYPTOPP_ASM32,	/* Crypto++ 32-bit assembly */
-	ALGO_SSE2_64,		/* SSE2 for x86_64 */
 	ALGO_SCRYPT,		/* scrypt(1024,1,1) */
 };
 
 static const char *algo_names[] = {
-	[ALGO_C]		= "c",
-#ifdef WANT_SSE2_4WAY
-	[ALGO_4WAY]		= "4way",
-#endif
-#ifdef WANT_VIA_PADLOCK
-	[ALGO_VIA]		= "via",
-#endif
-	[ALGO_CRYPTOPP]		= "cryptopp",
-#ifdef WANT_CRYPTOPP_ASM32
-	[ALGO_CRYPTOPP_ASM32]	= "cryptopp_asm32",
-#endif
-#ifdef WANT_X8664_SSE2
-	[ALGO_SSE2_64]		= "sse2_64",
-#endif
 	[ALGO_SCRYPT]		= "scrypt",
 };
 
@@ -119,11 +99,7 @@ static int opt_fail_pause = 30;
 int opt_scantime = 5;
 static json_t *opt_config;
 static const bool opt_time = true;
-#ifdef WANT_X8664_SSE2
 static enum sha256_algos opt_algo = ALGO_SCRYPT;
-#else
-static enum sha256_algos opt_algo = ALGO_SCRYPT;
-#endif
 static int opt_n_threads;
 static int num_processors;
 static char *rpc_url;
@@ -578,56 +554,6 @@ static void *miner_thread(void *userdata)
 
 		/* scan nonces for a proof-of-work hash */
 		switch (opt_algo) {
-		case ALGO_C:
-			rc = scanhash_c(thr_id, work.midstate, work.data + 64,
-				        work.hash1, work.hash, work.target,
-					max_nonce, &hashes_done);
-			break;
-
-#ifdef WANT_X8664_SSE2
-		case ALGO_SSE2_64: {
-			unsigned int rc5 =
-			        scanhash_sse2_64(thr_id, work.midstate, work.data + 64,
-						 work.hash1, work.hash,
-						 work.target,
-					         max_nonce, &hashes_done);
-			rc = (rc5 == -1) ? false : true;
-			}
-			break;
-#endif
-
-#ifdef WANT_SSE2_4WAY
-		case ALGO_4WAY: {
-			unsigned int rc4 =
-				ScanHash_4WaySSE2(thr_id, work.midstate, work.data + 64,
-						  work.hash1, work.hash,
-						  work.target,
-						  max_nonce, &hashes_done);
-			rc = (rc4 == -1) ? false : true;
-			}
-			break;
-#endif
-
-#ifdef WANT_VIA_PADLOCK
-		case ALGO_VIA:
-			rc = scanhash_via(thr_id, work.data, work.target,
-					  max_nonce, &hashes_done);
-			break;
-#endif
-		case ALGO_CRYPTOPP:
-			rc = scanhash_cryptopp(thr_id, work.midstate, work.data + 64,
-				        work.hash1, work.hash, work.target,
-					max_nonce, &hashes_done);
-			break;
-
-#ifdef WANT_CRYPTOPP_ASM32
-		case ALGO_CRYPTOPP_ASM32:
-			rc = scanhash_asm32(thr_id, work.midstate, work.data + 64,
-				        work.hash1, work.hash, work.target,
-					max_nonce, &hashes_done);
-			break;
-#endif
-
 		case ALGO_SCRYPT:
 			rc = scanhash_scrypt(thr_id, work.data, scratchbuf,
 			                     work.target, max_nonce, &hashes_done);
