@@ -783,7 +783,11 @@ static void parse_arg (int key, char *arg)
 		json_error_t err;
 		if (opt_config)
 			json_decref(opt_config);
+#if JANSSON_VERSION_HEX >= 0x020000
+		opt_config = json_load_file(arg, 0, &err);
+#else
 		opt_config = json_load_file(arg, &err);
+#endif
 		if (!json_is_object(opt_config)) {
 			applog(LOG_ERR, "JSON decode of %s failed", arg);
 			show_usage();
