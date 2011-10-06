@@ -34,63 +34,24 @@
 #include <stdint.h>
 #include <string.h>
 
-
-static inline uint32_t
-be32dec(const void *pp)
-{
-	const uint8_t *p = (uint8_t const *)pp;
-
-	return ((uint32_t)(p[3]) + ((uint32_t)(p[2]) << 8) +
-	    ((uint32_t)(p[1]) << 16) + ((uint32_t)(p[0]) << 24));
-}
-
-static inline void
-be32enc(void *pp, uint32_t x)
-{
-	uint8_t * p = (uint8_t *)pp;
-
-	p[3] = x & 0xff;
-	p[2] = (x >> 8) & 0xff;
-	p[1] = (x >> 16) & 0xff;
-	p[0] = (x >> 24) & 0xff;
-}
-
+#define byteswap(x) ((((x) << 24) & 0xff000000u) | (((x) << 8) & 0x00ff0000u) | (((x) >> 8) & 0x0000ff00u) | (((x) >> 24) & 0x000000ffu))
 
 typedef struct SHA256Context {
 	uint32_t state[8];
-	uint32_t count[2];
-	unsigned char buf[64];
+	uint32_t buf[16];
 } SHA256_CTX;
-
-typedef struct HMAC_SHA256Context {
-	SHA256_CTX ictx;
-	SHA256_CTX octx;
-} HMAC_SHA256_CTX;
 
 /*
  * Encode a length len/4 vector of (uint32_t) into a length len vector of
  * (unsigned char) in big-endian form.  Assumes len is a multiple of 4.
  */
 static inline void
-be32enc_vect(unsigned char *dst, const uint32_t *src, size_t len)
+be32enc_vect(uint32_t *dst, const uint32_t *src, uint32_t len)
 {
-	size_t i;
+	uint32_t i;
 
-	for (i = 0; i < len / 4; i++)
-		be32enc(dst + i * 4, src[i]);
-}
-
-/*
- * Decode a big-endian length len vector of (unsigned char) into a length
- * len/4 vector of (uint32_t).  Assumes len is a multiple of 4.
- */
-static inline void
-be32dec_vect(uint32_t *dst, const unsigned char *src, size_t len)
-{
-	size_t i;
-
-	for (i = 0; i < len / 4; i++)
-		dst[i] = be32dec(src + i * 4);
+	for (i = 0; i < len; i++)
+		dst[i] = byteswap(src[i]);
 }
 
 /* Elementary functions used by SHA256 */
@@ -123,7 +84,7 @@ be32dec_vect(uint32_t *dst, const unsigned char *src, size_t len)
  * the 512-bit input block to produce a new state.
  */
 static void
-SHA256_Transform(uint32_t * state, const unsigned char block[64])
+SHA256_Transform(uint32_t * state, const uint32_t block[16], int swap)
 {
 	uint32_t W[64];
 	uint32_t S[8];
@@ -131,9 +92,15 @@ SHA256_Transform(uint32_t * state, const unsigned char block[64])
 	int i;
 
 	/* 1. Prepare message schedule W. */
-	be32dec_vect(W, block, 64);
-	for (i = 16; i < 64; i++)
+	if(swap)
+		for (i = 0; i < 16; i++)
+			W[i] = byteswap(block[i]);
+	else
+		memcpy(W, block, 64);
+	for (i = 16; i < 64; i += 2) {
 		W[i] = s1(W[i - 2]) + W[i - 7] + s0(W[i - 15]) + W[i - 16];
+		W[i+1] = s1(W[i - 1]) + W[i - 6] + s0(W[i - 14]) + W[i - 15];
+	}
 
 	/* 2. Initialize working variables. */
 	memcpy(S, state, 32);
@@ -209,111 +176,22 @@ SHA256_Transform(uint32_t * state, const unsigned char block[64])
 		state[i] += S[i];
 }
 
-static unsigned char PAD[64] = {
-	0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
-
-/* SHA-256 initialization.  Begins a SHA-256 operation. */
 static inline void
-SHA256_Init(SHA256_CTX * ctx)
+SHA256_InitState(uint32_t * state)
 {
-
-	/* Zero bits processed so far */
-	ctx->count[0] = ctx->count[1] = 0;
-
 	/* Magic initialization constants */
-	ctx->state[0] = 0x6A09E667;
-	ctx->state[1] = 0xBB67AE85;
-	ctx->state[2] = 0x3C6EF372;
-	ctx->state[3] = 0xA54FF53A;
-	ctx->state[4] = 0x510E527F;
-	ctx->state[5] = 0x9B05688C;
-	ctx->state[6] = 0x1F83D9AB;
-	ctx->state[7] = 0x5BE0CD19;
+	state[0] = 0x6A09E667;
+	state[1] = 0xBB67AE85;
+	state[2] = 0x3C6EF372;
+	state[3] = 0xA54FF53A;
+	state[4] = 0x510E527F;
+	state[5] = 0x9B05688C;
+	state[6] = 0x1F83D9AB;
+	state[7] = 0x5BE0CD19;
 }
 
-/* Add bytes into the hash */
-static inline void
-SHA256_Update(SHA256_CTX * ctx, const void *in, size_t len)
-{
-	uint32_t bitlen[2];
-	uint32_t r;
-	const unsigned char *src = in;
-
-	/* Number of bytes left in the buffer from previous updates */
-	r = (ctx->count[1] >> 3) & 0x3f;
-
-	/* Convert the length into a number of bits */
-	bitlen[1] = ((uint32_t)len) << 3;
-	bitlen[0] = (uint32_t)(len >> 29);
-
-	/* Update number of bits */
-	if ((ctx->count[1] += bitlen[1]) < bitlen[1])
-		ctx->count[0]++;
-	ctx->count[0] += bitlen[0];
-
-	/* Handle the case where we don't need to perform any transforms */
-	if (len < 64 - r) {
-		memcpy(&ctx->buf[r], src, len);
-		return;
-	}
-
-	/* Finish the current block */
-	memcpy(&ctx->buf[r], src, 64 - r);
-	SHA256_Transform(ctx->state, ctx->buf);
-	src += 64 - r;
-	len -= 64 - r;
-
-	/* Perform complete blocks */
-	while (len >= 64) {
-		SHA256_Transform(ctx->state, src);
-		src += 64;
-		len -= 64;
-	}
-
-	/* Copy left over data into buffer */
-	memcpy(ctx->buf, src, len);
-}
-
-/* Add padding and terminating bit-count. */
-static inline void
-SHA256_Pad(SHA256_CTX * ctx)
-{
-	unsigned char len[8];
-	uint32_t r, plen;
-
-	/*
-	 * Convert length to a vector of bytes -- we do this now rather
-	 * than later because the length will change after we pad.
-	 */
-	be32enc_vect(len, ctx->count, 8);
-
-	/* Add 1--64 bytes so that the resulting length is 56 mod 64 */
-	r = (ctx->count[1] >> 3) & 0x3f;
-	plen = (r < 56) ? (56 - r) : (120 - r);
-	SHA256_Update(ctx, PAD, (size_t)plen);
-
-	/* Add the terminating bit-count */
-	SHA256_Update(ctx, len, 8);
-}
-
-/*
- * SHA-256 finalization.  Pads the input data, exports the hash value,
- * and clears the context state.
- */
-static inline void
-SHA256_Final(unsigned char digest[32], SHA256_CTX * ctx)
-{
-
-	/* Add padding */
-	SHA256_Pad(ctx);
-
-	/* Write the hash */
-	be32enc_vect(digest, ctx->state, 32);
-}
+static const uint32_t passwdpad[12] = {0x00000080, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80020000};
+static const uint32_t outerpad[8] = {0x80000000, 0, 0, 0, 0, 0, 0, 0x00000300};
 
 /**
  * PBKDF2_SHA256(passwd, passwdlen, salt, saltlen, c, buf, dkLen):
@@ -321,149 +199,132 @@ SHA256_Final(unsigned char digest[32], SHA256_CTX * ctx)
  * write the output to buf.  The value dkLen must be at most 32 * (2^32 - 1).
  */
 static inline void
-PBKDF2_SHA256_80_128(const uint8_t * passwd, uint8_t * buf)
+PBKDF2_SHA256_80_128(const uint32_t * passwd, uint32_t * buf)
 {
-	HMAC_SHA256_CTX PShctx, hctx;
-	size_t i;
-	uint8_t ivec[4];
-	unsigned char ihash[32];
-
-	/* Compute HMAC state after processing P and S. */
-	unsigned char pad[64];
-	unsigned char khash[32];
+	SHA256_CTX PShictx, PShoctx;
+	uint32_t tstate[8];
+	uint32_t ihash[8];
+	uint32_t i;
+	uint32_t pad[16];
+	
+	static const uint32_t innerpad[11] = {0x00000080, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xa0040000};
 
 	/* If Klen > 64, the key is really SHA256(K). */
-	SHA256_Init(&PShctx.ictx);
-	SHA256_Update(&PShctx.ictx, passwd, 80);
-	SHA256_Final(khash, &PShctx.ictx);
+	SHA256_InitState(tstate);
+	SHA256_Transform(tstate, passwd, 1);
+	memcpy(pad, passwd+16, 16);
+	memcpy(pad+4, passwdpad, 48);
+	SHA256_Transform(tstate, pad, 1);
+	memcpy(ihash, tstate, 32);
 
-	SHA256_Init(&PShctx.ictx);
-	memset(pad, 0x36, 64);
-	for (i = 0; i < 32; i++)
-		pad[i] ^= khash[i];
-	SHA256_Update(&PShctx.ictx, pad, 64);
+	SHA256_InitState(PShictx.state);
+	for (i = 0; i < 8; i++)
+		pad[i] = ihash[i] ^ 0x36363636;
+	for (; i < 16; i++)
+		pad[i] = 0x36363636;
+	SHA256_Transform(PShictx.state, pad, 0);
+	SHA256_Transform(PShictx.state, passwd, 1);
+	be32enc_vect(PShictx.buf, passwd+16, 4);
+	be32enc_vect(PShictx.buf+5, innerpad, 11);
 
-	SHA256_Init(&PShctx.octx);
-	memset(pad, 0x5c, 64);
-	for (i = 0; i < 32; i++)
-		pad[i] ^= khash[i];
-	SHA256_Update(&PShctx.octx, pad, 64);
-
-	SHA256_Update(&PShctx.ictx, passwd, 80);
+	SHA256_InitState(PShoctx.state);
+	for (i = 0; i < 8; i++)
+		pad[i] = ihash[i] ^ 0x5c5c5c5c;
+	for (; i < 16; i++)
+		pad[i] = 0x5c5c5c5c;
+	SHA256_Transform(PShoctx.state, pad, 0);
+	memcpy(PShoctx.buf+8, outerpad, 32);
 
 	/* Iterate through the blocks. */
-	for (i = 0; i * 32 < 128; i++) {
-		/* Generate INT(i + 1). */
-		be32enc(ivec, (uint32_t)(i + 1));
+	for (i = 0; i < 4; i++) {
+		uint32_t istate[8];
+		uint32_t ostate[8];
+		
+		memcpy(istate, PShictx.state, 32);
+		PShictx.buf[4] = i + 1;
+		SHA256_Transform(istate, PShictx.buf, 0);
+		memcpy(PShoctx.buf, istate, 32);
 
-		/* Compute U_1 = PRF(P, S || INT(i)). */
-		memcpy(&hctx, &PShctx, sizeof(HMAC_SHA256_CTX));
-		SHA256_Update(&hctx.ictx, ivec, 4);
-
-		SHA256_Final(ihash, &hctx.ictx);
-		/* Feed the inner hash to the outer SHA256 operation. */
-		SHA256_Update(&hctx.octx, ihash, 32);
-		/* Finish the outer SHA256 operation. */
-		SHA256_Final(&buf[i*32], &hctx.octx);
+		memcpy(ostate, PShoctx.state, 32);
+		SHA256_Transform(ostate, PShoctx.buf, 0);
+		be32enc_vect(buf+i*8, ostate, 8);
 	}
 }
 
 
-static inline void
-PBKDF2_SHA256_80_128_32(const uint8_t * passwd, const uint8_t * salt, uint8_t * buf)
+static inline uint32_t
+PBKDF2_SHA256_80_128_32(const uint32_t * passwd, const uint32_t * salt)
 {
-	HMAC_SHA256_CTX PShctx;
-	size_t i;
-	uint8_t ivec[4];
-	unsigned char ihash[32];
+	uint32_t tstate[8];
+	uint32_t ostate[8];
+	uint32_t ihash[8];
+	uint32_t i;
 
 	/* Compute HMAC state after processing P and S. */
-	unsigned char pad[64];
-	unsigned char khash[32];
+	uint32_t pad[16];
+	
+	static const uint32_t ihash_finalblk[16] = {0x00000001,0x80000000,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0x00000620};
 
 	/* If Klen > 64, the key is really SHA256(K). */
-	SHA256_Init(&PShctx.ictx);
-	SHA256_Update(&PShctx.ictx, passwd, 80);
-	SHA256_Final(khash, &PShctx.ictx);
+	SHA256_InitState(tstate);
+	SHA256_Transform(tstate, passwd, 1);
+	memcpy(pad, passwd+16, 16);
+	memcpy(pad+4, passwdpad, 48);
+	SHA256_Transform(tstate, pad, 1);
+	memcpy(ihash, tstate, 32);
 
-	SHA256_Init(&PShctx.ictx);
-	memset(pad, 0x36, 64);
-	for (i = 0; i < 32; i++)
-		pad[i] ^= khash[i];
-	SHA256_Update(&PShctx.ictx, pad, 64);
+	SHA256_InitState(ostate);
+	for (i = 0; i < 8; i++)
+		pad[i] = ihash[i] ^ 0x5c5c5c5c;
+	for (; i < 16; i++)
+		pad[i] = 0x5c5c5c5c;
+	SHA256_Transform(ostate, pad, 0);
 
-	SHA256_Init(&PShctx.octx);
-	memset(pad, 0x5c, 64);
-	for (i = 0; i < 32; i++)
-		pad[i] ^= khash[i];
-	SHA256_Update(&PShctx.octx, pad, 64);
+	SHA256_InitState(tstate);
+	for (i = 0; i < 8; i++)
+		pad[i] = ihash[i] ^ 0x36363636;
+	for (; i < 16; i++)
+		pad[i] = 0x36363636;
+	SHA256_Transform(tstate, pad, 0);
+	SHA256_Transform(tstate, salt, 1);
+	SHA256_Transform(tstate, salt+16, 1);
+	SHA256_Transform(tstate, ihash_finalblk, 0);
+	memcpy(pad, tstate, 32);
+	memcpy(pad+8, outerpad, 32);
 
-	SHA256_Update(&PShctx.ictx, salt, 128);
-
-	/* Generate INT(i + 1). */
-	be32enc(ivec, (uint32_t)(1));
-
-	/* Compute U_1 = PRF(P, S || INT(i)). */
-	SHA256_Update(&PShctx.ictx, ivec, 4);
-
-	SHA256_Final(ihash, &PShctx.ictx);
 	/* Feed the inner hash to the outer SHA256 operation. */
-	SHA256_Update(&PShctx.octx, ihash, 32);
+	SHA256_Transform(ostate, pad, 0);
 	/* Finish the outer SHA256 operation. */
-	SHA256_Final(&buf[0], &PShctx.octx);
+	return byteswap(ostate[7]);
 }
 
-
-static inline void
-blkcpy(void * dest, void * src, size_t len)
-{
-	size_t * D = dest;
-	size_t * S = src;
-	size_t L = len / sizeof(size_t);
-	size_t i;
-
-	for (i = 0; i < L; i++)
-		D[i] = S[i];
-}
-
-static inline void
-blkxor(void * dest, void * src, size_t len)
-{
-	size_t * D = dest;
-	size_t * S = src;
-	size_t L = len / sizeof(size_t);
-	size_t i;
-
-	for (i = 0; i < L; i++)
-		D[i] ^= S[i];
-}
 
 /**
  * salsa20_8(B):
  * Apply the salsa20/8 core to the provided block.
  */
 static inline void
-salsa20_8(uint32_t B[16])
+salsa20_8(uint32_t B[16], const uint32_t Bx[16])
 {
 	uint32_t x00,x01,x02,x03,x04,x05,x06,x07,x08,x09,x10,x11,x12,x13,x14,x15;
 	size_t i;
 
-	x00 = B[ 0];
-	x01 = B[ 1];
-	x02 = B[ 2];
-	x03 = B[ 3];
-	x04 = B[ 4];
-	x05 = B[ 5];
-	x06 = B[ 6];
-	x07 = B[ 7];
-	x08 = B[ 8];
-	x09 = B[ 9];
-	x10 = B[10];
-	x11 = B[11];
-	x12 = B[12];
-	x13 = B[13];
-	x14 = B[14];
-	x15 = B[15];
+	x00 = (B[ 0] ^= Bx[ 0]);
+	x01 = (B[ 1] ^= Bx[ 1]);
+	x02 = (B[ 2] ^= Bx[ 2]);
+	x03 = (B[ 3] ^= Bx[ 3]);
+	x04 = (B[ 4] ^= Bx[ 4]);
+	x05 = (B[ 5] ^= Bx[ 5]);
+	x06 = (B[ 6] ^= Bx[ 6]);
+	x07 = (B[ 7] ^= Bx[ 7]);
+	x08 = (B[ 8] ^= Bx[ 8]);
+	x09 = (B[ 9] ^= Bx[ 9]);
+	x10 = (B[10] ^= Bx[10]);
+	x11 = (B[11] ^= Bx[11]);
+	x12 = (B[12] ^= Bx[12]);
+	x13 = (B[13] ^= Bx[13]);
+	x14 = (B[14] ^= Bx[14]);
+	x15 = (B[15] ^= Bx[15]);
 	for (i = 0; i < 8; i += 2) {
 #define R(a,b) (((a) << (b)) | ((a) >> (32 - (b))))
 		/* Operate on columns. */
@@ -500,77 +361,73 @@ salsa20_8(uint32_t B[16])
 /* cpu and memory intensive function to transform a 80 byte buffer into a 32 byte output
    scratchpad size needs to be at least 63 + (128 * r * p) + (256 * r + 64) + (128 * r * N) bytes
  */
-static void scrypt_1024_1_1_256_sp(const char* input, char* output, char* scratchpad)
+static uint32_t scrypt_1024_1_1_256_sp(const uint32_t* input, char* scratchpad)
 {
 	uint32_t * V;
-	uint32_t * X;
+	uint32_t X[32];
 	uint32_t i;
 	uint32_t j;
+	uint32_t k;
+	uint64_t *p1, *p2;
 
-	X = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
-	V = &X[32];
+	p1 = (uint64_t *)X;
+	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
 
-	PBKDF2_SHA256_80_128((const uint8_t*)input, (uint8_t *)X);
+	PBKDF2_SHA256_80_128(input, X);
 
 	for (i = 0; i < 1024; i += 2) {
-		blkcpy(&V[i * 32], X, 128);
+		memcpy(&V[i * 32], X, 128);
 
-		blkxor(&X[0], &X[16], 64);
-		salsa20_8(&X[0]);
-		blkxor(&X[16], &X[0], 64);
-		salsa20_8(&X[16]);
+		salsa20_8(&X[0], &X[16]);
+		salsa20_8(&X[16], &X[0]);
 
-		blkcpy(&V[(i + 1) * 32], X, 128);
+		memcpy(&V[(i + 1) * 32], X, 128);
 
-		blkxor(&X[0], &X[16], 64);
-		salsa20_8(&X[0]);
-		blkxor(&X[16], &X[0], 64);
-		salsa20_8(&X[16]);
+		salsa20_8(&X[0], &X[16]);
+		salsa20_8(&X[16], &X[0]);
 	}
 	for (i = 0; i < 1024; i += 2) {
 		j = X[16] & 1023;
-		blkxor(X, &V[j * 32], 128);
+		p2 = (uint64_t *)(&V[j * 32]);
+		for(k = 0; k < 16; k++)
+			p1[k] ^= p2[k];
 
-		blkxor(&X[0], &X[16], 64);
-		salsa20_8(&X[0]);
-		blkxor(&X[16], &X[0], 64);
-		salsa20_8(&X[16]);
+		salsa20_8(&X[0], &X[16]);
+		salsa20_8(&X[16], &X[0]);
 
 		j = X[16] & 1023;
-		blkxor(X, &V[j * 32], 128);
+		p2 = (uint64_t *)(&V[j * 32]);
+		for(k = 0; k < 16; k++)
+			p1[k] ^= p2[k];
 
-		blkxor(&X[0], &X[16], 64);
-		salsa20_8(&X[0]);
-		blkxor(&X[16], &X[0], 64);
-		salsa20_8(&X[16]);
+		salsa20_8(&X[0], &X[16]);
+		salsa20_8(&X[16], &X[0]);
 	}
 
-	PBKDF2_SHA256_80_128_32((const uint8_t*)input, (const uint8_t *)X, (uint8_t*)output);
+	return PBKDF2_SHA256_80_128_32(input, X);
 }
 
 int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 	const unsigned char *ptarget,
 	uint32_t max_nonce, unsigned long *hashes_done)
 {
-	unsigned char data[80];
-	unsigned char tmp_hash[32];
-	uint32_t *nonce = (uint32_t *)(data + 64 + 12);
+	uint32_t data[20];
+	uint32_t tmp_hash7;
 	uint32_t n = 0;
-	uint32_t Htarg = *(uint32_t *)(ptarget + 28);
+	uint32_t Htarg = ((const uint32_t *)ptarget)[7];
 	int i;
 
 	work_restart[thr_id].restart = 0;
 	
-	for (i = 0; i < 80/4; i++)
-		((uint32_t *)data)[i] = swab32(((uint32_t *)pdata)[i]);
+	be32enc_vect(data, (const uint32_t *)pdata, 19);
 	
 	while(1) {
 		n++;
-		*nonce = n;
-		scrypt_1024_1_1_256_sp(data, tmp_hash, scratchbuf);
+		data[19] = n;
+		tmp_hash7 = scrypt_1024_1_1_256_sp(data, scratchbuf);
 
-		if (*(uint32_t *)(tmp_hash+28) <= Htarg) {
-			*(uint32_t *)(pdata + 64 + 12) = swab32(n);
+		if (tmp_hash7 <= Htarg) {
+			((uint32_t *)pdata)[19] = byteswap(n);
 			*hashes_done = n;
 			return true;
 		}
