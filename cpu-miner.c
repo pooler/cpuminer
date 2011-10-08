@@ -539,6 +539,7 @@ static void *miner_thread(void *userdata)
 		struct work work __attribute__((aligned(128)));
 		unsigned long hashes_done;
 		struct timeval tv_start, tv_end, diff;
+		int diffms;
 		uint64_t max64;
 		bool rc;
 
@@ -571,11 +572,10 @@ static void *miner_thread(void *userdata)
 		hashmeter(thr_id, &diff, hashes_done);
 
 		/* adjust max_nonce to meet target scan time */
-		if (diff.tv_usec > 500000)
-			diff.tv_sec++;
-		if (diff.tv_sec > 0) {
+		diffms = diff.tv_sec * 1000 + diff.tv_usec / 1000;
+		if (diffms > 0) {
 			max64 =
-			   ((uint64_t)hashes_done * opt_scantime) / diff.tv_sec;
+			   ((uint64_t)hashes_done * opt_scantime * 1000) / diffms;
 			if (max64 > 0xfffffffaULL)
 				max64 = 0xfffffffaULL;
 			max_nonce = max64;
