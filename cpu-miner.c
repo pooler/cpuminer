@@ -96,6 +96,7 @@ bool use_syslog = false;
 static bool opt_quiet = false;
 static int opt_retries = 10;
 static int opt_fail_pause = 30;
+int opt_timeout = 180;
 int opt_scantime = 5;
 static json_t *opt_config;
 static const bool opt_time = true;
@@ -126,8 +127,7 @@ static struct option_help options_help[] = {
 	  "See example-cfg.json for an example configuration." },
 
 	{ "algo XXX",
-	  "(-a XXX) USE *ONLY* scrypt (e.g. --algo scrypt) WITH TENEBRIX\n" 
-	  "\tscrypt is the default now" },
+	  "(-a XXX) Only scrypt (e.g. --algo scrypt) is supported" },
 
 	{ "quiet",
 	  "(-q) Disable per-thread hashmeter output (default: off)" },
@@ -152,6 +152,9 @@ static struct option_help options_help[] = {
 	{ "scantime N",
 	  "(-s N) Upper bound on time spent scanning current work,\n"
 	  "\tin seconds. (default: 5)" },
+
+	{ "timeout N",
+	  "(-T N) Connection timeout, in seconds (default: 180)" },
 
 #ifdef HAVE_SYSLOG_H
 	{ "syslog",
@@ -191,6 +194,7 @@ static struct option options[] = {
 	{ "retries", 1, NULL, 'r' },
 	{ "retry-pause", 1, NULL, 'R' },
 	{ "scantime", 1, NULL, 's' },
+	{ "timeout", 1, NULL, 'T' },
 #ifdef HAVE_SYSLOG_H
 	{ "syslog", 0, NULL, 1004 },
 #endif
@@ -447,7 +451,7 @@ static void hashmeter(int thr_id, const struct timeval *diff,
 	secs = (double)diff->tv_sec + ((double)diff->tv_usec / 1000000.0);
 
 	if (!opt_quiet)
-		applog(LOG_INFO, "thread %d: %lu hashes, %.2f khash/sec",
+		applog(LOG_INFO, "thread %d: %lu hashes, %.2f khash/s",
 		       thr_id, hashes_done,
 		       khashes / secs);
 }
@@ -651,15 +655,7 @@ static void *longpoll_thread(void *userdata)
 			applog(LOG_INFO, "LONGPOLL detected new block");
 			restart_threads();
 		} else {
-			if (failures++ < 10) {
-				sleep(30);
-				applog(LOG_ERR,
-					"longpoll failed, sleeping for 30s");
-			} else {
-				applog(LOG_ERR,
-					"longpoll failed, ending thread");
-				goto out;
-			}
+			/* longpoll failed, keep trying */
 		}
 	}
 
@@ -754,6 +750,13 @@ static void parse_arg (int key, char *arg)
 
 		opt_scantime = v;
 		break;
+	case 'T':
+		v = atoi(arg);
+		if (v < 1 || v > 99999)	/* sanity check */
+			show_usage();
+
+		opt_timeout = v;
+		break;
 	case 't':
 		v = atoi(arg);
 		if (v < 1 || v > 9999)	/* sanity check */
@@ -837,7 +840,7 @@ static void parse_cmdline(int argc, char *argv[])
 	int key;
 
 	while (1) {
-		key = getopt_long(argc, argv, "a:c:qDPr:s:t:h?", options, NULL);
+		key = getopt_long(argc, argv, "a:c:qDPr:s:T:t:h?", options, NULL);
 		if (key < 0)
 			break;
 
