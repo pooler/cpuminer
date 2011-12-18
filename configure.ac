@@ -13,6 +13,7 @@ dnl Checks for programs
 AC_PROG_CC
 AC_PROG_GCC_TRADITIONAL
 AM_PROG_CC_C_O
+AM_PROG_AS
 AC_PROG_RANLIB
 
 dnl Checks for header files.

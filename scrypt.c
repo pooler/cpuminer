@@ -358,6 +358,12 @@ salsa20_8(uint32_t B[16], const uint32_t Bx[16])
 	B[15] += x15;
 }
 
+#if defined(__x86_64__)
+void x64_scrypt_core(uint32_t *B, uint32_t *V);
+#elif defined(__i386__)
+void x86_scrypt_core(uint32_t *B, uint32_t *V);
+#endif
+
 /* cpu and memory intensive function to transform a 80 byte buffer into a 32 byte output
    scratchpad size needs to be at least 63 + (128 * r * p) + (256 * r + 64) + (128 * r * N) bytes
  */
@@ -375,6 +381,11 @@ static uint32_t scrypt_1024_1_1_256_sp(const uint32_t* input, char* scratchpad)
 
 	PBKDF2_SHA256_80_128(input, X);
 
+#if defined(__x86_64__)
+	x64_scrypt_core(X, V);
+#elif defined(__i386__)
+	x86_scrypt_core(X, V);
+#else
 	for (i = 0; i < 1024; i += 2) {
 		memcpy(&V[i * 32], X, 128);
 
@@ -403,6 +414,7 @@ static uint32_t scrypt_1024_1_1_256_sp(const uint32_t* input, char* scratchpad)
 		salsa20_8(&X[0], &X[16]);
 		salsa20_8(&X[16], &X[0]);
 	}
+#endif
 
 	return PBKDF2_SHA256_80_128_32(input, X);
 }
