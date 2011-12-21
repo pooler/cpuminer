@@ -16,9 +16,11 @@
 #include <ctype.h>
 #include <stdarg.h>
 #include <string.h>
+#include <unistd.h>
 #include <jansson.h>
 #include <curl/curl.h>
 #include <time.h>
+#include "compat.h"
 #include "miner.h"
 #include "elist.h"
 
@@ -72,13 +74,13 @@ void applog(int prio, const char *fmt, ...)
 	else {
 		char *f;
 		int len;
-		struct timeval tv = { };
+		time_t now;
 		struct tm tm, *tm_p;
 
-		gettimeofday(&tv, NULL);
+		time(&now);
 
 		pthread_mutex_lock(&time_lock);
-		tm_p = localtime(&tv.tv_sec);
+		tm_p = localtime(&now);
 		memcpy(&tm, tm_p, sizeof(tm));
 		pthread_mutex_unlock(&time_lock);
 

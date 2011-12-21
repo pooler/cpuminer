@@ -19,7 +19,9 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <time.h>
-#ifndef WIN32
+#if defined(WIN32) || defined(WIN64)
+#include <windows.h>
+#else
 #include <sys/resource.h>
 #endif
 #include <getopt.h>
@@ -29,10 +31,7 @@
 #include "miner.h"
 
 #define PROGRAM_NAME		"minerd"
-#define DEF_RPC_URL		"http://127.0.0.1:8332/"
-#define DEF_RPC_USERNAME	"rpcuser"
-#define DEF_RPC_PASSWORD	"rpcpass"
-#define DEF_RPC_USERPASS	DEF_RPC_USERNAME ":" DEF_RPC_PASSWORD
+#define DEF_RPC_URL		"http://127.0.0.1:9332/"
 
 #ifdef __linux /* Linux specific policy and affinity management */
 #include <sched.h>
@@ -94,7 +93,7 @@ bool want_longpoll = true;
 bool have_longpoll = false;
 bool use_syslog = false;
 static bool opt_quiet = false;
-static int opt_retries = 10;
+static int opt_retries = -1;
 static int opt_fail_pause = 30;
 int opt_timeout = 180;
 int opt_scantime = 5;
@@ -111,7 +110,11 @@ static int work_thr_id;
 int longpoll_thr_id;
 struct work_restart *work_restart = NULL;
 pthread_mutex_t time_lock;
+pthread_mutex_t stats_lock;
 
+static unsigned long accepted_count = 0L;
+static unsigned long rejected_count = 0L;
+double *thr_hashrates;
 
 struct option_help {
 	const char	*name;
@@ -142,11 +145,11 @@ static struct option_help options_help[] = {
 	  "(-P) Verbose dump of protocol-level activities (default: off)" },
 
 	{ "retries N",
-	  "(-r N) Number of times to retry, if JSON-RPC call fails\n"
-	  "\t(default: 10; use -1 for \"never\")" },
+	  "(-r N) Number of times to retry if JSON-RPC call fails\n"
+	  "\t(default: retry indefinitely)" },
 
 	{ "retry-pause N",
-	  "(-R N) Number of seconds to pause, between retries\n"
+	  "(-R N) Number of seconds to pause between retries\n"
 	  "\t(default: 30)" },
 
 	{ "scantime N",
@@ -162,23 +165,20 @@ static struct option_help options_help[] = {
 #endif
 
 	{ "threads N",
-	  "(-t N) Number of miner threads (default: 1)" },
+	  "(-t N) Number of miner threads (default: number of processors)" },
 
 	{ "url URL",
-	  "URL for bitcoin JSON-RPC server "
+	  "URL for JSON-RPC server "
 	  "(default: " DEF_RPC_URL ")" },
 
 	{ "userpass USERNAME:PASSWORD",
-	  "Username:Password pair for bitcoin JSON-RPC server "
-	  "(default: " DEF_RPC_USERPASS ")" },
+	  "Username:Password pair for JSON-RPC server" },
 
 	{ "user USERNAME",
-	  "(-u USERNAME) Username for bitcoin JSON-RPC server "
-	  "(default: " DEF_RPC_USERNAME ")" },
+	  "(-u USERNAME) Username for JSON-RPC server" },
 
 	{ "pass PASSWORD",
-	  "(-p PASSWORD) Password for bitcoin JSON-RPC server "
-	  "(default: " DEF_RPC_PASSWORD ")" },
+	  "(-p PASSWORD) Password for JSON-RPC server" },
 };
 
 static struct option options[] = {
@@ -272,6 +272,8 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 	char *hexstr = NULL;
 	json_t *val, *res;
 	char s[345];
+	double hashrate;
+	int i;
 	bool rc = false;
 
 	/* build hex string */
@@ -297,9 +299,21 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 	}
 
 	res = json_object_get(val, "result");
-
-	applog(LOG_INFO, "PROOF OF WORK RESULT: %s",
-	       json_is_true(res) ? "true (yay!!!)" : "false (booooo)");
+	
+	pthread_mutex_lock(&stats_lock);
+	json_is_true(res) ? accepted_count++ : rejected_count++;
+	pthread_mutex_unlock(&stats_lock);
+	
+	hashrate = 0.;
+	for (i = 0; i < opt_n_threads; i++)
+		hashrate += thr_hashrates[i];
+	
+	applog(LOG_INFO, "accepted: %lu/%lu (%.2f%%), %.2f khash/s %s",
+	       accepted_count,
+	       accepted_count + rejected_count,
+	       100. * accepted_count / (accepted_count + rejected_count),
+	       hashrate,
+	       json_is_true(res) ? "(yay!!!)" : "(booooo)");
 
 	json_decref(val);
 
@@ -449,7 +463,9 @@ static void hashmeter(int thr_id, const struct timeval *diff,
 
 	khashes = hashes_done / 1000.0;
 	secs = (double)diff->tv_sec + ((double)diff->tv_usec / 1000000.0);
-
+	
+	thr_hashrates[thr_id] = khashes / secs;
+	
 	if (!opt_quiet)
 		applog(LOG_INFO, "thread %d: %lu hashes, %.2f khash/s",
 		       thr_id, hashes_done,
@@ -793,14 +809,15 @@ static void parse_arg (int key, char *arg)
 		show_usage();
 	}
 
-#ifdef WIN32
-	if (!opt_n_threads)
-		opt_n_threads = 1;
+#if defined(WIN32) || defined(WIN64)
+	SYSTEM_INFO sysinfo;
+	GetSystemInfo(&sysinfo);
+	num_processors = sysinfo.dwNumberOfProcessors;
 #else
 	num_processors = sysconf(_SC_NPROCESSORS_ONLN);
+#endif
 	if (!opt_n_threads)
 		opt_n_threads = num_processors;
-#endif /* !WIN32 */
 }
 
 static void parse_config(void)
@@ -850,7 +867,7 @@ static void parse_cmdline(int argc, char *argv[])
 	parse_config();
 }
 
-int main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	struct thr_info *thr;
 	int i;
@@ -859,6 +876,9 @@ int main (int argc, char *argv[])
 
 	/* parse command line */
 	parse_cmdline(argc, argv);
+
+	pthread_mutex_init(&time_lock, NULL);
+	pthread_mutex_init(&stats_lock, NULL);
 
 	if (!rpc_userpass) {
 		if (!rpc_user || !rpc_pass) {
@@ -870,8 +890,6 @@ int main (int argc, char *argv[])
 			return 1;
 		sprintf(rpc_userpass, "%s:%s", rpc_user, rpc_pass);
 	}
-
-	pthread_mutex_init(&time_lock, NULL);
 
 #ifdef HAVE_SYSLOG_H
 	if (use_syslog)
@@ -916,6 +934,8 @@ int main (int argc, char *argv[])
 		}
 	} else
 		longpoll_thr_id = -1;
+	
+	thr_hashrates = (double *) calloc(opt_n_threads, sizeof(double));
 
 	/* start mining threads */
 	for (i = 0; i < opt_n_threads; i++) {
