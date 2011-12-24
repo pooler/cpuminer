@@ -127,6 +127,7 @@ extern json_t *json_rpc_call(CURL *curl, const char *url, const char *userpass,
 extern char *bin2hex(const unsigned char *p, size_t len);
 extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
 
+extern unsigned char *scrypt_buffer_alloc();
 extern int scanhash_scrypt(int, unsigned char *pdata, unsigned char *scratchbuf,
 	const unsigned char *ptarget,
 	uint32_t max_nonce, unsigned long *nHashesDone);

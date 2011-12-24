@@ -193,79 +193,13 @@ SHA256_InitState(uint32_t * state)
 static const uint32_t passwdpad[12] = {0x00000080, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80020000};
 static const uint32_t outerpad[8] = {0x80000000, 0, 0, 0, 0, 0, 0, 0x00000300};
 
-/**
- * PBKDF2_SHA256(passwd, passwdlen, salt, saltlen, c, buf, dkLen):
- * Compute PBKDF2(passwd, salt, c, dkLen) using HMAC-SHA256 as the PRF, and
- * write the output to buf.  The value dkLen must be at most 32 * (2^32 - 1).
- */
 static inline void
-PBKDF2_SHA256_80_128(const uint32_t * passwd, uint32_t * buf)
+PBKDF2_SHA256_80_128_init(const uint32_t *passwd, uint32_t tstate[8], uint32_t ostate[8])
 {
-	SHA256_CTX PShictx, PShoctx;
-	uint32_t tstate[8];
 	uint32_t ihash[8];
-	uint32_t i;
 	uint32_t pad[16];
-	
-	static const uint32_t innerpad[11] = {0x00000080, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xa0040000};
-
-	/* If Klen > 64, the key is really SHA256(K). */
-	SHA256_InitState(tstate);
-	SHA256_Transform(tstate, passwd, 1);
-	memcpy(pad, passwd+16, 16);
-	memcpy(pad+4, passwdpad, 48);
-	SHA256_Transform(tstate, pad, 1);
-	memcpy(ihash, tstate, 32);
-
-	SHA256_InitState(PShictx.state);
-	for (i = 0; i < 8; i++)
-		pad[i] = ihash[i] ^ 0x36363636;
-	for (; i < 16; i++)
-		pad[i] = 0x36363636;
-	SHA256_Transform(PShictx.state, pad, 0);
-	SHA256_Transform(PShictx.state, passwd, 1);
-	be32enc_vect(PShictx.buf, passwd+16, 4);
-	be32enc_vect(PShictx.buf+5, innerpad, 11);
-
-	SHA256_InitState(PShoctx.state);
-	for (i = 0; i < 8; i++)
-		pad[i] = ihash[i] ^ 0x5c5c5c5c;
-	for (; i < 16; i++)
-		pad[i] = 0x5c5c5c5c;
-	SHA256_Transform(PShoctx.state, pad, 0);
-	memcpy(PShoctx.buf+8, outerpad, 32);
-
-	/* Iterate through the blocks. */
-	for (i = 0; i < 4; i++) {
-		uint32_t istate[8];
-		uint32_t ostate[8];
-		
-		memcpy(istate, PShictx.state, 32);
-		PShictx.buf[4] = i + 1;
-		SHA256_Transform(istate, PShictx.buf, 0);
-		memcpy(PShoctx.buf, istate, 32);
-
-		memcpy(ostate, PShoctx.state, 32);
-		SHA256_Transform(ostate, PShoctx.buf, 0);
-		be32enc_vect(buf+i*8, ostate, 8);
-	}
-}
-
-
-static inline uint32_t
-PBKDF2_SHA256_80_128_32(const uint32_t * passwd, const uint32_t * salt)
-{
-	uint32_t tstate[8];
-	uint32_t ostate[8];
-	uint32_t ihash[8];
 	uint32_t i;
 
-	/* Compute HMAC state after processing P and S. */
-	uint32_t pad[16];
-	
-	static const uint32_t ihash_finalblk[16] = {0x00000001,0x80000000,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0x00000620};
-
-	/* If Klen > 64, the key is really SHA256(K). */
 	SHA256_InitState(tstate);
 	SHA256_Transform(tstate, passwd, 1);
 	memcpy(pad, passwd+16, 16);
@@ -286,16 +220,63 @@ PBKDF2_SHA256_80_128_32(const uint32_t * passwd, const uint32_t * salt)
 	for (; i < 16; i++)
 		pad[i] = 0x36363636;
 	SHA256_Transform(tstate, pad, 0);
+}
+
+/**
+ * PBKDF2_SHA256(passwd, passwdlen, salt, saltlen, c, buf, dkLen):
+ * Compute PBKDF2(passwd, salt, c, dkLen) using HMAC-SHA256 as the PRF, and
+ * write the output to buf.  The value dkLen must be at most 32 * (2^32 - 1).
+ */
+static inline void
+PBKDF2_SHA256_80_128(const uint32_t *tstate, const uint32_t *ostate, const uint32_t *passwd, uint32_t *buf)
+{
+	static const uint32_t innerpad[11] = {0x00000080, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xa0040000};
+	SHA256_CTX PShictx, PShoctx;
+	uint32_t i;
+	
+	/* If Klen > 64, the key is really SHA256(K). */
+	memcpy(PShictx.state, tstate, 32);
+	memcpy(PShoctx.state, ostate, 32);
+	
+	memcpy(PShoctx.buf+8, outerpad, 32);
+
+	SHA256_Transform(PShictx.state, passwd, 1);
+	be32enc_vect(PShictx.buf, passwd+16, 4);
+	be32enc_vect(PShictx.buf+5, innerpad, 11);
+
+	/* Iterate through the blocks. */
+	for (i = 0; i < 4; i++) {
+		uint32_t ist[8];
+		uint32_t ost[8];
+		
+		memcpy(ist, PShictx.state, 32);
+		PShictx.buf[4] = i + 1;
+		SHA256_Transform(ist, PShictx.buf, 0);
+		memcpy(PShoctx.buf, ist, 32);
+
+		memcpy(ost, PShoctx.state, 32);
+		SHA256_Transform(ost, PShoctx.buf, 0);
+		be32enc_vect(buf+i*8, ost, 8);
+	}
+}
+
+static inline void
+PBKDF2_SHA256_80_128_32(uint32_t *tstate, uint32_t *ostate, const uint32_t *passwd, const uint32_t *salt, uint32_t *output)
+{
+	static const uint32_t ihash_finalblk[16] = {0x00000001,0x80000000,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0x00000620};
+	uint32_t pad[16];
+	uint32_t i;
+	
 	SHA256_Transform(tstate, salt, 1);
 	SHA256_Transform(tstate, salt+16, 1);
 	SHA256_Transform(tstate, ihash_finalblk, 0);
 	memcpy(pad, tstate, 32);
 	memcpy(pad+8, outerpad, 32);
 
-	/* Feed the inner hash to the outer SHA256 operation. */
 	SHA256_Transform(ostate, pad, 0);
-	/* Finish the outer SHA256 operation. */
-	return byteswap(ostate[7]);
+	
+	for (i = 0; i < 8; i++)
+		output[i] = byteswap(ostate[i]);
 }
 
 
@@ -358,34 +339,33 @@ salsa20_8(uint32_t B[16], const uint32_t Bx[16])
 	B[15] += x15;
 }
 
-#if defined(__x86_64__)
-void x64_scrypt_core(uint32_t *B, uint32_t *V);
-#elif defined(__i386__)
-void x86_scrypt_core(uint32_t *B, uint32_t *V);
-#endif
 
-/* cpu and memory intensive function to transform a 80 byte buffer into a 32 byte output
-   scratchpad size needs to be at least 63 + (128 * r * p) + (256 * r + 64) + (128 * r * N) bytes
- */
-static uint32_t scrypt_1024_1_1_256_sp(const uint32_t* input, char* scratchpad)
+#if defined(__x86_64__)
+
+#define DUAL_SCRYPT
+#define SCRYPT_BUFFER_SIZE (2 * 131072 + 63)
+
+int prefer_dual_scrypt();
+void scrypt_core(uint32_t *X, uint32_t *V);
+void dual_scrypt_core(uint32_t *X, uint32_t *Y, uint32_t *V);
+
+#elif defined(__i386__)
+
+#define SCRYPT_BUFFER_SIZE (131072 + 63)
+
+void scrypt_core(uint32_t *X, uint32_t *V);
+
+#else
+
+#define SCRYPT_BUFFER_SIZE (131072 + 63)
+
+static inline void scrypt_core(uint32_t *X, uint32_t *V)
 {
-	uint32_t * V;
-	uint32_t X[32];
 	uint32_t i;
 	uint32_t j;
 	uint32_t k;
 	uint64_t *p1, *p2;
-
 	p1 = (uint64_t *)X;
-	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
-
-	PBKDF2_SHA256_80_128(input, X);
-
-#if defined(__x86_64__)
-	x64_scrypt_core(X, V);
-#elif defined(__i386__)
-	x86_scrypt_core(X, V);
-#else
 	for (i = 0; i < 1024; i += 2) {
 		memcpy(&V[i * 32], X, 128);
 
@@ -414,32 +394,93 @@ static uint32_t scrypt_1024_1_1_256_sp(const uint32_t* input, char* scratchpad)
 		salsa20_8(&X[0], &X[16]);
 		salsa20_8(&X[16], &X[0]);
 	}
+}
+
 #endif
 
-	return PBKDF2_SHA256_80_128_32(input, X);
+unsigned char *scrypt_buffer_alloc() {
+	return malloc(SCRYPT_BUFFER_SIZE);
 }
+
+/* cpu and memory intensive function to transform a 80 byte buffer into a 32 byte output
+   scratchpad size needs to be at least 63 + (128 * r * p) + (256 * r + 64) + (128 * r * N) bytes
+   r = 1, p = 1, N = 1024
+ */
+static void scrypt_1024_1_1_256_sp(const uint32_t* input, unsigned char *scratchpad, uint32_t *res)
+{
+	uint32_t tstate[8], ostate[8];
+	uint32_t *V;
+	uint32_t X[32];
+	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
+
+	PBKDF2_SHA256_80_128_init(input, tstate, ostate);
+	PBKDF2_SHA256_80_128(tstate, ostate, input, X);
+
+	scrypt_core(X, V);
+
+	return PBKDF2_SHA256_80_128_32(tstate, ostate, input, X, res);
+}
+
+#ifdef DUAL_SCRYPT
+static void dual_scrypt_1024_1_1_256_sp(const uint32_t *input1, const uint32_t *input2, unsigned char *scratchpad, uint32_t *res1, uint32_t *res2)
+{
+	uint32_t tstate1[8], tstate2[8], ostate1[8], ostate2[8];
+	uint32_t *V;
+	uint32_t X[32], Y[32];
+	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
+
+	PBKDF2_SHA256_80_128_init(input1, tstate1, ostate1);
+	PBKDF2_SHA256_80_128_init(input2, tstate2, ostate2);
+	PBKDF2_SHA256_80_128(tstate1, ostate1, input1, X);
+	PBKDF2_SHA256_80_128(tstate2, ostate2, input2, Y);
+
+	dual_scrypt_core(X, Y, V);
+
+	PBKDF2_SHA256_80_128_32(tstate1, ostate1, input1, X, res1);
+	PBKDF2_SHA256_80_128_32(tstate2, ostate2, input2, Y, res2);
+}
+#endif
 
 int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 	const unsigned char *ptarget,
 	uint32_t max_nonce, unsigned long *hashes_done)
 {
-	uint32_t data[20];
-	uint32_t tmp_hash7;
+	uint32_t data[20], hash[8];
+#ifdef DUAL_SCRYPT
+	uint32_t data2[20], hash2[8];
+	int use_dual;
+#endif
 	uint32_t n = 0;
 	uint32_t Htarg = ((const uint32_t *)ptarget)[7];
-	int i;
 
 	work_restart[thr_id].restart = 0;
 	
 	be32enc_vect(data, (const uint32_t *)pdata, 19);
+#ifdef DUAL_SCRYPT
+	memcpy(data2, data, 80);
+	use_dual = prefer_dual_scrypt();
+#endif
 	
-	while(1) {
-		n++;
-		data[19] = n;
-		tmp_hash7 = scrypt_1024_1_1_256_sp(data, scratchbuf);
+	while (1) {
+		data[19] = n++;
+#ifdef DUAL_SCRYPT
+		if (use_dual) {
+			data2[19] = n++;
+			dual_scrypt_1024_1_1_256_sp(data, data2, scratchbuf, hash, hash2);
+			if (hash2[7] <= Htarg) {
+				((uint32_t *)pdata)[19] = byteswap(data2[19]);
+				*hashes_done = n;
+				return true;
+			}
+		} else {
+			scrypt_1024_1_1_256_sp(data, scratchbuf, hash);
+		}
+#else
+		scrypt_1024_1_1_256_sp(data, scratchbuf, hash);
+#endif
 
-		if (tmp_hash7 <= Htarg) {
-			((uint32_t *)pdata)[19] = byteswap(n);
+		if (hash[7] <= Htarg) {
+			((uint32_t *)pdata)[19] = byteswap(data[19]);
 			*hashes_done = n;
 			return true;
 		}

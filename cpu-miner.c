@@ -551,7 +551,7 @@ static void *miner_thread(void *userdata)
 	
 	if (opt_algo == ALGO_SCRYPT)
 	{
-		scratchbuf = malloc(131583);
+		scratchbuf = scrypt_buffer_alloc();
 		max_nonce = 0xffff;
 	}
 
@@ -955,7 +955,7 @@ int main(int argc, char *argv[])
 	}
 
 	applog(LOG_INFO, "%d miner threads started, "
-		"using SHA256 '%s' algorithm.",
+		"using '%s' algorithm.",
 		opt_n_threads,
 		algo_names[opt_algo]);
 

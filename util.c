@@ -94,7 +94,9 @@ void applog(int prio, const char *fmt, ...)
 			tm.tm_min,
 			tm.tm_sec,
 			fmt);
+		pthread_mutex_lock(&time_lock);
 		vfprintf(stderr, f, ap);	/* atomic write to stderr */
+		pthread_mutex_unlock(&time_lock);
 	}
 	va_end(ap);
 }

@@ -24,7 +24,7 @@
 
 #if defined(__i386__)
 
-.macro x86_gen_salsa8_core_quadround
+.macro gen_salsa8_core_quadround
 	movl	52(%esp), %ecx
 	movl	4(%esp), %edx
 	movl	20(%esp), %ebx
@@ -346,18 +346,18 @@
 
 	.text
 	.align 32
-x86_gen_salsa8_core:
-	x86_gen_salsa8_core_quadround
-	x86_gen_salsa8_core_quadround
+gen_salsa8_core:
+	gen_salsa8_core_quadround
+	gen_salsa8_core_quadround
 	ret
 	
 	
 	.text
 	.align 32
-	.globl x86_scrypt_core
-	.globl _x86_scrypt_core
-x86_scrypt_core:
-_x86_scrypt_core:
+	.globl scrypt_core
+	.globl _scrypt_core
+scrypt_core:
+_scrypt_core:
 	pushl	%ebx
 	pushl	%ebp
 	pushl	%edi
@@ -367,14 +367,14 @@ _x86_scrypt_core:
 	movl	$1, %eax
 	cpuid
 	andl	$0x04000000, %edx
-	jnz x86_xmm_scrypt_core
+	jnz xmm_scrypt_core
 	
-x86_gen_scrypt_core:
+gen_scrypt_core:
 	movl	20(%esp), %edi
 	movl	24(%esp), %esi
 	subl	$72, %esp
 	
-.macro x86_scrypt_core_macro1a p, q
+.macro scrypt_core_macro1a p, q
 	movl	\p(%edi), %eax
 	movl	\q(%edi), %edx
 	movl	%eax, \p(%esi)
@@ -384,7 +384,7 @@ x86_gen_scrypt_core:
 	movl	%eax, \p(%esp)
 .endm
 	
-.macro x86_scrypt_core_macro1b p, q
+.macro scrypt_core_macro1b p, q
 	movl	\p(%edi), %eax
 	xorl	\p(%esi, %edx), %eax
 	movl	\q(%edi), %ebx
@@ -395,7 +395,7 @@ x86_gen_scrypt_core:
 	movl	%eax, \p(%esp)
 .endm
 	
-.macro x86_scrypt_core_macro2 p, q
+.macro scrypt_core_macro2 p, q
 	movl	\p(%esp), %eax
 	addl	\p(%edi), %eax
 	movl	%eax, \p(%edi)
@@ -404,150 +404,150 @@ x86_gen_scrypt_core:
 	movl	%eax, \p(%esp)
 .endm
 	
-.macro x86_scrypt_core_macro3 p, q
+.macro scrypt_core_macro3 p, q
 	movl	\p(%esp), %eax
 	addl	\q(%edi), %eax
 	movl	%eax, \q(%edi)
 .endm
 	
 	leal	131072(%esi), %ecx
-x86_gen_scrypt_core_loop1:
+gen_scrypt_core_loop1:
 	movl	%esi, 64(%esp)
 	movl	%ecx, 68(%esp)
 	
-	x86_scrypt_core_macro1a	0, 64
-	x86_scrypt_core_macro1a	4, 68
-	x86_scrypt_core_macro1a	8, 72
-	x86_scrypt_core_macro1a	12, 76
-	x86_scrypt_core_macro1a	16, 80
-	x86_scrypt_core_macro1a	20, 84
-	x86_scrypt_core_macro1a	24, 88
-	x86_scrypt_core_macro1a	28, 92
-	x86_scrypt_core_macro1a	32, 96
-	x86_scrypt_core_macro1a	36, 100
-	x86_scrypt_core_macro1a	40, 104
-	x86_scrypt_core_macro1a	44, 108
-	x86_scrypt_core_macro1a	48, 112
-	x86_scrypt_core_macro1a	52, 116
-	x86_scrypt_core_macro1a	56, 120
-	x86_scrypt_core_macro1a	60, 124
+	scrypt_core_macro1a	0, 64
+	scrypt_core_macro1a	4, 68
+	scrypt_core_macro1a	8, 72
+	scrypt_core_macro1a	12, 76
+	scrypt_core_macro1a	16, 80
+	scrypt_core_macro1a	20, 84
+	scrypt_core_macro1a	24, 88
+	scrypt_core_macro1a	28, 92
+	scrypt_core_macro1a	32, 96
+	scrypt_core_macro1a	36, 100
+	scrypt_core_macro1a	40, 104
+	scrypt_core_macro1a	44, 108
+	scrypt_core_macro1a	48, 112
+	scrypt_core_macro1a	52, 116
+	scrypt_core_macro1a	56, 120
+	scrypt_core_macro1a	60, 124
 	
-	call x86_gen_salsa8_core
-	
-	movl	92(%esp), %edi
-	x86_scrypt_core_macro2	0, 64
-	x86_scrypt_core_macro2	4, 68
-	x86_scrypt_core_macro2	8, 72
-	x86_scrypt_core_macro2	12, 76
-	x86_scrypt_core_macro2	16, 80
-	x86_scrypt_core_macro2	20, 84
-	x86_scrypt_core_macro2	24, 88
-	x86_scrypt_core_macro2	28, 92
-	x86_scrypt_core_macro2	32, 96
-	x86_scrypt_core_macro2	36, 100
-	x86_scrypt_core_macro2	40, 104
-	x86_scrypt_core_macro2	44, 108
-	x86_scrypt_core_macro2	48, 112
-	x86_scrypt_core_macro2	52, 116
-	x86_scrypt_core_macro2	56, 120
-	x86_scrypt_core_macro2	60, 124
-	
-	call x86_gen_salsa8_core
+	call gen_salsa8_core
 	
 	movl	92(%esp), %edi
-	x86_scrypt_core_macro3	0, 64
-	x86_scrypt_core_macro3	4, 68
-	x86_scrypt_core_macro3	8, 72
-	x86_scrypt_core_macro3	12, 76
-	x86_scrypt_core_macro3	16, 80
-	x86_scrypt_core_macro3	20, 84
-	x86_scrypt_core_macro3	24, 88
-	x86_scrypt_core_macro3	28, 92
-	x86_scrypt_core_macro3	32, 96
-	x86_scrypt_core_macro3	36, 100
-	x86_scrypt_core_macro3	40, 104
-	x86_scrypt_core_macro3	44, 108
-	x86_scrypt_core_macro3	48, 112
-	x86_scrypt_core_macro3	52, 116
-	x86_scrypt_core_macro3	56, 120
-	x86_scrypt_core_macro3	60, 124
+	scrypt_core_macro2	0, 64
+	scrypt_core_macro2	4, 68
+	scrypt_core_macro2	8, 72
+	scrypt_core_macro2	12, 76
+	scrypt_core_macro2	16, 80
+	scrypt_core_macro2	20, 84
+	scrypt_core_macro2	24, 88
+	scrypt_core_macro2	28, 92
+	scrypt_core_macro2	32, 96
+	scrypt_core_macro2	36, 100
+	scrypt_core_macro2	40, 104
+	scrypt_core_macro2	44, 108
+	scrypt_core_macro2	48, 112
+	scrypt_core_macro2	52, 116
+	scrypt_core_macro2	56, 120
+	scrypt_core_macro2	60, 124
+	
+	call gen_salsa8_core
+	
+	movl	92(%esp), %edi
+	scrypt_core_macro3	0, 64
+	scrypt_core_macro3	4, 68
+	scrypt_core_macro3	8, 72
+	scrypt_core_macro3	12, 76
+	scrypt_core_macro3	16, 80
+	scrypt_core_macro3	20, 84
+	scrypt_core_macro3	24, 88
+	scrypt_core_macro3	28, 92
+	scrypt_core_macro3	32, 96
+	scrypt_core_macro3	36, 100
+	scrypt_core_macro3	40, 104
+	scrypt_core_macro3	44, 108
+	scrypt_core_macro3	48, 112
+	scrypt_core_macro3	52, 116
+	scrypt_core_macro3	56, 120
+	scrypt_core_macro3	60, 124
 	
 	movl	64(%esp), %esi
 	movl	68(%esp), %ecx
 	addl	$128, %esi
 	cmpl	%ecx, %esi
-	jne x86_gen_scrypt_core_loop1
+	jne gen_scrypt_core_loop1
 
 	movl	96(%esp), %esi
 	movl	$1024, %ecx
-x86_gen_scrypt_core_loop2:
+gen_scrypt_core_loop2:
 	movl	%ecx, 68(%esp)
 	
 	movl	64(%edi), %edx
 	andl	$1023, %edx
 	shll	$7, %edx
 	
-	x86_scrypt_core_macro1b	0, 64
-	x86_scrypt_core_macro1b	4, 68
-	x86_scrypt_core_macro1b	8, 72
-	x86_scrypt_core_macro1b	12, 76
-	x86_scrypt_core_macro1b	16, 80
-	x86_scrypt_core_macro1b	20, 84
-	x86_scrypt_core_macro1b	24, 88
-	x86_scrypt_core_macro1b	28, 92
-	x86_scrypt_core_macro1b	32, 96
-	x86_scrypt_core_macro1b	36, 100
-	x86_scrypt_core_macro1b	40, 104
-	x86_scrypt_core_macro1b	44, 108
-	x86_scrypt_core_macro1b	48, 112
-	x86_scrypt_core_macro1b	52, 116
-	x86_scrypt_core_macro1b	56, 120
-	x86_scrypt_core_macro1b	60, 124
+	scrypt_core_macro1b	0, 64
+	scrypt_core_macro1b	4, 68
+	scrypt_core_macro1b	8, 72
+	scrypt_core_macro1b	12, 76
+	scrypt_core_macro1b	16, 80
+	scrypt_core_macro1b	20, 84
+	scrypt_core_macro1b	24, 88
+	scrypt_core_macro1b	28, 92
+	scrypt_core_macro1b	32, 96
+	scrypt_core_macro1b	36, 100
+	scrypt_core_macro1b	40, 104
+	scrypt_core_macro1b	44, 108
+	scrypt_core_macro1b	48, 112
+	scrypt_core_macro1b	52, 116
+	scrypt_core_macro1b	56, 120
+	scrypt_core_macro1b	60, 124
 	
-	call x86_gen_salsa8_core
+	call gen_salsa8_core
 	
 	movl	92(%esp), %edi
-	x86_scrypt_core_macro2	0, 64
-	x86_scrypt_core_macro2	4, 68
-	x86_scrypt_core_macro2	8, 72
-	x86_scrypt_core_macro2	12, 76
-	x86_scrypt_core_macro2	16, 80
-	x86_scrypt_core_macro2	20, 84
-	x86_scrypt_core_macro2	24, 88
-	x86_scrypt_core_macro2	28, 92
-	x86_scrypt_core_macro2	32, 96
-	x86_scrypt_core_macro2	36, 100
-	x86_scrypt_core_macro2	40, 104
-	x86_scrypt_core_macro2	44, 108
-	x86_scrypt_core_macro2	48, 112
-	x86_scrypt_core_macro2	52, 116
-	x86_scrypt_core_macro2	56, 120
-	x86_scrypt_core_macro2	60, 124
+	scrypt_core_macro2	0, 64
+	scrypt_core_macro2	4, 68
+	scrypt_core_macro2	8, 72
+	scrypt_core_macro2	12, 76
+	scrypt_core_macro2	16, 80
+	scrypt_core_macro2	20, 84
+	scrypt_core_macro2	24, 88
+	scrypt_core_macro2	28, 92
+	scrypt_core_macro2	32, 96
+	scrypt_core_macro2	36, 100
+	scrypt_core_macro2	40, 104
+	scrypt_core_macro2	44, 108
+	scrypt_core_macro2	48, 112
+	scrypt_core_macro2	52, 116
+	scrypt_core_macro2	56, 120
+	scrypt_core_macro2	60, 124
 	
-	call x86_gen_salsa8_core
+	call gen_salsa8_core
 	
 	movl	92(%esp), %edi
 	movl	96(%esp), %esi
-	x86_scrypt_core_macro3	0, 64
-	x86_scrypt_core_macro3	4, 68
-	x86_scrypt_core_macro3	8, 72
-	x86_scrypt_core_macro3	12, 76
-	x86_scrypt_core_macro3	16, 80
-	x86_scrypt_core_macro3	20, 84
-	x86_scrypt_core_macro3	24, 88
-	x86_scrypt_core_macro3	28, 92
-	x86_scrypt_core_macro3	32, 96
-	x86_scrypt_core_macro3	36, 100
-	x86_scrypt_core_macro3	40, 104
-	x86_scrypt_core_macro3	44, 108
-	x86_scrypt_core_macro3	48, 112
-	x86_scrypt_core_macro3	52, 116
-	x86_scrypt_core_macro3	56, 120
-	x86_scrypt_core_macro3	60, 124
+	scrypt_core_macro3	0, 64
+	scrypt_core_macro3	4, 68
+	scrypt_core_macro3	8, 72
+	scrypt_core_macro3	12, 76
+	scrypt_core_macro3	16, 80
+	scrypt_core_macro3	20, 84
+	scrypt_core_macro3	24, 88
+	scrypt_core_macro3	28, 92
+	scrypt_core_macro3	32, 96
+	scrypt_core_macro3	36, 100
+	scrypt_core_macro3	40, 104
+	scrypt_core_macro3	44, 108
+	scrypt_core_macro3	48, 112
+	scrypt_core_macro3	52, 116
+	scrypt_core_macro3	56, 120
+	scrypt_core_macro3	60, 124
 	
 	movl	68(%esp), %ecx
 	subl	$1, %ecx
-	ja x86_gen_scrypt_core_loop2
+	ja gen_scrypt_core_loop2
 	
 	addl	$72, %esp
 	popl	%esi
@@ -557,7 +557,7 @@ x86_gen_scrypt_core_loop2:
 	ret
 
 
-.macro x86_xmm_salsa8_core_doubleround
+.macro xmm_salsa8_core_doubleround
 	paddd	%xmm0, %xmm4
 	movdqa	%xmm0, %xmm5
 	movdqa	%xmm4, %xmm6
@@ -624,16 +624,16 @@ x86_gen_scrypt_core_loop2:
 	pxor	%xmm6, %xmm0
 .endm
 
-.macro x86_xmm_salsa8_core
+.macro xmm_salsa8_core
 	movdqa	%xmm1, %xmm4
-	x86_xmm_salsa8_core_doubleround
-	x86_xmm_salsa8_core_doubleround
-	x86_xmm_salsa8_core_doubleround
-	x86_xmm_salsa8_core_doubleround
+	xmm_salsa8_core_doubleround
+	xmm_salsa8_core_doubleround
+	xmm_salsa8_core_doubleround
+	xmm_salsa8_core_doubleround
 .endm
 	
 	.align 32
-x86_xmm_scrypt_core:
+xmm_scrypt_core:
 	movl	20(%esp), %edi
 	movl	24(%esp), %esi
 	movl	%esp, %ebp
@@ -710,7 +710,7 @@ x86_xmm_scrypt_core:
 	
 	movl	%esi, %edx
 	leal	131072(%esi), %ecx
-x86_xmm_scrypt_core_loop1:
+xmm_scrypt_core_loop1:
 	movdqa	0(%esp), %xmm0
 	movdqa	16(%esp), %xmm1
 	movdqa	32(%esp), %xmm2
@@ -736,7 +736,7 @@ x86_xmm_scrypt_core_loop1:
 	movdqa	%xmm1, 16(%esp)
 	movdqa	%xmm2, 32(%esp)
 	movdqa	%xmm3, 48(%esp)
-	x86_xmm_salsa8_core
+	xmm_salsa8_core
 	paddd	0(%esp), %xmm0
 	paddd	16(%esp), %xmm1
 	paddd	32(%esp), %xmm2
@@ -754,7 +754,7 @@ x86_xmm_scrypt_core_loop1:
 	movdqa	%xmm1, 80(%esp)
 	movdqa	%xmm2, 96(%esp)
 	movdqa	%xmm3, 112(%esp)
-	x86_xmm_salsa8_core
+	xmm_salsa8_core
 	paddd	64(%esp), %xmm0
 	paddd	80(%esp), %xmm1
 	paddd	96(%esp), %xmm2
@@ -766,10 +766,10 @@ x86_xmm_scrypt_core_loop1:
 	
 	addl	$128, %edx
 	cmpl	%ecx, %edx
-	jne x86_xmm_scrypt_core_loop1
+	jne xmm_scrypt_core_loop1
 	
 	movl	$1024, %ecx
-x86_xmm_scrypt_core_loop2:
+xmm_scrypt_core_loop2:
 	movdqa	0(%esp), %xmm0
 	movdqa	16(%esp), %xmm1
 	movdqa	32(%esp), %xmm2
@@ -802,7 +802,7 @@ x86_xmm_scrypt_core_loop2:
 	movdqa	%xmm1, 16(%esp)
 	movdqa	%xmm2, 32(%esp)
 	movdqa	%xmm3, 48(%esp)
-	x86_xmm_salsa8_core
+	xmm_salsa8_core
 	paddd	0(%esp), %xmm0
 	paddd	16(%esp), %xmm1
 	paddd	32(%esp), %xmm2
@@ -820,7 +820,7 @@ x86_xmm_scrypt_core_loop2:
 	movdqa	%xmm1, 80(%esp)
 	movdqa	%xmm2, 96(%esp)
 	movdqa	%xmm3, 112(%esp)
-	x86_xmm_salsa8_core
+	xmm_salsa8_core
 	paddd	64(%esp), %xmm0
 	paddd	80(%esp), %xmm1
 	paddd	96(%esp), %xmm2
@@ -831,7 +831,7 @@ x86_xmm_scrypt_core_loop2:
 	movdqa	%xmm3, 112(%esp)
 	
 	subl	$1, %ecx
-	ja x86_xmm_scrypt_core_loop2
+	ja xmm_scrypt_core_loop2
 	
 	# re-shuffle 1st block back
 	movl	60(%esp), %edx
