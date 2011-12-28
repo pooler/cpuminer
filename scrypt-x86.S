@@ -558,74 +558,78 @@ gen_scrypt_core_loop2:
 
 
 .macro xmm_salsa8_core_doubleround
+	movdqa	%xmm1, %xmm4
 	paddd	%xmm0, %xmm4
-	movdqa	%xmm0, %xmm5
-	movdqa	%xmm4, %xmm6
+	movdqa	%xmm4, %xmm5
 	pslld	$7, %xmm4
-	psrld	$25, %xmm6
+	psrld	$25, %xmm5
 	pxor	%xmm4, %xmm3
-	pxor	%xmm6, %xmm3
-	paddd	%xmm3, %xmm5
+	pxor	%xmm5, %xmm3
+	movdqa	%xmm0, %xmm4
+	
+	paddd	%xmm3, %xmm4
+	movdqa	%xmm4, %xmm5
+	pslld	$9, %xmm4
+	psrld	$23, %xmm5
+	pxor	%xmm4, %xmm2
 	movdqa	%xmm3, %xmm4
-	movdqa	%xmm5, %xmm6
-	pslld	$9, %xmm5
-	psrld	$23, %xmm6
-	pxor	%xmm5, %xmm2
 	pshufd	$0x93, %xmm3, %xmm3
-	pxor	%xmm6, %xmm2
+	pxor	%xmm5, %xmm2
+	
 	paddd	%xmm2, %xmm4
-	movdqa	%xmm2, %xmm5
-	movdqa	%xmm4, %xmm6
+	movdqa	%xmm4, %xmm5
 	pslld	$13, %xmm4
-	psrld	$19, %xmm6
+	psrld	$19, %xmm5
 	pxor	%xmm4, %xmm1
+	movdqa	%xmm2, %xmm4
 	pshufd	$0x4e, %xmm2, %xmm2
-	pxor	%xmm6, %xmm1
-	paddd	%xmm1, %xmm5
-	movdqa	%xmm3, %xmm4
-	movdqa	%xmm5, %xmm6
-	pslld	$18, %xmm5
-	psrld	$14, %xmm6
-	pxor	%xmm5, %xmm0
+	pxor	%xmm5, %xmm1
+	
+	paddd	%xmm1, %xmm4
+	movdqa	%xmm4, %xmm5
+	pslld	$18, %xmm4
+	psrld	$14, %xmm5
+	pxor	%xmm4, %xmm0
 	pshufd	$0x39, %xmm1, %xmm1
-	pxor	%xmm6, %xmm0
+	pxor	%xmm5, %xmm0
+	movdqa	%xmm3, %xmm4
 	
 	paddd	%xmm0, %xmm4
-	movdqa	%xmm0, %xmm5
-	movdqa	%xmm4, %xmm6
+	movdqa	%xmm4, %xmm5
 	pslld	$7, %xmm4
-	psrld	$25, %xmm6
+	psrld	$25, %xmm5
 	pxor	%xmm4, %xmm1
-	pxor	%xmm6, %xmm1
-	paddd	%xmm1, %xmm5
+	pxor	%xmm5, %xmm1
+	movdqa	%xmm0, %xmm4
+	
+	paddd	%xmm1, %xmm4
+	movdqa	%xmm4, %xmm5
+	pslld	$9, %xmm4
+	psrld	$23, %xmm5
+	pxor	%xmm4, %xmm2
 	movdqa	%xmm1, %xmm4
-	movdqa	%xmm5, %xmm6
-	pslld	$9, %xmm5
-	psrld	$23, %xmm6
-	pxor	%xmm5, %xmm2
 	pshufd	$0x93, %xmm1, %xmm1
-	pxor	%xmm6, %xmm2
+	pxor	%xmm5, %xmm2
+	
 	paddd	%xmm2, %xmm4
-	movdqa	%xmm2, %xmm5
-	movdqa	%xmm4, %xmm6
+	movdqa	%xmm4, %xmm5
 	pslld	$13, %xmm4
-	psrld	$19, %xmm6
+	psrld	$19, %xmm5
 	pxor	%xmm4, %xmm3
+	movdqa	%xmm2, %xmm4
 	pshufd	$0x4e, %xmm2, %xmm2
-	pxor	%xmm6, %xmm3
-	subl	$2, %eax
-	paddd	%xmm3, %xmm5
-	movdqa	%xmm1, %xmm4
-	movdqa	%xmm5, %xmm6
-	pslld	$18, %xmm5
-	psrld	$14, %xmm6
-	pxor	%xmm5, %xmm0
+	pxor	%xmm5, %xmm3
+	
+	paddd	%xmm3, %xmm4
+	movdqa	%xmm4, %xmm5
+	pslld	$18, %xmm4
+	psrld	$14, %xmm5
+	pxor	%xmm4, %xmm0
 	pshufd	$0x39, %xmm3, %xmm3
-	pxor	%xmm6, %xmm0
+	pxor	%xmm5, %xmm0
 .endm
 
 .macro xmm_salsa8_core
-	movdqa	%xmm1, %xmm4
 	xmm_salsa8_core_doubleround
 	xmm_salsa8_core_doubleround
 	xmm_salsa8_core_doubleround

@@ -42,8 +42,8 @@ typedef struct SHA256Context {
 } SHA256_CTX;
 
 /*
- * Encode a length len/4 vector of (uint32_t) into a length len vector of
- * (unsigned char) in big-endian form.  Assumes len is a multiple of 4.
+ * Encode a length len vector of (uint32_t) into a length len vector of
+ * (unsigned char) in big-endian form.
  */
 static inline void
 be32enc_vect(uint32_t *dst, const uint32_t *src, uint32_t len)
@@ -225,7 +225,7 @@ PBKDF2_SHA256_80_128_init(const uint32_t *passwd, uint32_t tstate[8], uint32_t o
 /**
  * PBKDF2_SHA256(passwd, passwdlen, salt, saltlen, c, buf, dkLen):
  * Compute PBKDF2(passwd, salt, c, dkLen) using HMAC-SHA256 as the PRF, and
- * write the output to buf.  The value dkLen must be at most 32 * (2^32 - 1).
+ * write the output to buf.
  */
 static inline void
 PBKDF2_SHA256_80_128(const uint32_t *tstate, const uint32_t *ostate, const uint32_t *passwd, uint32_t *buf)
@@ -406,7 +406,7 @@ unsigned char *scrypt_buffer_alloc() {
    scratchpad size needs to be at least 63 + (128 * r * p) + (256 * r + 64) + (128 * r * N) bytes
    r = 1, p = 1, N = 1024
  */
-static void scrypt_1024_1_1_256_sp(const uint32_t* input, unsigned char *scratchpad, uint32_t *res)
+static void scrypt_1024_1_1_256_sp(const uint32_t* input, uint32_t *res, unsigned char *scratchpad)
 {
 	uint32_t tstate[8], ostate[8];
 	uint32_t *V;
@@ -422,7 +422,7 @@ static void scrypt_1024_1_1_256_sp(const uint32_t* input, unsigned char *scratch
 }
 
 #ifdef DUAL_SCRYPT
-static void dual_scrypt_1024_1_1_256_sp(const uint32_t *input1, const uint32_t *input2, unsigned char *scratchpad, uint32_t *res1, uint32_t *res2)
+static void dual_scrypt_1024_1_1_256_sp(const uint32_t *input1, const uint32_t *input2, uint32_t *res1, uint32_t *res2, unsigned char *scratchpad)
 {
 	uint32_t tstate1[8], tstate2[8], ostate1[8], ostate2[8];
 	uint32_t *V;
@@ -466,17 +466,17 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 #ifdef DUAL_SCRYPT
 		if (use_dual) {
 			data2[19] = n++;
-			dual_scrypt_1024_1_1_256_sp(data, data2, scratchbuf, hash, hash2);
+			dual_scrypt_1024_1_1_256_sp(data, data2, hash, hash2, scratchbuf);
 			if (hash2[7] <= Htarg) {
 				((uint32_t *)pdata)[19] = byteswap(data2[19]);
 				*hashes_done = n;
 				return true;
 			}
 		} else {
-			scrypt_1024_1_1_256_sp(data, scratchbuf, hash);
+			scrypt_1024_1_1_256_sp(data, hash, scratchbuf);
 		}
 #else
-		scrypt_1024_1_1_256_sp(data, scratchbuf, hash);
+		scrypt_1024_1_1_256_sp(data, hash, scratchbuf);
 #endif
 
 		if (hash[7] <= Htarg) {

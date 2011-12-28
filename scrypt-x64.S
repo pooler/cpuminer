@@ -22,6 +22,10 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
+#if defined(__linux__) && defined(__ELF__)
+	.section .note.GNU-stack,"",%progbits
+#endif
+
 #if defined(__x86_64__)
 
 .macro gen_salsa8_core_doubleround
@@ -430,73 +434,78 @@ gen_scrypt_core_loop2:
 
 
 .macro xmm_salsa8_core_doubleround
+	movdqa	%xmm1, %xmm4
 	paddd	%xmm0, %xmm4
-	movdqa	%xmm0, %xmm5
-	movdqa	%xmm4, %xmm6
+	movdqa	%xmm4, %xmm5
 	pslld	$7, %xmm4
-	psrld	$25, %xmm6
+	psrld	$25, %xmm5
 	pxor	%xmm4, %xmm3
-	pxor	%xmm6, %xmm3
-	paddd	%xmm3, %xmm5
+	pxor	%xmm5, %xmm3
+	movdqa	%xmm0, %xmm4
+	
+	paddd	%xmm3, %xmm4
+	movdqa	%xmm4, %xmm5
+	pslld	$9, %xmm4
+	psrld	$23, %xmm5
+	pxor	%xmm4, %xmm2
 	movdqa	%xmm3, %xmm4
-	movdqa	%xmm5, %xmm6
-	pslld	$9, %xmm5
-	psrld	$23, %xmm6
-	pxor	%xmm5, %xmm2
 	pshufd	$0x93, %xmm3, %xmm3
-	pxor	%xmm6, %xmm2
+	pxor	%xmm5, %xmm2
+	
 	paddd	%xmm2, %xmm4
-	movdqa	%xmm2, %xmm5
-	movdqa	%xmm4, %xmm6
+	movdqa	%xmm4, %xmm5
 	pslld	$13, %xmm4
-	psrld	$19, %xmm6
+	psrld	$19, %xmm5
 	pxor	%xmm4, %xmm1
+	movdqa	%xmm2, %xmm4
 	pshufd	$0x4e, %xmm2, %xmm2
-	pxor	%xmm6, %xmm1
-	paddd	%xmm1, %xmm5
-	movdqa	%xmm3, %xmm4
-	movdqa	%xmm5, %xmm6
-	pslld	$18, %xmm5
-	psrld	$14, %xmm6
-	pxor	%xmm5, %xmm0
+	pxor	%xmm5, %xmm1
+	
+	paddd	%xmm1, %xmm4
+	movdqa	%xmm4, %xmm5
+	pslld	$18, %xmm4
+	psrld	$14, %xmm5
+	pxor	%xmm4, %xmm0
 	pshufd	$0x39, %xmm1, %xmm1
-	pxor	%xmm6, %xmm0
+	pxor	%xmm5, %xmm0
+	movdqa	%xmm3, %xmm4
 	
 	paddd	%xmm0, %xmm4
-	movdqa	%xmm0, %xmm5
-	movdqa	%xmm4, %xmm6
+	movdqa	%xmm4, %xmm5
 	pslld	$7, %xmm4
-	psrld	$25, %xmm6
+	psrld	$25, %xmm5
 	pxor	%xmm4, %xmm1
-	pxor	%xmm6, %xmm1
-	paddd	%xmm1, %xmm5
+	pxor	%xmm5, %xmm1
+	movdqa	%xmm0, %xmm4
+	
+	paddd	%xmm1, %xmm4
+	movdqa	%xmm4, %xmm5
+	pslld	$9, %xmm4
+	psrld	$23, %xmm5
+	pxor	%xmm4, %xmm2
 	movdqa	%xmm1, %xmm4
-	movdqa	%xmm5, %xmm6
-	pslld	$9, %xmm5
-	psrld	$23, %xmm6
-	pxor	%xmm5, %xmm2
 	pshufd	$0x93, %xmm1, %xmm1
-	pxor	%xmm6, %xmm2
+	pxor	%xmm5, %xmm2
+	
 	paddd	%xmm2, %xmm4
-	movdqa	%xmm2, %xmm5
-	movdqa	%xmm4, %xmm6
+	movdqa	%xmm4, %xmm5
 	pslld	$13, %xmm4
-	psrld	$19, %xmm6
+	psrld	$19, %xmm5
 	pxor	%xmm4, %xmm3
+	movdqa	%xmm2, %xmm4
 	pshufd	$0x4e, %xmm2, %xmm2
-	pxor	%xmm6, %xmm3
-	paddd	%xmm3, %xmm5
-	movdqa	%xmm1, %xmm4
-	movdqa	%xmm5, %xmm6
-	pslld	$18, %xmm5
-	psrld	$14, %xmm6
-	pxor	%xmm5, %xmm0
+	pxor	%xmm5, %xmm3
+	
+	paddd	%xmm3, %xmm4
+	movdqa	%xmm4, %xmm5
+	pslld	$18, %xmm4
+	psrld	$14, %xmm5
+	pxor	%xmm4, %xmm0
 	pshufd	$0x39, %xmm3, %xmm3
-	pxor	%xmm6, %xmm0
+	pxor	%xmm5, %xmm0
 .endm
 
 .macro xmm_salsa8_core
-	movdqa	%xmm1, %xmm4
 	xmm_salsa8_core_doubleround
 	xmm_salsa8_core_doubleround
 	xmm_salsa8_core_doubleround
@@ -837,136 +846,140 @@ prefer_dual_scrypt_false:
 	
 
 .macro xmm_dual_salsa8_core_doubleround
+	movdqa	%xmm1, %xmm4
+	movdqa	%xmm9, %xmm6
 	paddd	%xmm0, %xmm4
-	paddd	%xmm8, %xmm12
-	movdqa	%xmm0, %xmm5
-	movdqa	%xmm8, %xmm13
-	movdqa	%xmm4, %xmm6
-	movdqa	%xmm12, %xmm14
+	paddd	%xmm8, %xmm6
+	movdqa	%xmm4, %xmm5
+	movdqa	%xmm6, %xmm7
 	pslld	$7, %xmm4
-	pslld	$7, %xmm12
-	psrld	$25, %xmm6
-	psrld	$25, %xmm14
+	pslld	$7, %xmm6
+	psrld	$25, %xmm5
+	psrld	$25, %xmm7
 	pxor	%xmm4, %xmm3
-	pxor	%xmm12, %xmm11
-	pxor	%xmm6, %xmm3
-	pxor	%xmm14, %xmm11
-	paddd	%xmm3, %xmm5
-	paddd	%xmm11, %xmm13
+	pxor	%xmm6, %xmm11
+	pxor	%xmm5, %xmm3
+	pxor	%xmm7, %xmm11
+	movdqa	%xmm0, %xmm4
+	movdqa	%xmm8, %xmm6
+	
+	paddd	%xmm3, %xmm4
+	paddd	%xmm11, %xmm6
+	movdqa	%xmm4, %xmm5
+	movdqa	%xmm6, %xmm7
+	pslld	$9, %xmm4
+	pslld	$9, %xmm6
+	psrld	$23, %xmm5
+	psrld	$23, %xmm7
+	pxor	%xmm4, %xmm2
+	pxor	%xmm6, %xmm10
 	movdqa	%xmm3, %xmm4
-	movdqa	%xmm11, %xmm12
-	movdqa	%xmm5, %xmm6
-	movdqa	%xmm13, %xmm14
-	pslld	$9, %xmm5
-	pslld	$9, %xmm13
-	psrld	$23, %xmm6
-	psrld	$23, %xmm14
-	pxor	%xmm5, %xmm2
-	pxor	%xmm13, %xmm10
+	movdqa	%xmm11, %xmm6
 	pshufd	$0x93, %xmm3, %xmm3
 	pshufd	$0x93, %xmm11, %xmm11
-	pxor	%xmm6, %xmm2
-	pxor	%xmm14, %xmm10
+	pxor	%xmm5, %xmm2
+	pxor	%xmm7, %xmm10
+	
 	paddd	%xmm2, %xmm4
-	paddd	%xmm10, %xmm12
-	movdqa	%xmm2, %xmm5
-	movdqa	%xmm10, %xmm13
-	movdqa	%xmm4, %xmm6
-	movdqa	%xmm12, %xmm14
+	paddd	%xmm10, %xmm6
+	movdqa	%xmm4, %xmm5
+	movdqa	%xmm6, %xmm7
 	pslld	$13, %xmm4
-	pslld	$13, %xmm12
-	psrld	$19, %xmm6
-	psrld	$19, %xmm14
+	pslld	$13, %xmm6
+	psrld	$19, %xmm5
+	psrld	$19, %xmm7
 	pxor	%xmm4, %xmm1
-	pxor	%xmm12, %xmm9
+	pxor	%xmm6, %xmm9
+	movdqa	%xmm2, %xmm4
+	movdqa	%xmm10, %xmm6
 	pshufd	$0x4e, %xmm2, %xmm2
 	pshufd	$0x4e, %xmm10, %xmm10
-	pxor	%xmm6, %xmm1
-	pxor	%xmm14, %xmm9
-	paddd	%xmm1, %xmm5
-	paddd	%xmm9, %xmm13
-	movdqa	%xmm3, %xmm4
-	movdqa	%xmm11, %xmm12
-	movdqa	%xmm5, %xmm6
-	movdqa	%xmm13, %xmm14
-	pslld	$18, %xmm5
-	pslld	$18, %xmm13
-	psrld	$14, %xmm6
-	psrld	$14, %xmm14
-	pxor	%xmm5, %xmm0
-	pxor	%xmm13, %xmm8
+	pxor	%xmm5, %xmm1
+	pxor	%xmm7, %xmm9
+	
+	paddd	%xmm1, %xmm4
+	paddd	%xmm9, %xmm6
+	movdqa	%xmm4, %xmm5
+	movdqa	%xmm6, %xmm7
+	pslld	$18, %xmm4
+	pslld	$18, %xmm6
+	psrld	$14, %xmm5
+	psrld	$14, %xmm7
+	pxor	%xmm4, %xmm0
+	pxor	%xmm6, %xmm8
 	pshufd	$0x39, %xmm1, %xmm1
 	pshufd	$0x39, %xmm9, %xmm9
-	pxor	%xmm6, %xmm0
-	pxor	%xmm14, %xmm8
+	pxor	%xmm5, %xmm0
+	pxor	%xmm7, %xmm8
+	movdqa	%xmm3, %xmm4
+	movdqa	%xmm11, %xmm6
 	
 	paddd	%xmm0, %xmm4
-	paddd	%xmm8, %xmm12
-	movdqa	%xmm0, %xmm5
-	movdqa	%xmm8, %xmm13
-	movdqa	%xmm4, %xmm6
-	movdqa	%xmm12, %xmm14
+	paddd	%xmm8, %xmm6
+	movdqa	%xmm4, %xmm5
+	movdqa	%xmm6, %xmm7
 	pslld	$7, %xmm4
-	pslld	$7, %xmm12
-	psrld	$25, %xmm6
-	psrld	$25, %xmm14
+	pslld	$7, %xmm6
+	psrld	$25, %xmm5
+	psrld	$25, %xmm7
 	pxor	%xmm4, %xmm1
-	pxor	%xmm12, %xmm9
-	pxor	%xmm6, %xmm1
-	pxor	%xmm14, %xmm9
-	paddd	%xmm1, %xmm5
-	paddd	%xmm9, %xmm13
+	pxor	%xmm6, %xmm9
+	pxor	%xmm5, %xmm1
+	pxor	%xmm7, %xmm9
+	movdqa	%xmm0, %xmm4
+	movdqa	%xmm8, %xmm6
+	
+	paddd	%xmm1, %xmm4
+	paddd	%xmm9, %xmm6
+	movdqa	%xmm4, %xmm5
+	movdqa	%xmm6, %xmm7
+	pslld	$9, %xmm4
+	pslld	$9, %xmm6
+	psrld	$23, %xmm5
+	psrld	$23, %xmm7
+	pxor	%xmm4, %xmm2
+	pxor	%xmm6, %xmm10
 	movdqa	%xmm1, %xmm4
-	movdqa	%xmm9, %xmm12
-	movdqa	%xmm5, %xmm6
-	movdqa	%xmm13, %xmm14
-	pslld	$9, %xmm5
-	pslld	$9, %xmm13
-	psrld	$23, %xmm6
-	psrld	$23, %xmm14
-	pxor	%xmm5, %xmm2
-	pxor	%xmm13, %xmm10
+	movdqa	%xmm9, %xmm6
 	pshufd	$0x93, %xmm1, %xmm1
 	pshufd	$0x93, %xmm9, %xmm9
-	pxor	%xmm6, %xmm2
-	pxor	%xmm14, %xmm10
+	pxor	%xmm5, %xmm2
+	pxor	%xmm7, %xmm10
+	
 	paddd	%xmm2, %xmm4
-	paddd	%xmm10, %xmm12
-	movdqa	%xmm2, %xmm5
-	movdqa	%xmm10, %xmm13
-	movdqa	%xmm4, %xmm6
-	movdqa	%xmm12, %xmm14
+	paddd	%xmm10, %xmm6
+	movdqa	%xmm4, %xmm5
+	movdqa	%xmm6, %xmm7
 	pslld	$13, %xmm4
-	pslld	$13, %xmm12
-	psrld	$19, %xmm6
-	psrld	$19, %xmm14
+	pslld	$13, %xmm6
+	psrld	$19, %xmm5
+	psrld	$19, %xmm7
 	pxor	%xmm4, %xmm3
-	pxor	%xmm12, %xmm11
+	pxor	%xmm6, %xmm11
+	movdqa	%xmm2, %xmm4
+	movdqa	%xmm10, %xmm6
 	pshufd	$0x4e, %xmm2, %xmm2
 	pshufd	$0x4e, %xmm10, %xmm10
-	pxor	%xmm6, %xmm3
-	pxor	%xmm14, %xmm11
-	paddd	%xmm3, %xmm5
-	paddd	%xmm11, %xmm13
-	movdqa	%xmm1, %xmm4
-	movdqa	%xmm9, %xmm12
-	movdqa	%xmm5, %xmm6
-	movdqa	%xmm13, %xmm14
-	pslld	$18, %xmm5
-	pslld	$18, %xmm13
-	psrld	$14, %xmm6
-	psrld	$14, %xmm14
-	pxor	%xmm5, %xmm0
-	pxor	%xmm13, %xmm8
+	pxor	%xmm5, %xmm3
+	pxor	%xmm7, %xmm11
+	
+	paddd	%xmm3, %xmm4
+	paddd	%xmm11, %xmm6
+	movdqa	%xmm4, %xmm5
+	movdqa	%xmm6, %xmm7
+	pslld	$18, %xmm4
+	pslld	$18, %xmm6
+	psrld	$14, %xmm5
+	psrld	$14, %xmm7
+	pxor	%xmm4, %xmm0
+	pxor	%xmm6, %xmm8
 	pshufd	$0x39, %xmm3, %xmm3
 	pshufd	$0x39, %xmm11, %xmm11
-	pxor	%xmm6, %xmm0
-	pxor	%xmm14, %xmm8
+	pxor	%xmm5, %xmm0
+	pxor	%xmm7, %xmm8
 .endm
 
 .macro xmm_dual_salsa8_core
-	movdqa	%xmm1, %xmm4
-	movdqa	%xmm9, %xmm12
 	xmm_dual_salsa8_core_doubleround
 	xmm_dual_salsa8_core_doubleround
 	xmm_dual_salsa8_core_doubleround
