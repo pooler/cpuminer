@@ -1,5 +1,5 @@
 /*-
- * Copyright 2009 Colin Percival, 2011 ArtForz
+ * Copyright 2009 Colin Percival, 2011 ArtForz, 2011 pooler
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,23 +36,55 @@
 
 #define byteswap(x) ((((x) << 24) & 0xff000000u) | (((x) << 8) & 0x00ff0000u) | (((x) >> 8) & 0x0000ff00u) | (((x) >> 24) & 0x000000ffu))
 
-typedef struct SHA256Context {
-	uint32_t state[8];
-	uint32_t buf[16];
-} SHA256_CTX;
-
-/*
- * Encode a length len vector of (uint32_t) into a length len vector of
- * (unsigned char) in big-endian form.
- */
 static inline void
-be32enc_vect(uint32_t *dst, const uint32_t *src, uint32_t len)
+byteswap_vec(uint32_t *dest, const uint32_t *src, uint32_t len)
 {
 	uint32_t i;
 
 	for (i = 0; i < len; i++)
-		dst[i] = byteswap(src[i]);
+		dest[i] = byteswap(src[i]);
 }
+
+static inline uint32_t be32dec(const void *pp)
+{
+	const uint8_t *p = (uint8_t const *)pp;
+
+	return ((uint32_t)(p[3]) + ((uint32_t)(p[2]) << 8) +
+	    ((uint32_t)(p[1]) << 16) + ((uint32_t)(p[0]) << 24));
+}
+
+static inline void be32enc(void *pp, uint32_t x)
+{
+	uint8_t * p = (uint8_t *)pp;
+
+	p[3] = x & 0xff;
+	p[2] = (x >> 8) & 0xff;
+	p[1] = (x >> 16) & 0xff;
+	p[0] = (x >> 24) & 0xff;
+}
+
+static inline uint32_t le32dec(const void *pp)
+{
+	const uint8_t *p = (uint8_t const *)pp;
+
+	return ((uint32_t)(p[0]) + ((uint32_t)(p[1]) << 8) +
+	    ((uint32_t)(p[2]) << 16) + ((uint32_t)(p[3]) << 24));
+}
+
+static inline void le32enc(void *pp, uint32_t x)
+{
+	uint8_t * p = (uint8_t *)pp;
+
+	p[0] = x & 0xff;
+	p[1] = (x >> 8) & 0xff;
+	p[2] = (x >> 16) & 0xff;
+	p[3] = (x >> 24) & 0xff;
+}
+
+typedef struct SHA256Context {
+	uint32_t state[8];
+	uint32_t buf[16];
+} SHA256_CTX;
 
 /* Elementary functions used by SHA256 */
 #define Ch(x, y, z)	((x & (y ^ z)) ^ z)
@@ -93,8 +125,7 @@ SHA256_Transform(uint32_t * state, const uint32_t block[16], int swap)
 
 	/* 1. Prepare message schedule W. */
 	if(swap)
-		for (i = 0; i < 16; i++)
-			W[i] = byteswap(block[i]);
+		byteswap_vec(W, block, 16);
 	else
 		memcpy(W, block, 64);
 	for (i = 16; i < 64; i += 2) {
@@ -241,8 +272,8 @@ PBKDF2_SHA256_80_128(const uint32_t *tstate, const uint32_t *ostate, const uint3
 	memcpy(PShoctx.buf+8, outerpad, 32);
 
 	SHA256_Transform(PShictx.state, passwd, 1);
-	be32enc_vect(PShictx.buf, passwd+16, 4);
-	be32enc_vect(PShictx.buf+5, innerpad, 11);
+	byteswap_vec(PShictx.buf, passwd+16, 4);
+	byteswap_vec(PShictx.buf+5, innerpad, 11);
 
 	/* Iterate through the blocks. */
 	for (i = 0; i < 4; i++) {
@@ -256,7 +287,7 @@ PBKDF2_SHA256_80_128(const uint32_t *tstate, const uint32_t *ostate, const uint3
 
 		memcpy(ost, PShoctx.state, 32);
 		SHA256_Transform(ost, PShoctx.buf, 0);
-		be32enc_vect(buf+i*8, ost, 8);
+		byteswap_vec(buf+i*8, ost, 8);
 	}
 }
 
@@ -451,24 +482,26 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 	int use_dual;
 #endif
 	uint32_t n = 0;
-	uint32_t Htarg = ((const uint32_t *)ptarget)[7];
+	uint32_t Htarg = le32dec(&((const uint32_t *)ptarget)[7]);
+	int i;
 
 	work_restart[thr_id].restart = 0;
 	
-	be32enc_vect(data, (const uint32_t *)pdata, 19);
+	for (i = 0; i < 19; i++)
+		data[i] = be32dec(&((const uint32_t *)pdata)[i]);
 #ifdef DUAL_SCRYPT
-	memcpy(data2, data, 80);
+	memcpy(data2, data, 76);
 	use_dual = prefer_dual_scrypt();
 #endif
 	
 	while (1) {
 		data[19] = n++;
 #ifdef DUAL_SCRYPT
-		if (use_dual) {
+		if (use_dual && n < max_nonce) {
 			data2[19] = n++;
 			dual_scrypt_1024_1_1_256_sp(data, data2, hash, hash2, scratchbuf);
 			if (hash2[7] <= Htarg) {
-				((uint32_t *)pdata)[19] = byteswap(data2[19]);
+				be32enc(&((uint32_t *)pdata)[19], data2[19]);
 				*hashes_done = n;
 				return true;
 			}
@@ -480,7 +513,7 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 #endif
 
 		if (hash[7] <= Htarg) {
-			((uint32_t *)pdata)[19] = byteswap(data[19]);
+			be32enc(&((uint32_t *)pdata)[19], data[19]);
 			*hashes_done = n;
 			return true;
 		}
