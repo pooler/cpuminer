@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2010 Jeff Garzik
  *
@@ -87,6 +86,7 @@ static const char *algo_names[] = {
 	[ALGO_SCRYPT]		= "scrypt",
 };
 
+bool opt_ff = false;
 bool opt_debug = false;
 bool opt_protocol = false;
 bool want_longpoll = true;
@@ -111,6 +111,7 @@ int longpoll_thr_id;
 struct work_restart *work_restart = NULL;
 pthread_mutex_t time_lock;
 pthread_mutex_t stats_lock;
+double ffh = 0;
 
 static unsigned long accepted_count = 0L;
 static unsigned long rejected_count = 0L;
@@ -137,6 +138,10 @@ static struct option_help options_help[] = {
 
 	{ "debug",
 	  "(-D) Enable debug output (default: off)" },
+
+	{ "funfact",
+	  "(-f) Enable fun fact (total hashes calculated) output when\n"
+	  "share found (default: off)" },
 
 	{ "no-longpoll",
 	  "Disable X-Long-Polling support (default: enabled)" },
@@ -201,7 +206,8 @@ static struct option options[] = {
 	{ "url", 1, NULL, 1001 },
 	{ "user", 1, NULL, 'u' },
 	{ "userpass", 1, NULL, 1002 },
-
+    { "funfact", 0, NULL, 'f'}, // fun fact!
+    
 	{ }
 };
 
@@ -314,6 +320,11 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 	       100. * accepted_count / (accepted_count + rejected_count),
 	       hashrate,
 	       json_is_true(res) ? "(yay!!!)" : "(booooo)");
+	if (opt_ff)
+	{
+	    applog(LOG_INFO, "total hashes processed: %.2f KHashes",
+	           ffh);
+	}
 
 	json_decref(val);
 
@@ -470,6 +481,9 @@ static void hashmeter(int thr_id, const struct timeval *diff,
 		applog(LOG_INFO, "thread %d: %lu hashes, %.2f khash/s",
 		       thr_id, hashes_done,
 		       khashes / secs);
+
+    if (opt_ff)
+        ffh += khashes;
 }
 
 static bool get_work(struct thr_info *thr, struct work *work)
@@ -732,6 +746,9 @@ static void parse_arg (int key, char *arg)
 		}
 		break;
 	}
+	case 'f':
+	    opt_ff = true;
+	    break;
 	case 'q':
 		opt_quiet = true;
 		break;
@@ -966,4 +983,3 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
-
