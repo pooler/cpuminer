@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2010 Jeff Garzik
  *
@@ -140,7 +139,7 @@ static struct option_help options_help[] = {
 	{ "debug",
 	  "(-D) Enable debug output (default: off)" },
 
-	{ "fun",
+	{ "funfact",
 	  "(-f) Enable fun fact (total hashes calculated) output when\n"
 	  "share found (default: off)" },
 
