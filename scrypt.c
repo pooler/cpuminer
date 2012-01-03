@@ -296,7 +296,6 @@ PBKDF2_SHA256_80_128_32(uint32_t *tstate, uint32_t *ostate, const uint32_t *pass
 {
 	static const uint32_t ihash_finalblk[16] = {0x00000001,0x80000000,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0x00000620};
 	uint32_t pad[16];
-	uint32_t i;
 	
 	SHA256_Transform(tstate, salt, 1);
 	SHA256_Transform(tstate, salt+16, 1);
@@ -305,9 +304,7 @@ PBKDF2_SHA256_80_128_32(uint32_t *tstate, uint32_t *ostate, const uint32_t *pass
 	memcpy(pad+8, outerpad, 32);
 
 	SHA256_Transform(ostate, pad, 0);
-	
-	for (i = 0; i < 8; i++)
-		output[i] = byteswap(ostate[i]);
+	byteswap_vec(output, ostate, 8);
 }
 
 

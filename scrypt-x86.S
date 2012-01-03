@@ -1,4 +1,4 @@
-# Copyright 2011 pooler@litecoinpool.org
+# Copyright 2011-2012 pooler@litecoinpool.org
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -21,6 +21,10 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
+
+#if defined(__linux__) && defined(__ELF__)
+	.section .note.GNU-stack,"",%progbits
+#endif
 
 #if defined(__i386__)
 
@@ -712,6 +716,9 @@ xmm_scrypt_core:
 	movl	%ecx, 96(%esp)
 	movl	%ebx, 112(%esp)
 	
+	movdqa	96(%esp), %xmm6
+	movdqa	112(%esp), %xmm7
+	
 	movl	%esi, %edx
 	leal	131072(%esi), %ecx
 xmm_scrypt_core_loop1:
@@ -721,8 +728,10 @@ xmm_scrypt_core_loop1:
 	movdqa	48(%esp), %xmm3
 	movdqa	64(%esp), %xmm4
 	movdqa	80(%esp), %xmm5
-	movdqa	96(%esp), %xmm6
-	movdqa	112(%esp), %xmm7
+	pxor	%xmm4, %xmm0
+	pxor	%xmm5, %xmm1
+	pxor	%xmm6, %xmm2
+	pxor	%xmm7, %xmm3
 	movdqa	%xmm0, 0(%edx)
 	movdqa	%xmm1, 16(%edx)
 	movdqa	%xmm2, 32(%edx)
@@ -732,19 +741,11 @@ xmm_scrypt_core_loop1:
 	movdqa	%xmm6, 96(%edx)
 	movdqa	%xmm7, 112(%edx)
 	
-	pxor	%xmm4, %xmm0
-	pxor	%xmm5, %xmm1
-	pxor	%xmm6, %xmm2
-	pxor	%xmm7, %xmm3
-	movdqa	%xmm0, 0(%esp)
-	movdqa	%xmm1, 16(%esp)
-	movdqa	%xmm2, 32(%esp)
-	movdqa	%xmm3, 48(%esp)
 	xmm_salsa8_core
-	paddd	0(%esp), %xmm0
-	paddd	16(%esp), %xmm1
-	paddd	32(%esp), %xmm2
-	paddd	48(%esp), %xmm3
+	paddd	0(%edx), %xmm0
+	paddd	16(%edx), %xmm1
+	paddd	32(%edx), %xmm2
+	paddd	48(%edx), %xmm3
 	movdqa	%xmm0, 0(%esp)
 	movdqa	%xmm1, 16(%esp)
 	movdqa	%xmm2, 32(%esp)
@@ -752,25 +753,26 @@ xmm_scrypt_core_loop1:
 	
 	pxor	64(%esp), %xmm0
 	pxor	80(%esp), %xmm1
-	pxor	96(%esp), %xmm2
-	pxor	112(%esp), %xmm3
+	pxor	%xmm6, %xmm2
+	pxor	%xmm7, %xmm3
 	movdqa	%xmm0, 64(%esp)
 	movdqa	%xmm1, 80(%esp)
-	movdqa	%xmm2, 96(%esp)
-	movdqa	%xmm3, 112(%esp)
+	movdqa	%xmm2, %xmm6
+	movdqa	%xmm3, %xmm7
 	xmm_salsa8_core
 	paddd	64(%esp), %xmm0
 	paddd	80(%esp), %xmm1
-	paddd	96(%esp), %xmm2
-	paddd	112(%esp), %xmm3
+	paddd	%xmm2, %xmm6
+	paddd	%xmm3, %xmm7
 	movdqa	%xmm0, 64(%esp)
 	movdqa	%xmm1, 80(%esp)
-	movdqa	%xmm2, 96(%esp)
-	movdqa	%xmm3, 112(%esp)
 	
 	addl	$128, %edx
 	cmpl	%ecx, %edx
 	jne xmm_scrypt_core_loop1
+	
+	movdqa	64(%esp), %xmm4
+	movdqa	80(%esp), %xmm5
 	
 	movl	$1024, %ecx
 xmm_scrypt_core_loop2:
@@ -778,10 +780,6 @@ xmm_scrypt_core_loop2:
 	movdqa	16(%esp), %xmm1
 	movdqa	32(%esp), %xmm2
 	movdqa	48(%esp), %xmm3
-	movdqa	64(%esp), %xmm4
-	movdqa	80(%esp), %xmm5
-	movdqa	96(%esp), %xmm6
-	movdqa	112(%esp), %xmm7
 	movd	%xmm4, %edx
 	andl	$1023, %edx
 	shll	$7, %edx
@@ -789,14 +787,6 @@ xmm_scrypt_core_loop2:
 	pxor	16(%esi, %edx), %xmm1
 	pxor	32(%esi, %edx), %xmm2
 	pxor	48(%esi, %edx), %xmm3
-	pxor	64(%esi, %edx), %xmm4
-	pxor	80(%esi, %edx), %xmm5
-	pxor	96(%esi, %edx), %xmm6
-	pxor	112(%esi, %edx), %xmm7
-	movdqa	%xmm4, 64(%esp)
-	movdqa	%xmm5, 80(%esp)
-	movdqa	%xmm6, 96(%esp)
-	movdqa	%xmm7, 112(%esp)
 	
 	pxor	%xmm4, %xmm0
 	pxor	%xmm5, %xmm1
@@ -816,26 +806,33 @@ xmm_scrypt_core_loop2:
 	movdqa	%xmm2, 32(%esp)
 	movdqa	%xmm3, 48(%esp)
 	
+	pxor	64(%esi, %edx), %xmm0
+	pxor	80(%esi, %edx), %xmm1
+	pxor	96(%esi, %edx), %xmm2
+	pxor	112(%esi, %edx), %xmm3
 	pxor	64(%esp), %xmm0
 	pxor	80(%esp), %xmm1
-	pxor	96(%esp), %xmm2
-	pxor	112(%esp), %xmm3
+	pxor	%xmm6, %xmm2
+	pxor	%xmm7, %xmm3
 	movdqa	%xmm0, 64(%esp)
 	movdqa	%xmm1, 80(%esp)
-	movdqa	%xmm2, 96(%esp)
-	movdqa	%xmm3, 112(%esp)
+	movdqa	%xmm2, %xmm6
+	movdqa	%xmm3, %xmm7
 	xmm_salsa8_core
 	paddd	64(%esp), %xmm0
 	paddd	80(%esp), %xmm1
-	paddd	96(%esp), %xmm2
-	paddd	112(%esp), %xmm3
+	paddd	%xmm2, %xmm6
+	paddd	%xmm3, %xmm7
+	movdqa	%xmm0, %xmm4
+	movdqa	%xmm1, %xmm5
 	movdqa	%xmm0, 64(%esp)
 	movdqa	%xmm1, 80(%esp)
-	movdqa	%xmm2, 96(%esp)
-	movdqa	%xmm3, 112(%esp)
 	
 	subl	$1, %ecx
 	ja xmm_scrypt_core_loop2
+	
+	movdqa	%xmm6, 96(%esp)
+	movdqa	%xmm7, 112(%esp)
 	
 	# re-shuffle 1st block back
 	movl	60(%esp), %edx
