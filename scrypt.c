@@ -370,12 +370,13 @@ salsa20_8(uint32_t B[16], const uint32_t Bx[16])
 
 #if defined(__x86_64__)
 
-#define DUAL_SCRYPT
-#define SCRYPT_BUFFER_SIZE (2 * 131072 + 63)
+#define SCRYPT_3WAY
+#define SCRYPT_BUFFER_SIZE (3 * 131072 + 63)
 
-int prefer_dual_scrypt();
+int scrypt_best_throughput();
 void scrypt_core(uint32_t *X, uint32_t *V);
-void dual_scrypt_core(uint32_t *X, uint32_t *Y, uint32_t *V);
+void scrypt_core_2way(uint32_t *X, uint32_t *Y, uint32_t *V);
+void scrypt_core_3way(uint32_t *X, uint32_t *Y, uint32_t *Z, uint32_t *V);
 
 #elif defined(__i386__)
 
@@ -434,7 +435,7 @@ unsigned char *scrypt_buffer_alloc() {
    scratchpad size needs to be at least 63 + (128 * r * p) + (256 * r + 64) + (128 * r * N) bytes
    r = 1, p = 1, N = 1024
  */
-static void scrypt_1024_1_1_256_sp(const uint32_t* input, uint32_t *res, unsigned char *scratchpad)
+static void scrypt_1024_1_1_256_sp(const uint32_t* input, uint32_t *output, unsigned char *scratchpad)
 {
 	uint32_t tstate[8], ostate[8];
 	uint32_t *V;
@@ -446,13 +447,16 @@ static void scrypt_1024_1_1_256_sp(const uint32_t* input, uint32_t *res, unsigne
 
 	scrypt_core(X, V);
 
-	return PBKDF2_SHA256_80_128_32(tstate, ostate, input, X, res);
+	return PBKDF2_SHA256_80_128_32(tstate, ostate, input, X, output);
 }
 
-#ifdef DUAL_SCRYPT
-static void dual_scrypt_1024_1_1_256_sp(const uint32_t *input1, const uint32_t *input2, uint32_t *res1, uint32_t *res2, unsigned char *scratchpad)
+#ifdef SCRYPT_3WAY
+
+static void scrypt_1024_1_1_256_sp_2way(const uint32_t *input1, const uint32_t *input2,
+	uint32_t *output1, uint32_t *output2, unsigned char *scratchpad)
 {
-	uint32_t tstate1[8], tstate2[8], ostate1[8], ostate2[8];
+	uint32_t tstate1[8], tstate2[8];
+	uint32_t ostate1[8], ostate2[8];
 	uint32_t *V;
 	uint32_t X[32], Y[32];
 	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
@@ -462,11 +466,35 @@ static void dual_scrypt_1024_1_1_256_sp(const uint32_t *input1, const uint32_t *
 	PBKDF2_SHA256_80_128(tstate1, ostate1, input1, X);
 	PBKDF2_SHA256_80_128(tstate2, ostate2, input2, Y);
 
-	dual_scrypt_core(X, Y, V);
+	scrypt_core_2way(X, Y, V);
 
-	PBKDF2_SHA256_80_128_32(tstate1, ostate1, input1, X, res1);
-	PBKDF2_SHA256_80_128_32(tstate2, ostate2, input2, Y, res2);
+	PBKDF2_SHA256_80_128_32(tstate1, ostate1, input1, X, output1);
+	PBKDF2_SHA256_80_128_32(tstate2, ostate2, input2, Y, output2);
 }
+
+static void scrypt_1024_1_1_256_sp_3way(const uint32_t *input1, const uint32_t *input2, const uint32_t *input3,
+	uint32_t *output1, uint32_t *output2, uint32_t *output3, unsigned char *scratchpad)
+{
+	uint32_t tstate1[8], tstate2[8], tstate3[8];
+	uint32_t ostate1[8], ostate2[8], ostate3[8];
+	uint32_t *V;
+	uint32_t X[32], Y[32], Z[32];
+	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
+
+	PBKDF2_SHA256_80_128_init(input1, tstate1, ostate1);
+	PBKDF2_SHA256_80_128_init(input2, tstate2, ostate2);
+	PBKDF2_SHA256_80_128_init(input3, tstate3, ostate3);
+	PBKDF2_SHA256_80_128(tstate1, ostate1, input1, X);
+	PBKDF2_SHA256_80_128(tstate2, ostate2, input2, Y);
+	PBKDF2_SHA256_80_128(tstate3, ostate3, input3, Z);
+
+	scrypt_core_3way(X, Y, Z, V);
+
+	PBKDF2_SHA256_80_128_32(tstate1, ostate1, input1, X, output1);
+	PBKDF2_SHA256_80_128_32(tstate2, ostate2, input2, Y, output2);
+	PBKDF2_SHA256_80_128_32(tstate3, ostate3, input3, Z, output3);
+}
+
 #endif
 
 int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
@@ -474,9 +502,10 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 	uint32_t max_nonce, unsigned long *hashes_done)
 {
 	uint32_t data[20], hash[8];
-#ifdef DUAL_SCRYPT
+#ifdef SCRYPT_3WAY
 	uint32_t data2[20], hash2[8];
-	int use_dual;
+	uint32_t data3[20], hash3[8];
+	int throughput;
 #endif
 	uint32_t n = 0;
 	uint32_t Htarg = le32dec(&((const uint32_t *)ptarget)[7]);
@@ -486,17 +515,28 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 	
 	for (i = 0; i < 19; i++)
 		data[i] = be32dec(&((const uint32_t *)pdata)[i]);
-#ifdef DUAL_SCRYPT
-	memcpy(data2, data, 76);
-	use_dual = prefer_dual_scrypt();
+#ifdef SCRYPT_3WAY
+	memcpy(data2, data, 80);
+	memcpy(data3, data, 80);
+	throughput = scrypt_best_throughput();
 #endif
 	
 	while (1) {
 		data[19] = n++;
-#ifdef DUAL_SCRYPT
-		if (use_dual && n < max_nonce) {
+#ifdef SCRYPT_3WAY
+		if (throughput >= 2 && n < max_nonce) {
 			data2[19] = n++;
-			dual_scrypt_1024_1_1_256_sp(data, data2, hash, hash2, scratchbuf);
+			if (throughput >= 3 && n < max_nonce) {
+				data3[19] = n++;
+				scrypt_1024_1_1_256_sp_3way(data, data2, data3, hash, hash2, hash3, scratchbuf);
+				if (hash3[7] <= Htarg) {
+					be32enc(&((uint32_t *)pdata)[19], data3[19]);
+					*hashes_done = n;
+					return true;
+				}
+			} else {
+				scrypt_1024_1_1_256_sp_2way(data, data2, hash, hash2, scratchbuf);
+			}
 			if (hash2[7] <= Htarg) {
 				be32enc(&((uint32_t *)pdata)[19], data2[19]);
 				*hashes_done = n;
