@@ -27,6 +27,41 @@
 #endif
 
 #if defined(__i386__)
+	
+.macro scrypt_shuffle src, so, dest, do
+	movl	\so+60(\src), %eax
+	movl	\so+44(\src), %ebx
+	movl	\so+28(\src), %ecx
+	movl	\so+12(\src), %edx
+	movl	%eax, \do+12(\dest)
+	movl	%ebx, \do+28(\dest)
+	movl	%ecx, \do+44(\dest)
+	movl	%edx, \do+60(\dest)
+	movl	\so+40(\src), %eax
+	movl	\so+8(\src), %ebx
+	movl	\so+48(\src), %ecx
+	movl	\so+16(\src), %edx
+	movl	%eax, \do+8(\dest)
+	movl	%ebx, \do+40(\dest)
+	movl	%ecx, \do+16(\dest)
+	movl	%edx, \do+48(\dest)
+	movl	\so+20(\src), %eax
+	movl	\so+4(\src), %ebx
+	movl	\so+52(\src), %ecx
+	movl	\so+36(\src), %edx
+	movl	%eax, \do+4(\dest)
+	movl	%ebx, \do+20(\dest)
+	movl	%ecx, \do+36(\dest)
+	movl	%edx, \do+52(\dest)
+	movl	\so+0(\src), %eax
+	movl	\so+24(\src), %ebx
+	movl	\so+32(\src), %ecx
+	movl	\so+56(\src), %edx
+	movl	%eax, \do+0(\dest)
+	movl	%ebx, \do+24(\dest)
+	movl	%ecx, \do+32(\dest)
+	movl	%edx, \do+56(\dest)
+.endm
 
 .macro gen_salsa8_core_quadround
 	movl	52(%esp), %ecx
@@ -648,73 +683,8 @@ xmm_scrypt_core:
 	subl	$128, %esp
 	andl	$-16, %esp
 	
-	# shuffle 1st block to (%esp)
-	movl	60(%edi), %edx
-	movl	44(%edi), %ecx
-	movl	28(%edi), %ebx
-	movl	12(%edi), %eax
-	movl	%edx, 12(%esp)
-	movl	%ecx, 28(%esp)
-	movl	%ebx, 44(%esp)
-	movl	%eax, 60(%esp)
-	movl	40(%edi), %ecx
-	movl	24(%edi), %ebx
-	movl	8(%edi), %eax
-	movl	56(%edi), %edx
-	movl	%ecx, 8(%esp)
-	movl	%ebx, 24(%esp)
-	movl	%eax, 40(%esp)
-	movl	%edx, 56(%esp)
-	movl	20(%edi), %ebx
-	movl	4(%edi), %eax
-	movl	52(%edi), %edx
-	movl	36(%edi), %ecx
-	movl	%ebx, 4(%esp)
-	movl	%eax, 20(%esp)
-	movl	%edx, 36(%esp)
-	movl	%ecx, 52(%esp)
-	movl	0(%edi), %eax
-	movl	48(%edi), %edx
-	movl	32(%edi), %ecx
-	movl	16(%edi), %ebx
-	movl	%eax, 0(%esp)
-	movl	%edx, 16(%esp)
-	movl	%ecx, 32(%esp)
-	movl	%ebx, 48(%esp)
-	
-	# shuffle 2nd block to 64(%esp)
-	movl	124(%edi), %edx
-	movl	108(%edi), %ecx
-	movl	92(%edi), %ebx
-	movl	76(%edi), %eax
-	movl	%edx, 76(%esp)
-	movl	%ecx, 92(%esp)
-	movl	%ebx, 108(%esp)
-	movl	%eax, 124(%esp)
-	movl	104(%edi), %ecx
-	movl	88(%edi), %ebx
-	movl	72(%edi), %eax
-	movl	120(%edi), %edx
-	movl	%ecx, 72(%esp)
-	movl	%ebx, 88(%esp)
-	movl	%eax, 104(%esp)
-	movl	%edx, 120(%esp)
-	movl	84(%edi), %ebx
-	movl	68(%edi), %eax
-	movl	116(%edi), %edx
-	movl	100(%edi), %ecx
-	movl	%ebx, 68(%esp)
-	movl	%eax, 84(%esp)
-	movl	%edx, 100(%esp)
-	movl	%ecx, 116(%esp)
-	movl	64(%edi), %eax
-	movl	112(%edi), %edx
-	movl	96(%edi), %ecx
-	movl	80(%edi), %ebx
-	movl	%eax, 64(%esp)
-	movl	%edx, 80(%esp)
-	movl	%ecx, 96(%esp)
-	movl	%ebx, 112(%esp)
+	scrypt_shuffle %edi, 0, %esp, 0
+	scrypt_shuffle %edi, 64, %esp, 64
 	
 	movdqa	96(%esp), %xmm6
 	movdqa	112(%esp), %xmm7
@@ -834,73 +804,8 @@ xmm_scrypt_core_loop2:
 	movdqa	%xmm6, 96(%esp)
 	movdqa	%xmm7, 112(%esp)
 	
-	# re-shuffle 1st block back
-	movl	60(%esp), %edx
-	movl	44(%esp), %ecx
-	movl	28(%esp), %ebx
-	movl	12(%esp), %eax
-	movl	%edx, 12(%edi)
-	movl	%ecx, 28(%edi)
-	movl	%ebx, 44(%edi)
-	movl	%eax, 60(%edi)
-	movl	40(%esp), %ecx
-	movl	24(%esp), %ebx
-	movl	8(%esp), %eax
-	movl	56(%esp), %edx
-	movl	%ecx, 8(%edi)
-	movl	%ebx, 24(%edi)
-	movl	%eax, 40(%edi)
-	movl	%edx, 56(%edi)
-	movl	20(%esp), %ebx
-	movl	4(%esp), %eax
-	movl	52(%esp), %edx
-	movl	36(%esp), %ecx
-	movl	%ebx, 4(%edi)
-	movl	%eax, 20(%edi)
-	movl	%edx, 36(%edi)
-	movl	%ecx, 52(%edi)
-	movl	0(%esp), %eax
-	movl	48(%esp), %edx
-	movl	32(%esp), %ecx
-	movl	16(%esp), %ebx
-	movl	%eax, 0(%edi)
-	movl	%edx, 16(%edi)
-	movl	%ecx, 32(%edi)
-	movl	%ebx, 48(%edi)
-	
-	# re-shuffle 2nd block back
-	movl	124(%esp), %edx
-	movl	108(%esp), %ecx
-	movl	92(%esp), %ebx
-	movl	76(%esp), %eax
-	movl	%edx, 76(%edi)
-	movl	%ecx, 92(%edi)
-	movl	%ebx, 108(%edi)
-	movl	%eax, 124(%edi)
-	movl	104(%esp), %ecx
-	movl	88(%esp), %ebx
-	movl	72(%esp), %eax
-	movl	120(%esp), %edx
-	movl	%ecx, 72(%edi)
-	movl	%ebx, 88(%edi)
-	movl	%eax, 104(%edi)
-	movl	%edx, 120(%edi)
-	movl	84(%esp), %ebx
-	movl	68(%esp), %eax
-	movl	116(%esp), %edx
-	movl	100(%esp), %ecx
-	movl	%ebx, 68(%edi)
-	movl	%eax, 84(%edi)
-	movl	%edx, 100(%edi)
-	movl	%ecx, 116(%edi)
-	movl	64(%esp), %eax
-	movl	112(%esp), %edx
-	movl	96(%esp), %ecx
-	movl	80(%esp), %ebx
-	movl	%eax, 64(%edi)
-	movl	%edx, 80(%edi)
-	movl	%ecx, 96(%edi)
-	movl	%ebx, 112(%edi)
+	scrypt_shuffle %esp, 0, %edi, 0
+	scrypt_shuffle %esp, 64, %edi, 64
 	
 	movl	%ebp, %esp
 	popl	%esi

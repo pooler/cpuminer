@@ -497,6 +497,19 @@ static void scrypt_1024_1_1_256_sp_3way(const uint32_t *input1, const uint32_t *
 
 #endif
 
+static int test_hash(const uint32_t *hash, const uint32_t *target)
+{
+	int i;
+	for (i = 7; i >= 0; i--) {
+		uint32_t t = le32dec(&target[i]);
+		if (hash[i] > t)
+			return 0;
+		if (hash[i] < t)
+			return 1;
+	}
+	return 1;
+}
+
 int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 	const unsigned char *ptarget,
 	uint32_t max_nonce, unsigned long *hashes_done)
@@ -529,7 +542,7 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 			if (throughput >= 3 && n < max_nonce) {
 				data3[19] = n++;
 				scrypt_1024_1_1_256_sp_3way(data, data2, data3, hash, hash2, hash3, scratchbuf);
-				if (hash3[7] <= Htarg) {
+				if (hash3[7] < Htarg || hash3[7] == Htarg && test_hash(hash3, (uint32_t *)ptarget)) {
 					be32enc(&((uint32_t *)pdata)[19], data3[19]);
 					*hashes_done = n;
 					return true;
@@ -537,7 +550,7 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 			} else {
 				scrypt_1024_1_1_256_sp_2way(data, data2, hash, hash2, scratchbuf);
 			}
-			if (hash2[7] <= Htarg) {
+			if (hash2[7] < Htarg || hash2[7] == Htarg && test_hash(hash2, (uint32_t *)ptarget)) {
 				be32enc(&((uint32_t *)pdata)[19], data2[19]);
 				*hashes_done = n;
 				return true;
@@ -549,7 +562,7 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 		scrypt_1024_1_1_256_sp(data, hash, scratchbuf);
 #endif
 
-		if (hash[7] <= Htarg) {
+		if (hash[7] < Htarg || hash[7] == Htarg && test_hash(hash, (uint32_t *)ptarget)) {
 			be32enc(&((uint32_t *)pdata)[19], data[19]);
 			*hashes_done = n;
 			return true;

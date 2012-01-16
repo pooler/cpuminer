@@ -16,8 +16,7 @@ enum {
 
 static inline int setpriority(int which, int who, int prio)
 {
-	/* FIXME - actually do something */
-	return 0;
+	return -!SetPriorityClass(GetCurrentProcess(), IDLE_PRIORITY_CLASS);
 }
 
 #endif /* WIN32 */

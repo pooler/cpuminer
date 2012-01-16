@@ -1,3 +1,16 @@
+Version 2.0 - Jan 16, 2012
+
+- Change default port to 9332 for Litecoin and remove default credentials
+- Add 'scrypt' as the default algorithm and remove other algorithms (ArtForz)
+- Optimize scrypt for x86 and x86-64
+- Test the whole hash instead of just looking at the high 32 bits
+- Add configurable timeout, with a default of 180 seconds
+- Add share summary output (inlikeflynn)
+- Fix priority and CPU count detection on Windows
+- Fix parameters -u and -p, and add short options -o and -O
+
+Version 1.0.2 - Jun 13, 2011
+
 - Linux x86_64 optimisations - Con Kolivas
 - Optimise for x86_64 by default by using sse2_64 algo
 - Detects CPUs and sets number of threads accordingly

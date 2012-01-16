@@ -23,6 +23,7 @@
 #include <windows.h>
 #else
 #include <sys/resource.h>
+#include <sys/sysctl.h>
 #endif
 #include <getopt.h>
 #include <jansson.h>
@@ -126,35 +127,33 @@ static struct option_help options_help[] = {
 	  "(-h) Display this help text" },
 
 	{ "config FILE",
-	  "(-c FILE) JSON-format configuration file (default: none)\n"
-	  "See example-cfg.json for an example configuration." },
+	  "(-c FILE) Load a JSON-format configuration file" },
 
 	{ "algo XXX",
-	  "(-a XXX) Only scrypt (e.g. --algo scrypt) is supported" },
+	  "(-a XXX) Specify the algorithm to use (default: scrypt)" },
 
 	{ "quiet",
-	  "(-q) Disable per-thread hashmeter output (default: off)" },
+	  "(-q) Disable per-thread hashmeter output" },
 
 	{ "debug",
-	  "(-D) Enable debug output (default: off)" },
+	  "(-D) Enable debug output" },
 
 	{ "no-longpoll",
-	  "Disable X-Long-Polling support (default: enabled)" },
+	  "Disable X-Long-Polling support" },
 
 	{ "protocol-dump",
-	  "(-P) Verbose dump of protocol-level activities (default: off)" },
+	  "(-P) Verbose dump of protocol-level activities" },
 
 	{ "retries N",
 	  "(-r N) Number of times to retry if JSON-RPC call fails\n"
 	  "\t(default: retry indefinitely)" },
 
 	{ "retry-pause N",
-	  "(-R N) Number of seconds to pause between retries\n"
-	  "\t(default: 30)" },
+	  "(-R N) Number of seconds to pause between retries (default: 30)" },
 
 	{ "scantime N",
-	  "(-s N) Upper bound on time spent scanning current work,\n"
-	  "\tin seconds. (default: 5)" },
+	  "(-s N) Upper bound on time spent scanning current work, in seconds\n"
+	  "\t(default: 5)" },
 
 	{ "timeout N",
 	  "(-T N) Connection timeout, in seconds (default: 180)" },
@@ -168,11 +167,11 @@ static struct option_help options_help[] = {
 	  "(-t N) Number of miner threads (default: number of processors)" },
 
 	{ "url URL",
-	  "URL for JSON-RPC server "
+	  "(-o URL) URL for JSON-RPC server "
 	  "(default: " DEF_RPC_URL ")" },
 
 	{ "userpass USERNAME:PASSWORD",
-	  "Username:Password pair for JSON-RPC server" },
+	  "(-O USERNAME:PASSWORD) Username:Password pair for JSON-RPC server" },
 
 	{ "user USERNAME",
 	  "(-u USERNAME) Username for JSON-RPC server" },
@@ -198,9 +197,9 @@ static struct option options[] = {
 #ifdef HAVE_SYSLOG_H
 	{ "syslog", 0, NULL, 1004 },
 #endif
-	{ "url", 1, NULL, 1001 },
+	{ "url", 1, NULL, 'o' },
 	{ "user", 1, NULL, 'u' },
-	{ "userpass", 1, NULL, 1002 },
+	{ "userpass", 1, NULL, 'O' },
 
 	{ }
 };
@@ -784,7 +783,7 @@ static void parse_arg (int key, char *arg)
 		free(rpc_user);
 		rpc_user = strdup(arg);
 		break;
-	case 1001:			/* --url */
+	case 'o':			/* --url */
 		if (strncmp(arg, "http://", 7) &&
 		    strncmp(arg, "https://", 8))
 			show_usage();
@@ -792,7 +791,7 @@ static void parse_arg (int key, char *arg)
 		free(rpc_url);
 		rpc_url = strdup(arg);
 		break;
-	case 1002:			/* --userpass */
+	case 'O':			/* --userpass */
 		if (!strchr(arg, ':'))
 			show_usage();
 
@@ -813,9 +812,17 @@ static void parse_arg (int key, char *arg)
 	SYSTEM_INFO sysinfo;
 	GetSystemInfo(&sysinfo);
 	num_processors = sysinfo.dwNumberOfProcessors;
-#else
+#elif defined(_SC_NPROCESSORS_ONLN)
 	num_processors = sysconf(_SC_NPROCESSORS_ONLN);
+#elif defined(HW_NCPU)
+	int req[] = { CTL_HW, HW_NCPU };
+	size_t len = sizeof(num_processors);
+	v = sysctl(req, 2, &num_processors, &len, NULL, 0);
+#else
+	num_processors = 1;
 #endif
+	if (num_processors < 1)
+		num_processors = 1;
 	if (!opt_n_threads)
 		opt_n_threads = num_processors;
 }
@@ -857,7 +864,7 @@ static void parse_cmdline(int argc, char *argv[])
 	int key;
 
 	while (1) {
-		key = getopt_long(argc, argv, "a:c:qDPr:s:T:t:h?", options, NULL);
+		key = getopt_long(argc, argv, "hc:a:qDPr:s:T:t:o:O:u:p:", options, NULL);
 		if (key < 0)
 			break;
 
