@@ -909,6 +909,7 @@ int main(int argc, char *argv[])
 
 	pthread_mutex_init(&time_lock, NULL);
 	pthread_mutex_init(&stats_lock, NULL);
+	pthread_mutex_init(&g_work_lock, NULL);
 
 	if (!rpc_userpass) {
 		if (!rpc_user || !rpc_pass) {
