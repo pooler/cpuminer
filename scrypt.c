@@ -512,7 +512,7 @@ static int test_hash(const uint32_t *hash, const uint32_t *target)
 
 int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 	const unsigned char *ptarget,
-	uint32_t max_nonce, unsigned long *hashes_done)
+	uint32_t max_nonce, uint32_t *next_nonce, unsigned long *hashes_done)
 {
 	uint32_t data[20], hash[8];
 #ifdef SCRYPT_3WAY
@@ -520,11 +520,10 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 	uint32_t data3[20], hash3[8];
 	int throughput;
 #endif
-	uint32_t n = 0;
+	unsigned long c = 0;
+	uint32_t n = *next_nonce;
 	uint32_t Htarg = le32dec(&((const uint32_t *)ptarget)[7]);
 	int i;
-
-	work_restart[thr_id].restart = 0;
 	
 	for (i = 0; i < 19; i++)
 		data[i] = be32dec(&((const uint32_t *)pdata)[i]);
@@ -535,16 +534,23 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 #endif
 	
 	while (1) {
-		data[19] = n++;
+		data[19] = n;
+		n += opt_n_threads;
+		++c;
 #ifdef SCRYPT_3WAY
-		if (throughput >= 2 && n < max_nonce) {
-			data2[19] = n++;
-			if (throughput >= 3 && n < max_nonce) {
-				data3[19] = n++;
+		if (throughput >= 2 && n <= max_nonce) {
+			data2[19] = n;
+			n += opt_n_threads;
+			++c;
+			if (throughput >= 3 && n <= max_nonce) {
+				data3[19] = n;
+				n += opt_n_threads;
+				++c;
 				scrypt_1024_1_1_256_sp_3way(data, data2, data3, hash, hash2, hash3, scratchbuf);
 				if (hash3[7] < Htarg || hash3[7] == Htarg && test_hash(hash3, (uint32_t *)ptarget)) {
 					be32enc(&((uint32_t *)pdata)[19], data3[19]);
-					*hashes_done = n;
+					*next_nonce = n;
+					*hashes_done = c;
 					return true;
 				}
 			} else {
@@ -552,7 +558,8 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 			}
 			if (hash2[7] < Htarg || hash2[7] == Htarg && test_hash(hash2, (uint32_t *)ptarget)) {
 				be32enc(&((uint32_t *)pdata)[19], data2[19]);
-				*hashes_done = n;
+				*next_nonce = n;
+				*hashes_done = c;
 				return true;
 			}
 		} else {
@@ -564,15 +571,16 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 
 		if (hash[7] < Htarg || hash[7] == Htarg && test_hash(hash, (uint32_t *)ptarget)) {
 			be32enc(&((uint32_t *)pdata)[19], data[19]);
-			*hashes_done = n;
+			*next_nonce = n;
+			*hashes_done = c;
 			return true;
 		}
 
-		if ((n >= max_nonce) || work_restart[thr_id].restart) {
-			*hashes_done = n;
+		if ((n > max_nonce) || work_restart[thr_id].restart)
 			break;
-		}
 	}
+	*next_nonce = n;
+	*hashes_done = c;
 	return false;
 }
 

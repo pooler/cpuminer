@@ -101,7 +101,7 @@ int opt_scantime = 5;
 static json_t *opt_config;
 static const bool opt_time = true;
 static enum sha256_algos opt_algo = ALGO_SCRYPT;
-static int opt_n_threads;
+int opt_n_threads;
 static int num_processors;
 static char *rpc_url;
 static char *rpc_userpass;
@@ -213,6 +213,10 @@ struct work {
 	unsigned char	hash[32];
 };
 
+static struct work g_work;
+static time_t g_work_time;
+static pthread_mutex_t g_work_lock;
+
 static bool jobj_binary(const json_t *obj, const char *key,
 			void *buf, size_t buflen)
 {
@@ -286,9 +290,6 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 	sprintf(s,
 	      "{\"method\": \"getwork\", \"params\": [ \"%s\" ], \"id\":1}\r\n",
 		hexstr);
-
-	if (opt_debug)
-		applog(LOG_DEBUG, "DBG: sending RPC call: %s", s);
 
 	/* issue JSON-RPC request */
 	val = json_rpc_call(curl, rpc_url, rpc_userpass, s, false, false);
@@ -535,6 +536,7 @@ static void *miner_thread(void *userdata)
 	struct thr_info *mythr = userdata;
 	int thr_id = mythr->id;
 	uint32_t max_nonce = 0xffffff;
+	uint32_t next_nonce;
 	unsigned char *scratchbuf = NULL;
 
 	/* Set worker threads to nice 19 and then preferentially to SCHED_IDLE
@@ -551,7 +553,7 @@ static void *miner_thread(void *userdata)
 	if (opt_algo == ALGO_SCRYPT)
 	{
 		scratchbuf = scrypt_buffer_alloc();
-		max_nonce = 0xffff;
+		max_nonce = 0xffff * opt_n_threads;
 	}
 
 	while (1) {
@@ -563,12 +565,25 @@ static void *miner_thread(void *userdata)
 		bool rc;
 
 		/* obtain new work from internal workio thread */
-		if (unlikely(!get_work(mythr, &work))) {
-			applog(LOG_ERR, "work retrieval failed, exiting "
-				"mining thread %d", mythr->id);
-			goto out;
+		pthread_mutex_lock(&g_work_lock);
+		if (!have_longpoll || time(NULL) >= g_work_time + opt_scantime) {
+			if (unlikely(!get_work(mythr, &g_work))) {
+				applog(LOG_ERR, "work retrieval failed, exiting "
+					"mining thread %d", mythr->id);
+				pthread_mutex_unlock(&g_work_lock);
+				goto out;
+			}
+			time(&g_work_time);
+			if (opt_debug)
+				applog(LOG_DEBUG, "DEBUG: got new work");
 		}
+		if (memcmp(work.data, g_work.data, 76)) {
+			memcpy(&work, &g_work, sizeof(struct work));
+			next_nonce = thr_id;
+		}
+		pthread_mutex_unlock(&g_work_lock);
 
+		work_restart[thr_id].restart = 0;
 		hashes_done = 0;
 		gettimeofday(&tv_start, NULL);
 
@@ -576,7 +591,8 @@ static void *miner_thread(void *userdata)
 		switch (opt_algo) {
 		case ALGO_SCRYPT:
 			rc = scanhash_scrypt(thr_id, work.data, scratchbuf,
-			                     work.target, max_nonce, &hashes_done);
+			                     work.target, next_nonce + max_nonce,
+			                     &next_nonce, &hashes_done);
 			break;
 
 		default:
@@ -595,8 +611,9 @@ static void *miner_thread(void *userdata)
 		if (diffms > 0) {
 			max64 =
 			   ((uint64_t)hashes_done * opt_scantime * 1000) / diffms;
-			if (max64 > 0xfffffffaULL)
-				max64 = 0xfffffffaULL;
+			max64 *= opt_n_threads;
+			if (max64 > 0xffff0000ULL)
+				max64 = 0xffff0000ULL;
 			max_nonce = max64;
 		}
 
@@ -665,13 +682,19 @@ static void *longpoll_thread(void *userdata)
 				    false, true);
 		if (likely(val)) {
 			failures = 0;
-			json_decref(val);
-
 			applog(LOG_INFO, "LONGPOLL detected new block");
-			restart_threads();
+			pthread_mutex_lock(&g_work_lock);
+			if (work_decode(json_object_get(val, "result"), &g_work)) {
+				if (opt_debug)
+					applog(LOG_DEBUG, "DEBUG: got new work");
+				time(&g_work_time);
+				restart_threads();
+			}
+			pthread_mutex_unlock(&g_work_lock);
 		} else {
 			/* longpoll failed, keep trying */
 		}
+		json_decref(val);
 	}
 
 out:

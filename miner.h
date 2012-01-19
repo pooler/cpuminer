@@ -130,7 +130,7 @@ extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
 extern unsigned char *scrypt_buffer_alloc();
 extern int scanhash_scrypt(int, unsigned char *pdata, unsigned char *scratchbuf,
 	const unsigned char *ptarget,
-	uint32_t max_nonce, unsigned long *nHashesDone);
+	uint32_t max_nonce, uint32_t *next_nonce, unsigned long *hashes_done);
 
 extern int
 timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y);
@@ -141,6 +141,7 @@ extern int opt_scantime;
 extern int opt_timeout;
 extern bool want_longpoll;
 extern bool have_longpoll;
+extern int opt_n_threads;
 struct thread_q;
 
 struct work_restart {
