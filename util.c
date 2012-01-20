@@ -205,7 +205,7 @@ out:
 
 json_t *json_rpc_call(CURL *curl, const char *url,
 		      const char *userpass, const char *rpc_req,
-		      bool longpoll_scan, bool longpoll)
+		      bool longpoll_scan, bool longpoll, int *curl_err)
 {
 	json_t *val, *err_val, *res_val;
 	int rc;
@@ -266,11 +266,11 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
 	rc = curl_easy_perform(curl);
+	if (curl_err != NULL)
+		*curl_err = rc;
 	if (rc) {
 		if (!(longpoll && rc == CURLE_OPERATION_TIMEDOUT))
 			applog(LOG_ERR, "HTTP request failed: %s", curl_err_str);
-		if (longpoll && rc != CURLE_OPERATION_TIMEDOUT)
-			sleep(30);
 		goto err_out;
 	}
 

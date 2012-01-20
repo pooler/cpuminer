@@ -101,7 +101,7 @@ int opt_scantime = 5;
 static json_t *opt_config;
 static const bool opt_time = true;
 static enum sha256_algos opt_algo = ALGO_SCRYPT;
-int opt_n_threads;
+static int opt_n_threads;
 static int num_processors;
 static char *rpc_url;
 static char *rpc_userpass;
@@ -292,7 +292,7 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 		hexstr);
 
 	/* issue JSON-RPC request */
-	val = json_rpc_call(curl, rpc_url, rpc_userpass, s, false, false);
+	val = json_rpc_call(curl, rpc_url, rpc_userpass, s, false, false, NULL);
 	if (unlikely(!val)) {
 		applog(LOG_ERR, "submit_upstream_work json_rpc_call failed");
 		goto out;
@@ -312,7 +312,7 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 	       accepted_count,
 	       accepted_count + rejected_count,
 	       100. * accepted_count / (accepted_count + rejected_count),
-	       hashrate,
+	       1e-3 * hashrate,
 	       json_is_true(res) ? "(yay!!!)" : "(booooo)");
 
 	json_decref(val);
@@ -333,7 +333,7 @@ static bool get_upstream_work(CURL *curl, struct work *work)
 	bool rc;
 
 	val = json_rpc_call(curl, rpc_url, rpc_userpass, rpc_req,
-			    want_longpoll, false);
+			    want_longpoll, false, NULL);
 	if (!val)
 		return false;
 
@@ -456,22 +456,6 @@ static void *workio_thread(void *userdata)
 	return NULL;
 }
 
-static void hashmeter(int thr_id, const struct timeval *diff,
-		      unsigned long hashes_done)
-{
-	double khashes, secs;
-
-	khashes = hashes_done / 1000.0;
-	secs = (double)diff->tv_sec + ((double)diff->tv_usec / 1000000.0);
-	
-	thr_hashrates[thr_id] = khashes / secs;
-	
-	if (!opt_quiet)
-		applog(LOG_INFO, "thread %d: %lu hashes, %.2f khash/s",
-		       thr_id, hashes_done,
-		       khashes / secs);
-}
-
 static bool get_work(struct thr_info *thr, struct work *work)
 {
 	struct workio_cmd *wc;
@@ -535,7 +519,7 @@ static void *miner_thread(void *userdata)
 {
 	struct thr_info *mythr = userdata;
 	int thr_id = mythr->id;
-	uint32_t max_nonce = 0xffffff;
+	uint32_t max_nonce;
 	uint32_t next_nonce;
 	unsigned char *scratchbuf = NULL;
 
@@ -553,15 +537,13 @@ static void *miner_thread(void *userdata)
 	if (opt_algo == ALGO_SCRYPT)
 	{
 		scratchbuf = scrypt_buffer_alloc();
-		max_nonce = 0xffff * opt_n_threads;
 	}
 
 	while (1) {
 		struct work work __attribute__((aligned(128)));
 		unsigned long hashes_done;
 		struct timeval tv_start, tv_end, diff;
-		int diffms;
-		uint64_t max64;
+		int64_t max64;
 		bool rc;
 
 		/* obtain new work from internal workio thread */
@@ -579,20 +561,29 @@ static void *miner_thread(void *userdata)
 		}
 		if (memcmp(work.data, g_work.data, 76)) {
 			memcpy(&work, &g_work, sizeof(struct work));
-			next_nonce = thr_id;
+			next_nonce = 0xffffffffU / opt_n_threads * thr_id;
 		}
 		pthread_mutex_unlock(&g_work_lock);
-
 		work_restart[thr_id].restart = 0;
+		
+		/* adjust max_nonce to meet target scan time */
+		max64 = (g_work_time + opt_scantime - time(NULL)) *
+			(int64_t)thr_hashrates[thr_id];
+		if (max64 <= 0)
+			max64 = 0xfffLL;
+		if (next_nonce + max64 > 0xfffffffeLL)
+			max_nonce = 0xfffffffeU;
+		else
+			max_nonce = next_nonce + max64;
+		
 		hashes_done = 0;
 		gettimeofday(&tv_start, NULL);
 
 		/* scan nonces for a proof-of-work hash */
 		switch (opt_algo) {
 		case ALGO_SCRYPT:
-			rc = scanhash_scrypt(thr_id, work.data, scratchbuf,
-			                     work.target, next_nonce + max_nonce,
-			                     &next_nonce, &hashes_done);
+			rc = scanhash_scrypt(thr_id, work.data, scratchbuf, work.target,
+			                     max_nonce, &next_nonce, &hashes_done);
 			break;
 
 		default:
@@ -603,19 +594,11 @@ static void *miner_thread(void *userdata)
 		/* record scanhash elapsed time */
 		gettimeofday(&tv_end, NULL);
 		timeval_subtract(&diff, &tv_end, &tv_start);
-
-		hashmeter(thr_id, &diff, hashes_done);
-
-		/* adjust max_nonce to meet target scan time */
-		diffms = diff.tv_sec * 1000 + diff.tv_usec / 1000;
-		if (diffms > 0) {
-			max64 =
-			   ((uint64_t)hashes_done * opt_scantime * 1000) / diffms;
-			max64 *= opt_n_threads;
-			if (max64 > 0xffff0000ULL)
-				max64 = 0xffff0000ULL;
-			max_nonce = max64;
-		}
+		thr_hashrates[thr_id] =
+			hashes_done / (diff.tv_sec + 1e-6 * diff.tv_usec);
+		if (!opt_quiet)
+			applog(LOG_INFO, "thread %d: %lu hashes, %.2f khash/s",
+				   thr_id, hashes_done, 1e-3 * thr_hashrates[thr_id]);
 
 		/* if nonce found, submit work */
 		if (rc && !submit_work(mythr, &work))
@@ -677,9 +660,10 @@ static void *longpoll_thread(void *userdata)
 
 	while (1) {
 		json_t *val;
+		int err;
 
 		val = json_rpc_call(curl, lp_url, rpc_userpass, rpc_req,
-				    false, true);
+				    false, true, &err);
 		if (likely(val)) {
 			failures = 0;
 			applog(LOG_INFO, "LONGPOLL detected new block");
@@ -691,10 +675,14 @@ static void *longpoll_thread(void *userdata)
 				restart_threads();
 			}
 			pthread_mutex_unlock(&g_work_lock);
-		} else {
-			/* longpoll failed, keep trying */
+			json_decref(val);
+		} else if (err != CURLE_OPERATION_TIMEDOUT) {
+			pthread_mutex_lock(&g_work_lock);
+			g_work_time -= opt_scantime;
+			pthread_mutex_unlock(&g_work_lock);
+			restart_threads();
+			sleep(opt_fail_pause);
 		}
-		json_decref(val);
 	}
 
 out:

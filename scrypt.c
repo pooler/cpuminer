@@ -520,7 +520,7 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 	uint32_t data3[20], hash3[8];
 	int throughput;
 #endif
-	unsigned long c = 0;
+	unsigned long first_nonce = *next_nonce;
 	uint32_t n = *next_nonce;
 	uint32_t Htarg = le32dec(&((const uint32_t *)ptarget)[7]);
 	int i;
@@ -533,24 +533,18 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 	throughput = scrypt_best_throughput();
 #endif
 	
-	while (1) {
-		data[19] = n;
-		n += opt_n_threads;
-		++c;
+	do {
+		data[19] = n++;
 #ifdef SCRYPT_3WAY
 		if (throughput >= 2 && n <= max_nonce) {
-			data2[19] = n;
-			n += opt_n_threads;
-			++c;
+			data2[19] = n++;
 			if (throughput >= 3 && n <= max_nonce) {
-				data3[19] = n;
-				n += opt_n_threads;
-				++c;
+				data3[19] = n++;
 				scrypt_1024_1_1_256_sp_3way(data, data2, data3, hash, hash2, hash3, scratchbuf);
 				if (hash3[7] < Htarg || hash3[7] == Htarg && test_hash(hash3, (uint32_t *)ptarget)) {
 					be32enc(&((uint32_t *)pdata)[19], data3[19]);
 					*next_nonce = n;
-					*hashes_done = c;
+					*hashes_done = n - first_nonce;
 					return true;
 				}
 			} else {
@@ -559,7 +553,7 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 			if (hash2[7] < Htarg || hash2[7] == Htarg && test_hash(hash2, (uint32_t *)ptarget)) {
 				be32enc(&((uint32_t *)pdata)[19], data2[19]);
 				*next_nonce = n;
-				*hashes_done = c;
+				*hashes_done = n - first_nonce;
 				return true;
 			}
 		} else {
@@ -568,19 +562,16 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 #else
 		scrypt_1024_1_1_256_sp(data, hash, scratchbuf);
 #endif
-
 		if (hash[7] < Htarg || hash[7] == Htarg && test_hash(hash, (uint32_t *)ptarget)) {
 			be32enc(&((uint32_t *)pdata)[19], data[19]);
 			*next_nonce = n;
-			*hashes_done = c;
+			*hashes_done = n - first_nonce;
 			return true;
 		}
-
-		if ((n > max_nonce) || work_restart[thr_id].restart)
-			break;
-	}
+	} while (n <= max_nonce && !work_restart[thr_id].restart);
+	
 	*next_nonce = n;
-	*hashes_done = c;
+	*hashes_done = n - first_nonce;
 	return false;
 }
 
