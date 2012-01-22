@@ -497,7 +497,8 @@ static void scrypt_1024_1_1_256_sp_3way(const uint32_t *input1, const uint32_t *
 
 #endif
 
-static int test_hash(const uint32_t *hash, const uint32_t *target)
+__attribute__ ((noinline)) static int test_hash(const uint32_t *hash,
+	const uint32_t *target)
 {
 	int i;
 	for (i = 7; i >= 0; i--) {
