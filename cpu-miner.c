@@ -33,6 +33,7 @@
 
 #define PROGRAM_NAME		"minerd"
 #define DEF_RPC_URL		"http://127.0.0.1:9332/"
+#define LP_SCANTIME		60
 
 #ifdef __linux /* Linux specific policy and affinity management */
 #include <sched.h>
@@ -278,6 +279,10 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 	double hashrate;
 	int i;
 	bool rc = false;
+	
+	/* pass if the previous hash is not the current previous hash */
+	if (memcmp(work->data + 4, g_work.data + 4, 32))
+		return true;
 
 	/* build hex string */
 	hexstr = bin2hex(work->data, sizeof(work->data));
@@ -548,7 +553,7 @@ static void *miner_thread(void *userdata)
 
 		/* obtain new work from internal workio thread */
 		pthread_mutex_lock(&g_work_lock);
-		if (!have_longpoll || time(NULL) >= g_work_time + opt_scantime) {
+		if (!have_longpoll || time(NULL) >= g_work_time + LP_SCANTIME*3/4) {
 			if (unlikely(!get_work(mythr, &g_work))) {
 				applog(LOG_ERR, "work retrieval failed, exiting "
 					"mining thread %d", mythr->id);
@@ -567,8 +572,9 @@ static void *miner_thread(void *userdata)
 		work_restart[thr_id].restart = 0;
 		
 		/* adjust max_nonce to meet target scan time */
-		max64 = (g_work_time + opt_scantime - time(NULL)) *
-			(int64_t)thr_hashrates[thr_id];
+		max64 = g_work_time + (have_longpoll ? LP_SCANTIME : opt_scantime)
+		      - time(NULL);
+		max64 *= thr_hashrates[thr_id];
 		if (max64 <= 0)
 			max64 = 0xfffLL;
 		if (next_nonce + max64 > 0xfffffffeLL)
@@ -676,12 +682,14 @@ static void *longpoll_thread(void *userdata)
 			}
 			pthread_mutex_unlock(&g_work_lock);
 			json_decref(val);
-		} else if (err != CURLE_OPERATION_TIMEDOUT) {
+		} else {
 			pthread_mutex_lock(&g_work_lock);
-			g_work_time -= opt_scantime;
+			g_work_time -= LP_SCANTIME;
 			pthread_mutex_unlock(&g_work_lock);
 			restart_threads();
-			sleep(opt_fail_pause);
+			if (err != CURLE_OPERATION_TIMEDOUT) {
+				sleep(opt_fail_pause);
+			}
 		}
 	}
 

@@ -1,3 +1,12 @@
+Version 2.1.2 - Jan 26, 2012
+
+- Do not submit work that is known to be stale
+- Allow miner threads to ask for new work if the current one is at least
+  45 seconds old and long polling is enabled
+- Refresh work when long polling times out
+- Fix minor speed regression
+- Modify x86-64 code to make it compatible with older versions of binutils
+
 Version 2.1.1 - Jan 20, 2012
 
 - Handle network errors properly

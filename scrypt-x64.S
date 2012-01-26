@@ -1693,22 +1693,23 @@ scrypt_core_3way_loop1:
 	cmpq	%rax, %rbp
 	jne scrypt_core_3way_loop1
 	
-	movq	$1024, %rax
+	movq	$1024, %r8
+	.align 16
 scrypt_core_3way_loop2:
 	movl	64(%rsp), %ebp
 	andl	$1023, %ebp
-	leal	(%ebp, %ebp, 2), %ebp
-	shll	$7, %ebp
+	leaq	(%rbp, %rbp, 2), %rbp
 	movl	128+64(%rsp), %ebx
+	shll	$7, %ebp
+	movl	256+64(%rsp), %eax
 	andl	$1023, %ebx
-	leal	(%ebx, %ebx, 2), %ebx
+	leaq	(%rbx, %rbx, 2), %rbx
 	shll	$7, %ebx
+	shll	$7, %eax
 	addl	$128, %ebx
-	movl	256+64(%rsp), %r8d
-	andl	$1023, %r8d
-	leal	(%r8d, %r8d, 2), %r8d
-	shll	$7, %r8d
-	addl	$256, %r8d
+	andl	$131071, %eax
+	leaq	(%rax, %rax, 2), %rax
+	addl	$256, %eax
 	movdqa	0(%rsp), %xmm0
 	movdqa	16(%rsp), %xmm1
 	movdqa	32(%rsp), %xmm2
@@ -1729,10 +1730,10 @@ scrypt_core_3way_loop2:
 	pxor	16(%rcx, %rbx), %xmm9
 	pxor	32(%rcx, %rbx), %xmm10
 	pxor	48(%rcx, %rbx), %xmm11
-	pxor	0(%rcx, %r8), %xmm12
-	pxor	16(%rcx, %r8), %xmm13
-	pxor	32(%rcx, %r8), %xmm14
-	pxor	48(%rcx, %r8), %xmm15
+	pxor	0(%rcx, %rax), %xmm12
+	pxor	16(%rcx, %rax), %xmm13
+	pxor	32(%rcx, %rax), %xmm14
+	pxor	48(%rcx, %rax), %xmm15
 	
 	pxor	64(%rsp), %xmm0
 	pxor	80(%rsp), %xmm1
@@ -1792,10 +1793,10 @@ scrypt_core_3way_loop2:
 	pxor	80(%rcx, %rbx), %xmm9
 	pxor	96(%rcx, %rbx), %xmm10
 	pxor	112(%rcx, %rbx), %xmm11
-	pxor	64(%rcx, %r8), %xmm12
-	pxor	80(%rcx, %r8), %xmm13
-	pxor	96(%rcx, %r8), %xmm14
-	pxor	112(%rcx, %r8), %xmm15
+	pxor	64(%rcx, %rax), %xmm12
+	pxor	80(%rcx, %rax), %xmm13
+	pxor	96(%rcx, %rax), %xmm14
+	pxor	112(%rcx, %rax), %xmm15
 	pxor	64(%rsp), %xmm0
 	pxor	80(%rsp), %xmm1
 	pxor	96(%rsp), %xmm2
@@ -1846,7 +1847,7 @@ scrypt_core_3way_loop2:
 	movdqa	%xmm14, 256+96(%rsp)
 	movdqa	%xmm15, 256+112(%rsp)
 	
-	subq	$1, %rax
+	subq	$1, %r8
 	ja scrypt_core_3way_loop2
 	
 	scrypt_shuffle %rsp, 0, %rdi, 0
