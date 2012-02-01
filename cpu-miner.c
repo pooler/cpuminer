@@ -207,8 +207,6 @@ static struct option options[] = {
 
 struct work {
 	unsigned char	data[128];
-	unsigned char	hash1[64];
-	unsigned char	midstate[32];
 	unsigned char	target[32];
 
 	unsigned char	hash[32];
@@ -242,22 +240,10 @@ static bool jobj_binary(const json_t *obj, const char *key,
 
 static bool work_decode(const json_t *val, struct work *work)
 {
-	if (unlikely(!jobj_binary(val, "midstate",
-			 work->midstate, sizeof(work->midstate)))) {
-		applog(LOG_ERR, "JSON inval midstate");
-		goto err_out;
-	}
-
 	if (unlikely(!jobj_binary(val, "data", work->data, sizeof(work->data)))) {
 		applog(LOG_ERR, "JSON inval data");
 		goto err_out;
 	}
-
-	if (unlikely(!jobj_binary(val, "hash1", work->hash1, sizeof(work->hash1)))) {
-		applog(LOG_ERR, "JSON inval hash1");
-		goto err_out;
-	}
-
 	if (unlikely(!jobj_binary(val, "target", work->target, sizeof(work->target)))) {
 		applog(LOG_ERR, "JSON inval target");
 		goto err_out;
