@@ -118,7 +118,7 @@ static size_t all_data_cb(const void *ptr, size_t size, size_t nmemb,
 	size_t len = size * nmemb;
 	size_t oldlen, newlen;
 	void *newmem;
-	static const unsigned char zero;
+	static const unsigned char zero = 0;
 
 	oldlen = db->len;
 	newlen = oldlen + len;
@@ -283,6 +283,11 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	} else
 		free(hi.lp_path);
 	hi.lp_path = NULL;
+
+	if (!all_data.buf) {
+		applog(LOG_ERR, "Empty data received in json_rpc_call.");
+		goto err_out;
+	}
 
 	val = JSON_LOADS(all_data.buf, &err);
 	if (!val) {
