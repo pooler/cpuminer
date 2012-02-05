@@ -291,13 +291,12 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 
 	res = json_object_get(val, "result");
 	
-	pthread_mutex_lock(&stats_lock);
-	json_is_true(res) ? accepted_count++ : rejected_count++;
-	pthread_mutex_unlock(&stats_lock);
-	
 	hashrate = 0.;
+	pthread_mutex_lock(&stats_lock);
 	for (i = 0; i < opt_n_threads; i++)
 		hashrate += thr_hashrates[i];
+	json_is_true(res) ? accepted_count++ : rejected_count++;
+	pthread_mutex_unlock(&stats_lock);
 	
 	applog(LOG_INFO, "accepted: %lu/%lu (%.2f%%), %.2f khash/s %s",
 	       accepted_count,
@@ -586,8 +585,12 @@ static void *miner_thread(void *userdata)
 		/* record scanhash elapsed time */
 		gettimeofday(&tv_end, NULL);
 		timeval_subtract(&diff, &tv_end, &tv_start);
-		thr_hashrates[thr_id] =
-			hashes_done / (diff.tv_sec + 1e-6 * diff.tv_usec);
+		if (diff.tv_usec || diff.tv_sec) {
+			pthread_mutex_lock(&stats_lock);
+			thr_hashrates[thr_id] =
+				hashes_done / (diff.tv_sec + 1e-6 * diff.tv_usec);
+			pthread_mutex_unlock(&stats_lock);
+		}
 		if (!opt_quiet)
 			applog(LOG_INFO, "thread %d: %lu hashes, %.2f khash/s",
 				   thr_id, hashes_done, 1e-3 * thr_hashrates[thr_id]);
