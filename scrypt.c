@@ -497,11 +497,11 @@ static void scrypt_1024_1_1_256_sp_3way(const uint32_t *input1, const uint32_t *
 
 #endif
 
-__attribute__ ((noinline)) static int test_hash(const uint32_t *hash,
+__attribute__ ((noinline)) static int test_lower_hash(const uint32_t *hash,
 	const uint32_t *target)
 {
 	int i;
-	for (i = 7; i >= 0; i--) {
+	for (i = 6; i >= 0; i--) {
 		uint32_t t = le32dec(&target[i]);
 		if (hash[i] > t)
 			return 0;
@@ -542,7 +542,7 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 			if (throughput >= 3 && n <= max_nonce) {
 				data3[19] = n++;
 				scrypt_1024_1_1_256_sp_3way(data, data2, data3, hash, hash2, hash3, scratchbuf);
-				if (hash3[7] < Htarg || (hash3[7] == Htarg && test_hash(hash3, (uint32_t *)ptarget))) {
+				if (hash3[7] < Htarg || (hash3[7] == Htarg && test_lower_hash(hash3, (uint32_t *)ptarget))) {
 					be32enc(&((uint32_t *)pdata)[19], data3[19]);
 					*next_nonce = n;
 					*hashes_done = n - first_nonce;
@@ -551,7 +551,7 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 			} else {
 				scrypt_1024_1_1_256_sp_2way(data, data2, hash, hash2, scratchbuf);
 			}
-			if (hash2[7] < Htarg || (hash2[7] == Htarg && test_hash(hash2, (uint32_t *)ptarget))) {
+			if (hash2[7] < Htarg || (hash2[7] == Htarg && test_lower_hash(hash2, (uint32_t *)ptarget))) {
 				be32enc(&((uint32_t *)pdata)[19], data2[19]);
 				*next_nonce = n;
 				*hashes_done = n - first_nonce;
@@ -563,7 +563,7 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata, unsigned char *scratchbuf,
 #else
 		scrypt_1024_1_1_256_sp(data, hash, scratchbuf);
 #endif
-		if (hash[7] < Htarg || (hash[7] == Htarg && test_hash(hash, (uint32_t *)ptarget))) {
+		if (hash[7] < Htarg || (hash[7] == Htarg && test_lower_hash(hash, (uint32_t *)ptarget))) {
 			be32enc(&((uint32_t *)pdata)[19], data[19]);
 			*next_nonce = n;
 			*hashes_done = n - first_nonce;
