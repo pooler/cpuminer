@@ -265,10 +265,6 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 	double hashrate;
 	int i;
 	bool rc = false;
-	
-	/* pass if the previous hash is not the current previous hash */
-	if (memcmp(work->data + 4, g_work.data + 4, 32))
-		return true;
 
 	/* build hex string */
 	hexstr = bin2hex(work->data, sizeof(work->data));
