@@ -127,6 +127,9 @@ static struct option_help options_help[] = {
 	{ "help",
 	  "(-h) Display this help text" },
 
+	{ "version",
+	  "(-V) Display version information and exit" },
+
 	{ "config FILE",
 	  "(-c FILE) Load a JSON-format configuration file" },
 
@@ -201,6 +204,7 @@ static struct option options[] = {
 	{ "url", 1, NULL, 'o' },
 	{ "user", 1, NULL, 'u' },
 	{ "userpass", 1, NULL, 'O' },
+	{ "version", 0, NULL, 'V' },
 
 	{ }
 };
@@ -688,12 +692,17 @@ out:
 	return NULL;
 }
 
-static void show_usage(void)
+static void show_version_and_exit(void)
+{
+	printf("%s\n%s\n", PACKAGE_STRING, curl_version());
+	exit(0);
+}
+
+static void show_usage_and_exit(int status)
 {
 	int i;
 
-	printf("minerd version %s\n\n", VERSION);
-	printf("Usage:\tminerd [options]\n\nSupported options:\n");
+	printf("Usage: minerd [options]\n\nSupported options:\n");
 	for (i = 0; i < ARRAY_SIZE(options_help); i++) {
 		struct option_help *h;
 
@@ -701,7 +710,7 @@ static void show_usage(void)
 		printf("--%s\n%s\n\n", h->name, h->helptext);
 	}
 
-	exit(1);
+	exit(status);
 }
 
 static void parse_arg (int key, char *arg)
@@ -718,7 +727,7 @@ static void parse_arg (int key, char *arg)
 			}
 		}
 		if (i == ARRAY_SIZE(algo_names))
-			show_usage();
+			show_usage_and_exit(1);
 		break;
 	case 'c': {
 		json_error_t err;
@@ -731,7 +740,7 @@ static void parse_arg (int key, char *arg)
 #endif
 		if (!json_is_object(opt_config)) {
 			applog(LOG_ERR, "JSON decode of %s failed", arg);
-			show_usage();
+			exit(1);
 		}
 		break;
 	}
@@ -751,35 +760,35 @@ static void parse_arg (int key, char *arg)
 	case 'r':
 		v = atoi(arg);
 		if (v < -1 || v > 9999)	/* sanity check */
-			show_usage();
+			show_usage_and_exit(1);
 
 		opt_retries = v;
 		break;
 	case 'R':
 		v = atoi(arg);
 		if (v < 1 || v > 9999)	/* sanity check */
-			show_usage();
+			show_usage_and_exit(1);
 
 		opt_fail_pause = v;
 		break;
 	case 's':
 		v = atoi(arg);
 		if (v < 1 || v > 9999)	/* sanity check */
-			show_usage();
+			show_usage_and_exit(1);
 
 		opt_scantime = v;
 		break;
 	case 'T':
 		v = atoi(arg);
 		if (v < 1 || v > 99999)	/* sanity check */
-			show_usage();
+			show_usage_and_exit(1);
 
 		opt_timeout = v;
 		break;
 	case 't':
 		v = atoi(arg);
 		if (v < 1 || v > 9999)	/* sanity check */
-			show_usage();
+			show_usage_and_exit(1);
 
 		opt_n_threads = v;
 		break;
@@ -790,14 +799,14 @@ static void parse_arg (int key, char *arg)
 	case 'o':			/* --url */
 		if (strncmp(arg, "http://", 7) &&
 		    strncmp(arg, "https://", 8))
-			show_usage();
+			show_usage_and_exit(1);
 
 		free(rpc_url);
 		rpc_url = strdup(arg);
 		break;
 	case 'O':			/* --userpass */
 		if (!strchr(arg, ':'))
-			show_usage();
+			show_usage_and_exit(1);
 
 		free(rpc_userpass);
 		rpc_userpass = strdup(arg);
@@ -808,8 +817,12 @@ static void parse_arg (int key, char *arg)
 	case 1004:
 		use_syslog = true;
 		break;
+	case 'V':
+		show_version_and_exit();
+	case 'h':
+		show_usage_and_exit(0);
 	default:
-		show_usage();
+		show_usage_and_exit(1);
 	}
 
 #if defined(WIN32) || defined(WIN64)
@@ -868,7 +881,7 @@ static void parse_cmdline(int argc, char *argv[])
 	int key;
 
 	while (1) {
-		key = getopt_long(argc, argv, "hc:a:qDPr:s:T:t:o:O:u:p:", options, NULL);
+		key = getopt_long(argc, argv, "hVc:a:qDPr:s:T:t:o:O:u:p:", options, NULL);
 		if (key < 0)
 			break;
 
