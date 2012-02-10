@@ -118,73 +118,37 @@ static unsigned long accepted_count = 0L;
 static unsigned long rejected_count = 0L;
 double *thr_hashrates;
 
-struct option_help {
-	const char	*name;
-	const char	*helptext;
-};
-
-static struct option_help options_help[] = {
-	{ "help",
-	  "(-h) Display this help text" },
-
-	{ "version",
-	  "(-V) Display version information and exit" },
-
-	{ "config FILE",
-	  "(-c FILE) Load a JSON-format configuration file" },
-
-	{ "algo XXX",
-	  "(-a XXX) Specify the algorithm to use (default: scrypt)" },
-
-	{ "quiet",
-	  "(-q) Disable per-thread hashmeter output" },
-
-	{ "debug",
-	  "(-D) Enable debug output" },
-
-	{ "no-longpoll",
-	  "Disable X-Long-Polling support" },
-
-	{ "protocol-dump",
-	  "(-P) Verbose dump of protocol-level activities" },
-
-	{ "retries N",
-	  "(-r N) Number of times to retry if JSON-RPC call fails\n"
-	  "\t(default: retry indefinitely)" },
-
-	{ "retry-pause N",
-	  "(-R N) Number of seconds to pause between retries (default: 30)" },
-
-	{ "scantime N",
-	  "(-s N) Upper bound on time spent scanning current work, in seconds\n"
-	  "\t(default: 5)" },
-
-	{ "timeout N",
-	  "(-T N) Connection timeout, in seconds (default: 180)" },
-
+static char const usage[] = "\
+Usage: " PROGRAM_NAME " [OPTIONS]\n\
+Options:\n\
+  -o, --url=URL         URL of mining server (default: " DEF_RPC_URL ")\n\
+  -O, --userpass=U:P    username:password pair for mining server\n\
+  -u, --user=USERNAME   username for mining server\n\
+  -p, --pass=PASSWORD   password for mining server\n\
+  -t, --threads=N       number of miner threads (default: number of processors)\n\
+  -r, --retries=N       number of times to retry if a network call fails\n\
+                          (default: retry indefinitely)\n\
+  -R, --retry-pause=N   time to pause between retries, in seconds (default: 30)\n\
+  -T, --timeout=N       network timeout, in seconds (default: 180)\n\
+  -s, --scantime=N      upper bound on time spent scanning current work,\n\
+                          in seconds (default: 5)\n\
+      --no-longpoll     disable X-Long-Polling support\n\
+  -q, --quiet           disable per-thread hashmeter output\n\
+  -D, --debug           enable debug output\n\
+  -P, --protocol-dump   verbose dump of protocol-level activities\n"
 #ifdef HAVE_SYSLOG_H
-	{ "syslog",
-	  "Use system log for output messages (default: standard error)" },
+"\
+      --syslog          use system log for output messages\n"
 #endif
+"\
+  -c, --config=FILE     load a JSON-format configuration file\n\
+  -V, --version         display version information and exit\n\
+  -h, --help            display this help text and exit\n\
+";
 
-	{ "threads N",
-	  "(-t N) Number of miner threads (default: number of processors)" },
+static char const short_options[] = "a:c:Dhp:Pqr:R:s:t:T:o:u:O:V";
 
-	{ "url URL",
-	  "(-o URL) URL for JSON-RPC server "
-	  "(default: " DEF_RPC_URL ")" },
-
-	{ "userpass USERNAME:PASSWORD",
-	  "(-O USERNAME:PASSWORD) Username:Password pair for JSON-RPC server" },
-
-	{ "user USERNAME",
-	  "(-u USERNAME) Username for JSON-RPC server" },
-
-	{ "pass PASSWORD",
-	  "(-p PASSWORD) Password for JSON-RPC server" },
-};
-
-static struct option options[] = {
+static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
 	{ "config", 1, NULL, 'c' },
 	{ "debug", 0, NULL, 'D' },
@@ -193,14 +157,14 @@ static struct option options[] = {
 	{ "pass", 1, NULL, 'p' },
 	{ "protocol-dump", 0, NULL, 'P' },
 	{ "quiet", 0, NULL, 'q' },
-	{ "threads", 1, NULL, 't' },
 	{ "retries", 1, NULL, 'r' },
 	{ "retry-pause", 1, NULL, 'R' },
 	{ "scantime", 1, NULL, 's' },
-	{ "timeout", 1, NULL, 'T' },
 #ifdef HAVE_SYSLOG_H
 	{ "syslog", 0, NULL, 1004 },
 #endif
+	{ "threads", 1, NULL, 't' },
+	{ "timeout", 1, NULL, 'T' },
 	{ "url", 1, NULL, 'o' },
 	{ "user", 1, NULL, 'u' },
 	{ "userpass", 1, NULL, 'O' },
@@ -700,16 +664,10 @@ static void show_version_and_exit(void)
 
 static void show_usage_and_exit(int status)
 {
-	int i;
-
-	printf("Usage: minerd [options]\n\nSupported options:\n");
-	for (i = 0; i < ARRAY_SIZE(options_help); i++) {
-		struct option_help *h;
-
-		h = &options_help[i];
-		printf("--%s\n%s\n\n", h->name, h->helptext);
-	}
-
+	if (status)
+		fprintf(stderr, "Try `" PROGRAM_NAME " --help' for more information.\n");
+	else
+		printf(usage);
 	exit(status);
 }
 
@@ -881,7 +839,7 @@ static void parse_cmdline(int argc, char *argv[])
 	int key;
 
 	while (1) {
-		key = getopt_long(argc, argv, "hVc:a:qDPr:s:T:t:o:O:u:p:", options, NULL);
+		key = getopt_long(argc, argv, short_options, options, NULL);
 		if (key < 0)
 			break;
 
