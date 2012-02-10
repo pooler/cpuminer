@@ -782,24 +782,6 @@ static void parse_arg (int key, char *arg)
 	default:
 		show_usage_and_exit(1);
 	}
-
-#if defined(WIN32) || defined(WIN64)
-	SYSTEM_INFO sysinfo;
-	GetSystemInfo(&sysinfo);
-	num_processors = sysinfo.dwNumberOfProcessors;
-#elif defined(_SC_NPROCESSORS_ONLN)
-	num_processors = sysconf(_SC_NPROCESSORS_ONLN);
-#elif defined(HW_NCPU)
-	int req[] = { CTL_HW, HW_NCPU };
-	size_t len = sizeof(num_processors);
-	v = sysctl(req, 2, &num_processors, &len, NULL, 0);
-#else
-	num_processors = 1;
-#endif
-	if (num_processors < 1)
-		num_processors = 1;
-	if (!opt_n_threads)
-		opt_n_threads = num_processors;
 }
 
 static void parse_config(void)
@@ -862,6 +844,24 @@ int main(int argc, char *argv[])
 	pthread_mutex_init(&time_lock, NULL);
 	pthread_mutex_init(&stats_lock, NULL);
 	pthread_mutex_init(&g_work_lock, NULL);
+
+#if defined(WIN32) || defined(WIN64)
+	SYSTEM_INFO sysinfo;
+	GetSystemInfo(&sysinfo);
+	num_processors = sysinfo.dwNumberOfProcessors;
+#elif defined(_SC_NPROCESSORS_ONLN)
+	num_processors = sysconf(_SC_NPROCESSORS_ONLN);
+#elif defined(HW_NCPU)
+	int req[] = { CTL_HW, HW_NCPU };
+	size_t len = sizeof(num_processors);
+	v = sysctl(req, 2, &num_processors, &len, NULL, 0);
+#else
+	num_processors = 1;
+#endif
+	if (num_processors < 1)
+		num_processors = 1;
+	if (!opt_n_threads)
+		opt_n_threads = num_processors;
 
 	if (!rpc_userpass) {
 		if (!rpc_user || !rpc_pass) {
