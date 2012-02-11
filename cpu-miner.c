@@ -673,6 +673,7 @@ static void show_usage_and_exit(int status)
 
 static void parse_arg (int key, char *arg)
 {
+	char *p;
 	int v, i;
 
 	switch(key) {
@@ -761,6 +762,16 @@ static void parse_arg (int key, char *arg)
 
 		free(rpc_url);
 		rpc_url = strdup(arg);
+		p = strchr(rpc_url, '@');
+		if (p) {
+			char *ap = strstr(rpc_url, "//") + 2;
+			*p = '\0';
+			if (!strchr(ap, ':'))
+				show_usage_and_exit(1);
+			free(rpc_userpass);
+			rpc_userpass = strdup(ap);
+			strcpy(ap, p + 1);
+		}
 		break;
 	case 'O':			/* --userpass */
 		if (!strchr(arg, ':'))
