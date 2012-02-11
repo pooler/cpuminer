@@ -949,8 +949,6 @@ int main(int argc, char *argv[])
 			applog(LOG_ERR, "thread %d create failed", i);
 			return 1;
 		}
-
-		sleep(1);	/* don't pound RPC server all at once */
 	}
 
 	applog(LOG_INFO, "%d miner threads started, "
