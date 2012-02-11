@@ -838,6 +838,11 @@ static void parse_cmdline(int argc, char *argv[])
 
 		parse_arg(key, optarg);
 	}
+	if (optind < argc) {
+		fprintf(stderr, "%s: unsupported non-option argument '%s'\n",
+			argv[0], argv[optind]);
+		show_usage_and_exit(1);
+	}
 
 	parse_config();
 }
