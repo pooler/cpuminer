@@ -1,3 +1,17 @@
+Version 2.1.3 - Feb 12, 2012
+
+- Smart handling of long polling failures: switch to short scan time
+  if long polling fails, and only try to reactivate it if the server
+  continues to advertise the feature in HTTP headers
+- Add "X-Mining-Extensions: midstate" to HTTP headers (p2k)
+- Add support for the "submitold" extension, used by p2pool
+- It is now possible to specify username and password in the URL,
+  like this: http://username:password@host:port/
+- Add a --version option, and clean up --help output
+- Avoid division by zero when computing hash rates
+- Handle empty responses properly (TimothyA)
+- Eliminate the delay between starting threads
+
 Version 2.1.2 - Jan 26, 2012
 
 - Do not submit work that is known to be stale

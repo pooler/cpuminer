@@ -1,6 +1,6 @@
 
 /*
- * Copyright 2010 Jeff Garzik
+ * Copyright 2010 Jeff Garzik, 2012 pooler
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
