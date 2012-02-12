@@ -582,10 +582,16 @@ static void *longpoll_thread(void *userdata)
 {
 	struct thr_info *mythr = userdata;
 	CURL *curl = NULL;
-	char *copy_start, *hdr_path, *lp_url = NULL;
+	char *copy_start, *hdr_path = NULL, *lp_url = NULL;
 	bool need_slash = false;
-	int failures = 0;
 
+	curl = curl_easy_init();
+	if (unlikely(!curl)) {
+		applog(LOG_ERR, "CURL initialization failed");
+		goto out;
+	}
+
+start:
 	hdr_path = tq_pop(mythr->q, NULL);
 	if (!hdr_path)
 		goto out;
@@ -611,12 +617,6 @@ static void *longpoll_thread(void *userdata)
 
 	applog(LOG_INFO, "Long-polling activated for %s", lp_url);
 
-	curl = curl_easy_init();
-	if (unlikely(!curl)) {
-		applog(LOG_ERR, "CURL initialization failed");
-		goto out;
-	}
-
 	while (1) {
 		json_t *val;
 		int err;
@@ -624,7 +624,6 @@ static void *longpoll_thread(void *userdata)
 		val = json_rpc_call(curl, lp_url, rpc_userpass, rpc_req,
 				    false, true, &err);
 		if (likely(val)) {
-			failures = 0;
 			applog(LOG_INFO, "LONGPOLL detected new block");
 			pthread_mutex_lock(&g_work_lock);
 			if (work_decode(json_object_get(val, "result"), &g_work)) {
@@ -639,9 +638,16 @@ static void *longpoll_thread(void *userdata)
 			pthread_mutex_lock(&g_work_lock);
 			g_work_time -= LP_SCANTIME;
 			pthread_mutex_unlock(&g_work_lock);
-			restart_threads();
-			if (err != CURLE_OPERATION_TIMEDOUT) {
+			if (err == CURLE_OPERATION_TIMEDOUT) {
+				restart_threads();
+			} else {
+				have_longpoll = false;
+				restart_threads();
+				free(hdr_path);
+				free(lp_url);
+				lp_url = NULL;
 				sleep(opt_fail_pause);
+				goto start;
 			}
 		}
 	}
@@ -902,6 +908,10 @@ int main(int argc, char *argv[])
 	thr_info = calloc(opt_n_threads + 2, sizeof(*thr));
 	if (!thr_info)
 		return 1;
+	
+	thr_hashrates = (double *) calloc(opt_n_threads, sizeof(double));
+	if (!thr_hashrates)
+		return 1;
 
 	/* init workio thread info */
 	work_thr_id = opt_n_threads;
@@ -933,8 +943,6 @@ int main(int argc, char *argv[])
 		}
 	} else
 		longpoll_thr_id = -1;
-	
-	thr_hashrates = (double *) calloc(opt_n_threads, sizeof(double));
 
 	/* start mining threads */
 	for (i = 0; i < opt_n_threads; i++) {

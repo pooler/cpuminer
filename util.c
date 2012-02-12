@@ -217,12 +217,9 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	char curl_err_str[CURL_ERROR_SIZE];
 	long timeout = opt_timeout;
 	struct header_info hi = { };
-	bool lp_scanning = false;
+	bool lp_scanning = longpoll_scan && !have_longpoll;
 
 	/* it is assumed that 'curl' is freshly [re]initialized at this pt */
-
-	if (longpoll_scan)
-		lp_scanning = want_longpoll && !have_longpoll;
 
 	if (opt_protocol)
 		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
