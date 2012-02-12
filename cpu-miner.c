@@ -93,6 +93,7 @@ bool opt_debug = false;
 bool opt_protocol = false;
 bool want_longpoll = true;
 bool have_longpoll = false;
+static bool submit_old = false;
 bool use_syslog = false;
 static bool opt_quiet = false;
 static int opt_retries = -1;
@@ -233,6 +234,10 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 	double hashrate;
 	int i;
 	bool rc = false;
+
+	/* pass if the previous hash is not the current previous hash */
+	if (!submit_old && memcmp(work->data + 4, g_work.data + 4, 32))
+		return true;
 
 	/* build hex string */
 	hexstr = bin2hex(work->data, sizeof(work->data));
@@ -618,13 +623,15 @@ start:
 	applog(LOG_INFO, "Long-polling activated for %s", lp_url);
 
 	while (1) {
-		json_t *val;
+		json_t *val, *soval;
 		int err;
 
 		val = json_rpc_call(curl, lp_url, rpc_userpass, rpc_req,
 				    false, true, &err);
 		if (likely(val)) {
 			applog(LOG_INFO, "LONGPOLL detected new block");
+			soval = json_object_get(json_object_get(val, "result"), "submitold");
+			submit_old = soval ? json_is_true(soval) : false;
 			pthread_mutex_lock(&g_work_lock);
 			if (work_decode(json_object_get(val, "result"), &g_work)) {
 				if (opt_debug)
