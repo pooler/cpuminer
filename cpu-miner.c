@@ -733,35 +733,30 @@ static void parse_arg (int key, char *arg)
 		v = atoi(arg);
 		if (v < -1 || v > 9999)	/* sanity check */
 			show_usage_and_exit(1);
-
 		opt_retries = v;
 		break;
 	case 'R':
 		v = atoi(arg);
 		if (v < 1 || v > 9999)	/* sanity check */
 			show_usage_and_exit(1);
-
 		opt_fail_pause = v;
 		break;
 	case 's':
 		v = atoi(arg);
 		if (v < 1 || v > 9999)	/* sanity check */
 			show_usage_and_exit(1);
-
 		opt_scantime = v;
 		break;
 	case 'T':
 		v = atoi(arg);
 		if (v < 1 || v > 99999)	/* sanity check */
 			show_usage_and_exit(1);
-
 		opt_timeout = v;
 		break;
 	case 't':
 		v = atoi(arg);
 		if (v < 1 || v > 9999)	/* sanity check */
 			show_usage_and_exit(1);
-
 		opt_n_threads = v;
 		break;
 	case 'u':
@@ -772,7 +767,6 @@ static void parse_arg (int key, char *arg)
 		if (strncmp(arg, "http://", 7) &&
 		    strncmp(arg, "https://", 8))
 			show_usage_and_exit(1);
-
 		free(rpc_url);
 		rpc_url = strdup(arg);
 		p = strchr(rpc_url, '@');
@@ -789,7 +783,6 @@ static void parse_arg (int key, char *arg)
 	case 'O':			/* --userpass */
 		if (!strchr(arg, ':'))
 			show_usage_and_exit(1);
-
 		free(rpc_userpass);
 		rpc_userpass = strdup(arg);
 		break;
@@ -892,11 +885,11 @@ int main(int argc, char *argv[])
 	if (!opt_n_threads)
 		opt_n_threads = num_processors;
 
-	if (!rpc_userpass) {
-		if (!rpc_user || !rpc_pass) {
-			applog(LOG_ERR, "No login credentials supplied");
-			return 1;
-		}
+	if (!rpc_userpass && (rpc_user || rpc_pass)) {
+		if (!rpc_user)
+			rpc_user = strdup("");
+		if (!rpc_pass)
+			rpc_pass = strdup("");
 		rpc_userpass = malloc(strlen(rpc_user) + strlen(rpc_pass) + 2);
 		if (!rpc_userpass)
 			return 1;
