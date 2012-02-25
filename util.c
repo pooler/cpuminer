@@ -20,6 +20,14 @@
 #include <jansson.h>
 #include <curl/curl.h>
 #include <time.h>
+#if defined(WIN32)
+#include <winsock2.h>
+#include <mstcpip.h>
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#endif
 #include "compat.h"
 #include "miner.h"
 #include "elist.h"
@@ -203,6 +211,50 @@ out:
 	return ptrlen;
 }
 
+#if LIBCURL_VERSION_NUM >= 0x070f06
+static int json_rpc_call_lp_cb(void *userdata, curl_socket_t fd,
+	curlsocktype purpose)
+{
+	int keepalive = 1;
+	int tcp_keepcnt = 3;
+	int tcp_keepidle = 50;
+	int tcp_keepintvl = 50;
+
+#ifndef WIN32
+	if (unlikely(setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive,
+		sizeof(keepalive))))
+		return 1;
+#ifdef __linux
+	if (unlikely(setsockopt(fd, SOL_TCP, TCP_KEEPCNT,
+		&tcp_keepcnt, sizeof(tcp_keepcnt))))
+		return 1;
+	if (unlikely(setsockopt(fd, SOL_TCP, TCP_KEEPIDLE,
+		&tcp_keepidle, sizeof(tcp_keepidle))))
+		return 1;
+	if (unlikely(setsockopt(fd, SOL_TCP, TCP_KEEPINTVL,
+		&tcp_keepintvl, sizeof(tcp_keepintvl))))
+		return 1;
+#endif /* __linux */
+#ifdef __APPLE_CC__
+	if (unlikely(setsockopt(fd, IPPROTO_TCP, TCP_KEEPALIVE,
+		&tcp_keepintvl, sizeof(tcp_keepintvl))))
+		return 1;
+#endif /* __APPLE_CC__ */
+#else /* WIN32 */
+	struct tcp_keepalive vals;
+	vals.onoff = 1;
+	vals.keepalivetime = tcp_keepidle * 1000;
+	vals.keepaliveinterval = tcp_keepintvl * 1000;
+	DWORD outputBytes;
+	if (unlikely(WSAIoctl(fd, SIO_KEEPALIVE_VALS, &vals, sizeof(vals),
+		NULL, 0, &outputBytes, NULL, NULL)))
+		return 1;
+#endif /* WIN32 */
+
+	return 0;
+}
+#endif
+
 json_t *json_rpc_call(CURL *curl, const char *url,
 		      const char *userpass, const char *rpc_req,
 		      bool longpoll_scan, bool longpoll, int *curl_err)
@@ -243,6 +295,10 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 		curl_easy_setopt(curl, CURLOPT_USERPWD, userpass);
 		curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
 	}
+#if LIBCURL_VERSION_NUM >= 0x070f06
+	if (longpoll)
+		curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, json_rpc_call_lp_cb);
+#endif
 	curl_easy_setopt(curl, CURLOPT_POST, 1);
 
 	if (opt_protocol)
