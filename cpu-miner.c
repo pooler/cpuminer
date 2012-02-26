@@ -108,6 +108,8 @@ static int num_processors;
 static char *rpc_url;
 static char *rpc_userpass;
 static char *rpc_user, *rpc_pass;
+char *opt_proxy;
+long opt_proxy_type;
 struct thr_info *thr_info;
 static int work_thr_id;
 int longpoll_thr_id;
@@ -126,6 +128,7 @@ Options:\n\
   -O, --userpass=U:P    username:password pair for mining server\n\
   -u, --user=USERNAME   username for mining server\n\
   -p, --pass=PASSWORD   password for mining server\n\
+  -x, --proxy=[PROTOCOL://]HOST[:PORT]  connect through a proxy\n\
   -t, --threads=N       number of miner threads (default: number of processors)\n\
   -r, --retries=N       number of times to retry if a network call fails\n\
                           (default: retry indefinitely)\n\
@@ -147,7 +150,7 @@ Options:\n\
   -h, --help            display this help text and exit\n\
 ";
 
-static char const short_options[] = "a:c:Dhp:Pqr:R:s:t:T:o:u:O:V";
+static char const short_options[] = "a:c:Dhp:Px:qr:R:s:t:T:o:u:O:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
@@ -157,6 +160,7 @@ static struct option const options[] = {
 	{ "no-longpoll", 0, NULL, 1003 },
 	{ "pass", 1, NULL, 'p' },
 	{ "protocol-dump", 0, NULL, 'P' },
+	{ "proxy", 1, NULL, 'x' },
 	{ "quiet", 0, NULL, 'q' },
 	{ "retries", 1, NULL, 'r' },
 	{ "retry-pause", 1, NULL, 'R' },
@@ -785,6 +789,22 @@ static void parse_arg (int key, char *arg)
 			show_usage_and_exit(1);
 		free(rpc_userpass);
 		rpc_userpass = strdup(arg);
+		break;
+	case 'x':			/* --proxy */
+		if (!strncmp(arg, "socks4://", 9))
+			opt_proxy_type = CURLPROXY_SOCKS4;
+		else if (!strncmp(arg, "socks5://", 9))
+			opt_proxy_type = CURLPROXY_SOCKS5;
+#if LIBCURL_VERSION_NUM >= 0x071200
+		else if (!strncmp(arg, "socks4a://", 10))
+			opt_proxy_type = CURLPROXY_SOCKS4A;
+		else if (!strncmp(arg, "socks5h://", 10))
+			opt_proxy_type = CURLPROXY_SOCKS5_HOSTNAME;
+#endif
+		else
+			opt_proxy_type = CURLPROXY_HTTP;
+		free(opt_proxy);
+		opt_proxy = strdup(arg);
 		break;
 	case 1003:
 		want_longpoll = false;

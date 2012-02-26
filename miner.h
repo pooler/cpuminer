@@ -140,6 +140,8 @@ extern bool fulltest(const unsigned char *hash, const unsigned char *target);
 extern int opt_timeout;
 extern bool want_longpoll;
 extern bool have_longpoll;
+extern char *opt_proxy;
+extern long opt_proxy_type;
 struct thread_q;
 
 struct work_restart {
