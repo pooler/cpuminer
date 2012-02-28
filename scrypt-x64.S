@@ -117,18 +117,18 @@ _SHA256_InitState_4way:
 	pushq	%rdi
 	movq	%rcx, %rdi
 #endif
-	movdqa	sha256_4h+0, %xmm0
-	movdqa	sha256_4h+16, %xmm1
-	movdqa	sha256_4h+32, %xmm2
-	movdqa	sha256_4h+48, %xmm3
+	movdqa	sha256_4h+0(%rip), %xmm0
+	movdqa	sha256_4h+16(%rip), %xmm1
+	movdqa	sha256_4h+32(%rip), %xmm2
+	movdqa	sha256_4h+48(%rip), %xmm3
 	movdqu	%xmm0, 0(%rdi)
 	movdqu	%xmm1, 16(%rdi)
 	movdqu	%xmm2, 32(%rdi)
 	movdqu	%xmm3, 48(%rdi)
-	movdqa	sha256_4h+64, %xmm0
-	movdqa	sha256_4h+80, %xmm1
-	movdqa	sha256_4h+96, %xmm2
-	movdqa	sha256_4h+112, %xmm3
+	movdqa	sha256_4h+64(%rip), %xmm0
+	movdqa	sha256_4h+80(%rip), %xmm1
+	movdqa	sha256_4h+96(%rip), %xmm2
+	movdqa	sha256_4h+112(%rip), %xmm3
 	movdqu	%xmm0, 64(%rdi)
 	movdqu	%xmm1, 80(%rdi)
 	movdqu	%xmm2, 96(%rdi)
@@ -192,6 +192,7 @@ _SHA256_Transform_4way:
 	p2bswap_rsi_rsp 14
 	jmp sha256_transform_4way_extend
 	
+	.p2align 5
 sha256_transform_4way_block_copy:
 	movdqu	0*16(%rsi), %xmm0
 	movdqu	1*16(%rsi), %xmm1
@@ -306,10 +307,11 @@ sha256_transform_4way_extend_loop:
 	movdqu	96(%rdi), %xmm9
 	movdqu	112(%rdi), %xmm10
 	
+	leaq	sha256_4k(%rip), %rcx
 	xorq	%rax, %rax
 sha256_transform_4way_main_loop:
 	movdqa	(%rsp, %rax), %xmm6
-	paddd	sha256_4k(%rax), %xmm6
+	paddd	(%rcx, %rax), %xmm6
 	paddd	%xmm10, %xmm6
 
 	movdqa	%xmm0, %xmm1
