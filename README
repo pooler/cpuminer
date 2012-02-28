@@ -10,6 +10,7 @@ Dependencies:
 
 Basic *nix build instructions:
 	./autogen.sh	# only needed if building from git repo
+	./nomacro.pl	# only needed if building on Mac OS X
 	./configure CFLAGS="-O3"
 	make
 
