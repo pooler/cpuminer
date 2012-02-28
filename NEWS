@@ -1,3 +1,12 @@
+Version 2.1.4 - Feb 28, 2012
+
+- Implement 4-way SHA-256 on x86-64
+- Add TCP keepalive to long polling connections
+- Support HTTP and SOCKS proxies via the --proxy option
+- Username and password are no longer mandatory
+- Add a script that makes assembly code compatible with old versions
+  of the GNU assembler that do not support macros
+
 Version 2.1.3 - Feb 12, 2012
 
 - Smart handling of long polling failures: switch to short scan time
