@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2010 Jeff Garzik, 2012 pooler
  *
@@ -21,6 +20,8 @@
 #include <time.h>
 #if defined(WIN32) || defined(WIN64)
 #include <windows.h>
+#elif defined(sun) || defined(__sun)
+#include <sys/resource.h>
 #else
 #include <sys/resource.h>
 #include <sys/sysctl.h>
