@@ -23,23 +23,25 @@ AC_CHECK_HEADERS(syslog.h)
 AC_FUNC_ALLOCA
 
 case $target in
-  *-*-mingw*)
-    have_x86_64=false
-    have_win32=true
-    PTHREAD_FLAGS=""
-    ;;
   x86_64-*)
     have_x86_64=true
-    have_win32=false
-    PTHREAD_FLAGS="-pthread"
     ;;
   *)
     have_x86_64=false
-    have_win32=false
-    PTHREAD_FLAGS="-pthread"
     ;;
 esac
 
+have_win32=false
+PTHREAD_FLAGS="-pthread"
+WS2_LIBS=""
+
+case $target in
+  *-*-mingw*)
+    have_win32=true
+    PTHREAD_FLAGS=""
+    WS2_LIBS="-lws2_32"
+    ;;
+esac
 
 AC_CHECK_LIB(jansson, json_loads, request_jansson=false, request_jansson=true)
 AC_CHECK_LIB(pthread, pthread_create, PTHREAD_LIBS=-lpthread)
@@ -55,14 +57,13 @@ else
 	JANSSON_LIBS=-ljansson
 fi
 
-PKG_PROG_PKG_CONFIG()
-
 LIBCURL_CHECK_CONFIG(, 7.10.1, ,
   [AC_MSG_ERROR([Missing required libcurl >= 7.10.1])])
 
 AC_SUBST(JANSSON_LIBS)
 AC_SUBST(PTHREAD_FLAGS)
 AC_SUBST(PTHREAD_LIBS)
+AC_SUBST(WS2_LIBS)
 
 AC_CONFIG_FILES([
 	Makefile
@@ -70,4 +71,3 @@ AC_CONFIG_FILES([
 	compat/jansson/Makefile
 	])
 AC_OUTPUT
-

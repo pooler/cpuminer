@@ -3,6 +3,9 @@ reference cpuminer.
 
 License: GPLv2.  See COPYING for details.
 
+Downloads:  https://github.com/pooler/cpuminer/downloads
+Git tree:   https://github.com/pooler/cpuminer
+
 Dependencies:
 	libcurl			http://curl.haxx.se/libcurl/
 	jansson			http://www.digip.org/jansson/
@@ -14,12 +17,16 @@ Basic *nix build instructions:
 	./configure CFLAGS="-O3"
 	make
 
-Basic WIN32 build instructions (on Fedora 13; requires mingw32):
-	./autogen.sh	# only needed if building from git repo
-	rm -f mingw32-config.cache
-	MINGW32_CFLAGS="-O3" mingw32-configure
-	make
-	./mknsis.sh
+Basic Windows build instructions, using MinGW:
+	Install MinGW and the MSYS Developer Tool Kit (http://www.mingw.org/)
+		* Make sure you have mstcpip.h in MinGW\include
+	Install libcurl devel (http://curl.haxx.se/download.html)
+		* Make sure you have libcurl.m4 in MinGW\share\aclocal
+		* Make sure you have curl-config in MinGW\bin
+	In the MSYS shell, run:
+		./autogen.sh	# only needed if building from git repo
+		LIBCURL="-lcurldll" ./configure CFLAGS="-O3"
+		make
 
 Usage instructions:  Run "minerd --help" to see options.
 
