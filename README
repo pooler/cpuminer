@@ -20,6 +20,7 @@ Basic *nix build instructions:
 Basic Windows build instructions, using MinGW:
 	Install MinGW and the MSYS Developer Tool Kit (http://www.mingw.org/)
 		* Make sure you have mstcpip.h in MinGW\include
+	If using MinGW-w64, install pthreads-w64
 	Install libcurl devel (http://curl.haxx.se/download.html)
 		* Make sure you have libcurl.m4 in MinGW\share\aclocal
 		* Make sure you have curl-config in MinGW\bin
