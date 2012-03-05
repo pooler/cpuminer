@@ -769,20 +769,28 @@ static void parse_arg (int key, char *arg)
 		rpc_user = strdup(arg);
 		break;
 	case 'o':			/* --url */
-		if (strncmp(arg, "http://", 7) &&
-		    strncmp(arg, "https://", 8))
-			show_usage_and_exit(1);
-		free(rpc_url);
-		rpc_url = strdup(arg);
+		p = strstr(arg, "://");
+		if (p) {
+			if (strncmp(arg, "http://", 7) && strncmp(arg, "https://", 8))
+				show_usage_and_exit(1);
+			free(rpc_url);
+			rpc_url = strdup(arg);
+		} else {
+			if (!strlen(arg) || *arg == '/')
+				show_usage_and_exit(1);
+			free(rpc_url);
+			rpc_url = malloc((strlen(arg) + 8) * sizeof(char));
+			sprintf(rpc_url, "http://%s", arg);
+		}
 		p = strchr(rpc_url, '@');
 		if (p) {
-			char *ap = strstr(rpc_url, "//") + 2;
+			char *ap = strstr(rpc_url, "://") + 3;
 			*p = '\0';
 			if (!strchr(ap, ':'))
 				show_usage_and_exit(1);
 			free(rpc_userpass);
 			rpc_userpass = strdup(ap);
-			strcpy(ap, p + 1);
+			memmove(ap, p + 1, (strlen(p + 1) + 1) * sizeof(char));
 		}
 		break;
 	case 'O':			/* --userpass */
