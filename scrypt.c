@@ -205,8 +205,7 @@ static inline void HMAC_SHA256_80_init(const uint32_t *key,
 	uint32_t pad[16];
 	int i;
 
-	SHA256_InitState(tstate);
-	SHA256_Transform(tstate, key, 1);
+	/* tstate is assumed to contain the midstate of key */
 	memcpy(pad, key + 16, 16);
 	memcpy(pad + 4, keypad, 48);
 	SHA256_Transform(tstate, pad, 1);
@@ -333,8 +332,7 @@ static inline void HMAC_SHA256_80_init_4way(const uint32_t *key,
 	uint32_t pad[4 * 16];
 	int i;
 
-	SHA256_InitState_4way(tstate);
-	SHA256_Transform_4way(tstate, key, 1);
+	/* tstate is assumed to contain the midstate of key */
 	memcpy(pad, key + 4 * 16, 4 * 16);
 	memcpy(pad + 4 * 4, keypad_4way, 4 * 48);
 	SHA256_Transform_4way(tstate, pad, 1);
@@ -519,13 +517,14 @@ unsigned char *scrypt_buffer_alloc()
 }
 
 static void scrypt_1024_1_1_256_sp(const uint32_t *input, uint32_t *output,
-	unsigned char *scratchpad)
+	uint32_t *midstate, unsigned char *scratchpad)
 {
 	uint32_t tstate[8], ostate[8];
 	uint32_t *V;
 	uint32_t X[32];
 	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
 
+	memcpy(tstate, midstate, 32);
 	HMAC_SHA256_80_init(input, tstate, ostate);
 	PBKDF2_SHA256_80_128(tstate, ostate, input, X);
 
@@ -536,7 +535,7 @@ static void scrypt_1024_1_1_256_sp(const uint32_t *input, uint32_t *output,
 
 #if SCRYPT_MAX_WAYS >= 2
 static void scrypt_1024_1_1_256_sp_2way(const uint32_t *input,
-	uint32_t *output, unsigned char *scratchpad)
+	uint32_t *output, uint32_t *midstate, unsigned char *scratchpad)
 {
 	uint32_t tstate1[8], tstate2[8];
 	uint32_t ostate1[8], ostate2[8];
@@ -545,6 +544,8 @@ static void scrypt_1024_1_1_256_sp_2way(const uint32_t *input,
 	
 	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
 
+	memcpy(tstate1, midstate, 32);
+	memcpy(tstate2, midstate, 32);
 	HMAC_SHA256_80_init(input, tstate1, ostate1);
 	HMAC_SHA256_80_init(input + 20, tstate2, ostate2);
 	PBKDF2_SHA256_80_128(tstate1, ostate1, input, X);
@@ -559,7 +560,7 @@ static void scrypt_1024_1_1_256_sp_2way(const uint32_t *input,
 
 #if SCRYPT_MAX_WAYS >= 3
 static void scrypt_1024_1_1_256_sp_3way(const uint32_t *input,
-	uint32_t *output, unsigned char *scratchpad)
+	uint32_t *output, uint32_t *midstate, unsigned char *scratchpad)
 {
 	uint32_t tstate[4 * 8], ostate[4 * 8];
 	uint32_t X[3 * 32];
@@ -573,6 +574,11 @@ static void scrypt_1024_1_1_256_sp_3way(const uint32_t *input,
 		W[4 * i + 0] = input[i];
 		W[4 * i + 1] = input[i + 20];
 		W[4 * i + 2] = input[i + 40];
+	}
+	for (i = 0; i < 8; i++) {
+		tstate[4 * i + 0] = midstate[i];
+		tstate[4 * i + 1] = midstate[i];
+		tstate[4 * i + 2] = midstate[i];
 	}
 	HMAC_SHA256_80_init_4way(W, tstate, ostate);
 	PBKDF2_SHA256_80_128_4way(tstate, ostate, W, W);
@@ -615,9 +621,10 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata,
 	uint32_t max_nonce, uint32_t *next_nonce, unsigned long *hashes_done)
 {
 	uint32_t data[SCRYPT_MAX_WAYS * 20], hash[SCRYPT_MAX_WAYS * 8];
-	unsigned long first_nonce = *next_nonce;
+	uint32_t midstate[8];
+	const uint32_t first_nonce = *next_nonce;
 	uint32_t n = *next_nonce;
-	uint32_t Htarg = le32dec(&((const uint32_t *)ptarget)[7]);
+	const uint32_t Htarg = le32dec(&((const uint32_t *)ptarget)[7]);
 	const int throughput = scrypt_best_throughput();
 	int i;
 	
@@ -626,25 +633,28 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata,
 	for (i = 1; i < throughput; i++)
 		memcpy(data + i * 20, data, 80);
 	
+	SHA256_InitState(midstate);
+	SHA256_Transform(midstate, data, 1);
+	
 	do {
 		for (i = 0; i < throughput; i++)
 			data[i * 20 + 19] = n++;
 		
 #if SCRYPT_MAX_WAYS >= 3
 		if (throughput == 3)
-			scrypt_1024_1_1_256_sp_3way(data, hash, scratchbuf);
+			scrypt_1024_1_1_256_sp_3way(data, hash, midstate, scratchbuf);
 		else
 #endif
 #if SCRYPT_MAX_WAYS >= 2
 		if (throughput == 2)
-			scrypt_1024_1_1_256_sp_2way(data, hash, scratchbuf);
+			scrypt_1024_1_1_256_sp_2way(data, hash, midstate, scratchbuf);
 		else
 #endif
-			scrypt_1024_1_1_256_sp(data, hash, scratchbuf);
+			scrypt_1024_1_1_256_sp(data, hash, midstate, scratchbuf);
 		
 		for (i = 0; i < throughput; i++) {
-			if (unlikely(hash[i * 8 + 7] <= Htarg)
-				&& likely(confirm_hash(hash + i * 8, (uint32_t *)ptarget))) {
+			if (hash[i * 8 + 7] <= Htarg
+				&& confirm_hash(hash + i * 8, (uint32_t *)ptarget)) {
 				be32enc(&((uint32_t *)pdata)[19], data[i * 20 + 19]);
 				*next_nonce = n;
 				*hashes_done = n - first_nonce;
