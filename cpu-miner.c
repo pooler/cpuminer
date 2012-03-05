@@ -508,7 +508,7 @@ static void *miner_thread(void *userdata)
 		unsigned long hashes_done;
 		struct timeval tv_start, tv_end, diff;
 		int64_t max64;
-		bool rc;
+		int rc;
 
 		/* obtain new work from internal workio thread */
 		pthread_mutex_lock(&g_work_lock);

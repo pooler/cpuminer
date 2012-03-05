@@ -403,23 +403,17 @@ static inline void PBKDF2_SHA256_128_32_4way(uint32_t *tstate,
 
 #if defined(__x86_64__)
 
-#define SCRYPT_3WAY
-#define SCRYPT_BUFFER_SIZE (3 * 131072 + 63)
-
+#define SCRYPT_MAX_WAYS 3
 int scrypt_best_throughput();
 void scrypt_core(uint32_t *X, uint32_t *V);
-void scrypt_core_2way(uint32_t *X, uint32_t *Y, uint32_t *V);
-void scrypt_core_3way(uint32_t *X, uint32_t *Y, uint32_t *Z, uint32_t *V);
+void scrypt_core_2way(uint32_t *X, uint32_t *V);
+void scrypt_core_3way(uint32_t *X, uint32_t *V);
 
 #elif defined(__i386__)
-
-#define SCRYPT_BUFFER_SIZE (131072 + 63)
 
 void scrypt_core(uint32_t *X, uint32_t *V);
 
 #else
-
-#define SCRYPT_BUFFER_SIZE (131072 + 63)
 
 static inline void salsa20_8(uint32_t B[16], const uint32_t Bx[16])
 {
@@ -512,6 +506,13 @@ static inline void scrypt_core(uint32_t *X, uint32_t *V)
 
 #endif
 
+#ifndef SCRYPT_MAX_WAYS
+#define SCRYPT_MAX_WAYS 1
+#define scrypt_best_throughput() 1
+#endif
+
+#define SCRYPT_BUFFER_SIZE (SCRYPT_MAX_WAYS * 131072 + 63)
+
 unsigned char *scrypt_buffer_alloc()
 {
 	return malloc(SCRYPT_BUFFER_SIZE);
@@ -533,38 +534,35 @@ static void scrypt_1024_1_1_256_sp(const uint32_t *input, uint32_t *output,
 	return PBKDF2_SHA256_128_32(tstate, ostate, X, output);
 }
 
-#ifdef SCRYPT_3WAY
-
-static void scrypt_1024_1_1_256_sp_2way(const uint32_t *input1,
-	const uint32_t *input2, uint32_t *output1, uint32_t *output2,
-	unsigned char *scratchpad)
+#if SCRYPT_MAX_WAYS >= 2
+static void scrypt_1024_1_1_256_sp_2way(const uint32_t *input,
+	uint32_t *output, unsigned char *scratchpad)
 {
 	uint32_t tstate1[8], tstate2[8];
 	uint32_t ostate1[8], ostate2[8];
 	uint32_t *V;
-	uint32_t X[32], Y[32];
+	uint32_t X[2 * 32], *Y = X + 32;
+	
 	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
 
-	HMAC_SHA256_80_init(input1, tstate1, ostate1);
-	HMAC_SHA256_80_init(input2, tstate2, ostate2);
-	PBKDF2_SHA256_80_128(tstate1, ostate1, input1, X);
-	PBKDF2_SHA256_80_128(tstate2, ostate2, input2, Y);
+	HMAC_SHA256_80_init(input, tstate1, ostate1);
+	HMAC_SHA256_80_init(input + 20, tstate2, ostate2);
+	PBKDF2_SHA256_80_128(tstate1, ostate1, input, X);
+	PBKDF2_SHA256_80_128(tstate2, ostate2, input + 20, Y);
 
-	scrypt_core_2way(X, Y, V);
+	scrypt_core_2way(X, V);
 
-	PBKDF2_SHA256_128_32(tstate1, ostate1, X, output1);
-	PBKDF2_SHA256_128_32(tstate2, ostate2, Y, output2);
+	PBKDF2_SHA256_128_32(tstate1, ostate1, X, output);
+	PBKDF2_SHA256_128_32(tstate2, ostate2, Y, output + 8);
 }
+#endif /* SCRYPT_MAX_WAYS >= 2 */
 
-static void scrypt_1024_1_1_256_sp_3way(
-	const uint32_t *input1, const uint32_t *input2, const uint32_t *input3,
-	uint32_t *output1, uint32_t *output2, uint32_t *output3,
-	unsigned char *scratchpad)
+#if SCRYPT_MAX_WAYS >= 3
+static void scrypt_1024_1_1_256_sp_3way(const uint32_t *input,
+	uint32_t *output, unsigned char *scratchpad)
 {
-#ifdef SHA256_4WAY
 	uint32_t tstate[4 * 8], ostate[4 * 8];
-	uint32_t input[4 * 20], output[4 * 32];
-	uint32_t X[32], Y[32], Z[32];
+	uint32_t X[3 * 32];
 	uint32_t W[4 * 32];
 	uint32_t *V;
 	int i;
@@ -572,53 +570,31 @@ static void scrypt_1024_1_1_256_sp_3way(
 	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
 
 	for (i = 0; i < 20; i++) {
-		input[4 * i + 0] = input1[i];
-		input[4 * i + 1] = input2[i];
-		input[4 * i + 2] = input3[i];
+		W[4 * i + 0] = input[i];
+		W[4 * i + 1] = input[i + 20];
+		W[4 * i + 2] = input[i + 40];
 	}
-	HMAC_SHA256_80_init_4way(input, tstate, ostate);
-	PBKDF2_SHA256_80_128_4way(tstate, ostate, input, W);
+	HMAC_SHA256_80_init_4way(W, tstate, ostate);
+	PBKDF2_SHA256_80_128_4way(tstate, ostate, W, W);
 	for (i = 0; i < 32; i++) {
-		X[i] = W[4 * i + 0];
-		Y[i] = W[4 * i + 1];
-		Z[i] = W[4 * i + 2];
+		X[0 * 32 + i] = W[4 * i + 0];
+		X[1 * 32 + i] = W[4 * i + 1];
+		X[2 * 32 + i] = W[4 * i + 2];
 	}
-	scrypt_core_3way(X, Y, Z, V);
+	scrypt_core_3way(X, V);
 	for (i = 0; i < 32; i++) {
-		W[4 * i + 0] = X[i];
-		W[4 * i + 1] = Y[i];
-		W[4 * i + 2] = Z[i];
+		W[4 * i + 0] = X[0 * 32 + i];
+		W[4 * i + 1] = X[1 * 32 + i];
+		W[4 * i + 2] = X[2 * 32 + i];
 	}
-	PBKDF2_SHA256_128_32_4way(tstate, ostate, W, output);
+	PBKDF2_SHA256_128_32_4way(tstate, ostate, W, W);
 	for (i = 0; i < 8; i++) {
-		output1[i] = output[4 * i + 0];
-		output2[i] = output[4 * i + 1];
-		output3[i] = output[4 * i + 2];
+		output[i] = W[4 * i + 0];
+		output[i + 8] = W[4 * i + 1];
+		output[i + 16] = W[4 * i + 2];
 	}
-#else
-	uint32_t tstate1[8], tstate2[8], tstate3[8];
-	uint32_t ostate1[8], ostate2[8], ostate3[8];
-	uint32_t X[32], Y[32], Z[32];
-	uint32_t *V;
-	
-	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
-
-	HMAC_SHA256_80_init(input1, tstate1, ostate1);
-	HMAC_SHA256_80_init(input2, tstate2, ostate2);
-	HMAC_SHA256_80_init(input3, tstate3, ostate3);
-	PBKDF2_SHA256_80_128(tstate1, ostate1, input1, X);
-	PBKDF2_SHA256_80_128(tstate2, ostate2, input2, Y);
-	PBKDF2_SHA256_80_128(tstate3, ostate3, input3, Z);
-
-	scrypt_core_3way(X, Y, Z, V);
-
-	PBKDF2_SHA256_128_32(tstate1, ostate1, X, output1);
-	PBKDF2_SHA256_128_32(tstate2, ostate2, Y, output2);
-	PBKDF2_SHA256_128_32(tstate3, ostate3, Z, output3);
-#endif /* SHA256_4WAY*/
 }
-
-#endif /* SCRYPT_3WAY */
+#endif /* SCRYPT_MAX_WAYS >= 3 */
 
 __attribute__ ((noinline)) static int confirm_hash(const uint32_t *hash,
 	const uint32_t *target)
@@ -638,63 +614,46 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata,
 	unsigned char *scratchbuf, const unsigned char *ptarget,
 	uint32_t max_nonce, uint32_t *next_nonce, unsigned long *hashes_done)
 {
-	uint32_t data[20], hash[8];
-#ifdef SCRYPT_3WAY
-	uint32_t data2[20], hash2[8];
-	uint32_t data3[20], hash3[8];
-	int throughput;
-#endif
+	uint32_t data[SCRYPT_MAX_WAYS * 20], hash[SCRYPT_MAX_WAYS * 8];
 	unsigned long first_nonce = *next_nonce;
 	uint32_t n = *next_nonce;
 	uint32_t Htarg = le32dec(&((const uint32_t *)ptarget)[7]);
+	const int throughput = scrypt_best_throughput();
 	int i;
 	
 	for (i = 0; i < 19; i++)
 		data[i] = be32dec(&((const uint32_t *)pdata)[i]);
-#ifdef SCRYPT_3WAY
-	memcpy(data2, data, 80);
-	memcpy(data3, data, 80);
-	throughput = scrypt_best_throughput();
-#endif
+	for (i = 1; i < throughput; i++)
+		memcpy(data + i * 20, data, 80);
 	
 	do {
-		data[19] = n++;
-#ifdef SCRYPT_3WAY
-		if (throughput >= 2 && n <= max_nonce) {
-			data2[19] = n++;
-			if (throughput >= 3 && n <= max_nonce) {
-				data3[19] = n++;
-				scrypt_1024_1_1_256_sp_3way(data, data2, data3, hash, hash2, hash3, scratchbuf);
-				if (hash3[7] <= Htarg && confirm_hash(hash3, (uint32_t *)ptarget)) {
-					be32enc(&((uint32_t *)pdata)[19], data3[19]);
-					*next_nonce = n;
-					*hashes_done = n - first_nonce;
-					return true;
-				}
-			} else {
-				scrypt_1024_1_1_256_sp_2way(data, data2, hash, hash2, scratchbuf);
-			}
-			if (hash2[7] <= Htarg && confirm_hash(hash2, (uint32_t *)ptarget)) {
-				be32enc(&((uint32_t *)pdata)[19], data2[19]);
+		for (i = 0; i < throughput; i++)
+			data[i * 20 + 19] = n++;
+		
+#if SCRYPT_MAX_WAYS >= 3
+		if (throughput == 3)
+			scrypt_1024_1_1_256_sp_3way(data, hash, scratchbuf);
+		else
+#endif
+#if SCRYPT_MAX_WAYS >= 2
+		if (throughput == 2)
+			scrypt_1024_1_1_256_sp_2way(data, hash, scratchbuf);
+		else
+#endif
+			scrypt_1024_1_1_256_sp(data, hash, scratchbuf);
+		
+		for (i = 0; i < throughput; i++) {
+			if (unlikely(hash[i * 8 + 7] <= Htarg)
+				&& likely(confirm_hash(hash + i * 8, (uint32_t *)ptarget))) {
+				be32enc(&((uint32_t *)pdata)[19], data[i * 20 + 19]);
 				*next_nonce = n;
 				*hashes_done = n - first_nonce;
-				return true;
+				return 1;
 			}
-		} else {
-			scrypt_1024_1_1_256_sp(data, hash, scratchbuf);
-		}
-#else
-		scrypt_1024_1_1_256_sp(data, hash, scratchbuf);
-#endif
-		if (hash[7] <= Htarg && confirm_hash(hash, (uint32_t *)ptarget)) {
-			be32enc(&((uint32_t *)pdata)[19], data[19]);
-			*next_nonce = n;
-			*hashes_done = n - first_nonce;
-			return true;
 		}
 	} while (n <= max_nonce && !work_restart[thr_id].restart);
 	
 	*next_nonce = n;
 	*hashes_done = n - first_nonce;
-	return false;
+	return 0;
 }

@@ -24,6 +24,8 @@
  * SUCH DAMAGE.
  */
 
+#include "cpuminer-config.h"
+
 #if defined(__linux__) && defined(__ELF__)
 	.section .note.GNU-stack,"",%progbits
 #endif
@@ -65,7 +67,7 @@
 	movl	%edx, \do+56(\dest)
 .endm
 
-.macro gen_salsa8_core_quadround
+.macro salsa8_core_gen_quadround
 	movl	52(%esp), %ecx
 	movl	4(%esp), %edx
 	movl	20(%esp), %ebx
@@ -387,9 +389,9 @@
 
 	.text
 	.p2align 5
-gen_salsa8_core:
-	gen_salsa8_core_quadround
-	gen_salsa8_core_quadround
+salsa8_core_gen:
+	salsa8_core_gen_quadround
+	salsa8_core_gen_quadround
 	ret
 	
 	
@@ -408,9 +410,9 @@ _scrypt_core:
 	movl	$1, %eax
 	cpuid
 	andl	$0x04000000, %edx
-	jnz xmm_scrypt_core
+	jnz scrypt_core_sse2
 	
-gen_scrypt_core:
+scrypt_core_gen:
 	movl	20(%esp), %edi
 	movl	24(%esp), %esi
 	subl	$72, %esp
@@ -452,7 +454,7 @@ gen_scrypt_core:
 .endm
 	
 	leal	131072(%esi), %ecx
-gen_scrypt_core_loop1:
+scrypt_core_gen_loop1:
 	movl	%esi, 64(%esp)
 	movl	%ecx, 68(%esp)
 	
@@ -473,7 +475,7 @@ gen_scrypt_core_loop1:
 	scrypt_core_macro1a	56, 120
 	scrypt_core_macro1a	60, 124
 	
-	call gen_salsa8_core
+	call salsa8_core_gen
 	
 	movl	92(%esp), %edi
 	scrypt_core_macro2	0, 64
@@ -493,7 +495,7 @@ gen_scrypt_core_loop1:
 	scrypt_core_macro2	56, 120
 	scrypt_core_macro2	60, 124
 	
-	call gen_salsa8_core
+	call salsa8_core_gen
 	
 	movl	92(%esp), %edi
 	scrypt_core_macro3	0, 64
@@ -517,11 +519,11 @@ gen_scrypt_core_loop1:
 	movl	68(%esp), %ecx
 	addl	$128, %esi
 	cmpl	%ecx, %esi
-	jne gen_scrypt_core_loop1
+	jne scrypt_core_gen_loop1
 
 	movl	96(%esp), %esi
 	movl	$1024, %ecx
-gen_scrypt_core_loop2:
+scrypt_core_gen_loop2:
 	movl	%ecx, 68(%esp)
 	
 	movl	64(%edi), %edx
@@ -545,7 +547,7 @@ gen_scrypt_core_loop2:
 	scrypt_core_macro1b	56, 120
 	scrypt_core_macro1b	60, 124
 	
-	call gen_salsa8_core
+	call salsa8_core_gen
 	
 	movl	92(%esp), %edi
 	scrypt_core_macro2	0, 64
@@ -565,7 +567,7 @@ gen_scrypt_core_loop2:
 	scrypt_core_macro2	56, 120
 	scrypt_core_macro2	60, 124
 	
-	call gen_salsa8_core
+	call salsa8_core_gen
 	
 	movl	92(%esp), %edi
 	movl	96(%esp), %esi
@@ -588,7 +590,7 @@ gen_scrypt_core_loop2:
 	
 	movl	68(%esp), %ecx
 	subl	$1, %ecx
-	ja gen_scrypt_core_loop2
+	ja scrypt_core_gen_loop2
 	
 	addl	$72, %esp
 	popl	%esi
@@ -598,7 +600,7 @@ gen_scrypt_core_loop2:
 	ret
 
 
-.macro xmm_salsa8_core_doubleround
+.macro salsa8_core_sse2_doubleround
 	movdqa	%xmm1, %xmm4
 	paddd	%xmm0, %xmm4
 	movdqa	%xmm4, %xmm5
@@ -670,15 +672,15 @@ gen_scrypt_core_loop2:
 	pxor	%xmm5, %xmm0
 .endm
 
-.macro xmm_salsa8_core
-	xmm_salsa8_core_doubleround
-	xmm_salsa8_core_doubleround
-	xmm_salsa8_core_doubleround
-	xmm_salsa8_core_doubleround
+.macro salsa8_core_sse2
+	salsa8_core_sse2_doubleround
+	salsa8_core_sse2_doubleround
+	salsa8_core_sse2_doubleround
+	salsa8_core_sse2_doubleround
 .endm
 	
 	.p2align 5
-xmm_scrypt_core:
+scrypt_core_sse2:
 	movl	20(%esp), %edi
 	movl	24(%esp), %esi
 	movl	%esp, %ebp
@@ -693,7 +695,7 @@ xmm_scrypt_core:
 	
 	movl	%esi, %edx
 	leal	131072(%esi), %ecx
-xmm_scrypt_core_loop1:
+scrypt_core_sse2_loop1:
 	movdqa	0(%esp), %xmm0
 	movdqa	16(%esp), %xmm1
 	movdqa	32(%esp), %xmm2
@@ -713,7 +715,7 @@ xmm_scrypt_core_loop1:
 	movdqa	%xmm6, 96(%edx)
 	movdqa	%xmm7, 112(%edx)
 	
-	xmm_salsa8_core
+	salsa8_core_sse2
 	paddd	0(%edx), %xmm0
 	paddd	16(%edx), %xmm1
 	paddd	32(%edx), %xmm2
@@ -731,7 +733,7 @@ xmm_scrypt_core_loop1:
 	movdqa	%xmm1, 80(%esp)
 	movdqa	%xmm2, %xmm6
 	movdqa	%xmm3, %xmm7
-	xmm_salsa8_core
+	salsa8_core_sse2
 	paddd	64(%esp), %xmm0
 	paddd	80(%esp), %xmm1
 	paddd	%xmm2, %xmm6
@@ -741,13 +743,13 @@ xmm_scrypt_core_loop1:
 	
 	addl	$128, %edx
 	cmpl	%ecx, %edx
-	jne xmm_scrypt_core_loop1
+	jne scrypt_core_sse2_loop1
 	
 	movdqa	64(%esp), %xmm4
 	movdqa	80(%esp), %xmm5
 	
 	movl	$1024, %ecx
-xmm_scrypt_core_loop2:
+scrypt_core_sse2_loop2:
 	movdqa	0(%esp), %xmm0
 	movdqa	16(%esp), %xmm1
 	movdqa	32(%esp), %xmm2
@@ -768,7 +770,7 @@ xmm_scrypt_core_loop2:
 	movdqa	%xmm1, 16(%esp)
 	movdqa	%xmm2, 32(%esp)
 	movdqa	%xmm3, 48(%esp)
-	xmm_salsa8_core
+	salsa8_core_sse2
 	paddd	0(%esp), %xmm0
 	paddd	16(%esp), %xmm1
 	paddd	32(%esp), %xmm2
@@ -790,7 +792,7 @@ xmm_scrypt_core_loop2:
 	movdqa	%xmm1, 80(%esp)
 	movdqa	%xmm2, %xmm6
 	movdqa	%xmm3, %xmm7
-	xmm_salsa8_core
+	salsa8_core_sse2
 	paddd	64(%esp), %xmm0
 	paddd	80(%esp), %xmm1
 	paddd	%xmm2, %xmm6
@@ -801,7 +803,7 @@ xmm_scrypt_core_loop2:
 	movdqa	%xmm1, 80(%esp)
 	
 	subl	$1, %ecx
-	ja xmm_scrypt_core_loop2
+	ja scrypt_core_sse2_loop2
 	
 	movdqa	%xmm6, 96(%esp)
 	movdqa	%xmm7, 112(%esp)

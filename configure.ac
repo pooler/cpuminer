@@ -23,15 +23,15 @@ AC_CHECK_HEADERS(syslog.h)
 AC_FUNC_ALLOCA
 
 case $target in
-  x86_64-*)
-    have_x86_64=true
+  i*86-*-*)
+    have_x86=true
     ;;
-  *)
-    have_x86_64=false
+  x86_64-*-*)
+    have_x86=true
+    have_x86_64=true
     ;;
 esac
 
-have_win32=false
 PTHREAD_FLAGS="-pthread"
 WS2_LIBS=""
 
@@ -43,6 +43,18 @@ case $target in
     ;;
 esac
 
+if test x$have_x86 = xtrue
+then
+  AC_MSG_CHECKING(whether we can compile AVX code)
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM(,[asm ("vmovdqa %ymm0, %ymm1");])],
+      AC_DEFINE(USE_AVX, 1, [Define to 1 if AVX assembly is available.])
+      AC_MSG_RESULT(yes)
+    ,
+      AC_MSG_RESULT(no)
+      AC_MSG_WARN([The assembler does not support the AVX instruction set.])
+  )
+fi
+
 AC_CHECK_LIB(jansson, json_loads, request_jansson=false, request_jansson=true)
 AC_CHECK_LIB([pthread], [pthread_create], PTHREAD_LIBS="-lpthread",
   AC_CHECK_LIB([pthreadGC2], [pthread_create], PTHREAD_LIBS="-lpthreadGC2",
@@ -52,7 +64,8 @@ AC_CHECK_LIB([pthread], [pthread_create], PTHREAD_LIBS="-lpthread",
 
 AM_CONDITIONAL([WANT_JANSSON], [test x$request_jansson = xtrue])
 AM_CONDITIONAL([HAVE_WINDOWS], [test x$have_win32 = xtrue])
-AM_CONDITIONAL([HAVE_x86_64], [test x$have_x86_64 = xtrue])
+AM_CONDITIONAL([ARCH_x86], [test x$have_x86 = xtrue])
+AM_CONDITIONAL([ARCH_x86_64], [test x$have_x86_64 = xtrue])
 
 if test x$request_jansson = xtrue
 then
