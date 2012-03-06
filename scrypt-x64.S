@@ -1920,8 +1920,13 @@ _scrypt_core_3way:
 	andl	$0x00000006, %eax
 	cmpl	$0x00000006, %eax
 	jne scrypt_core_3way_xmm
+	# Check for XOP support
+	movl	$0x80000001, %eax
+	cpuid
+	andl	$0x00000800, %ecx
+	jnz scrypt_core_3way_xop
 	
-avx_scrypt_core_3way:
+scrypt_core_3way_avx:
 	scrypt_shuffle %rdi, 0, %rsp, 0
 	scrypt_shuffle %rdi, 64, %rsp, 64
 	scrypt_shuffle %rdi, 128, %rsp, 128
@@ -2222,6 +2227,427 @@ scrypt_core_3way_avx_loop2:
 	
 	subq	$1, %rcx
 	ja scrypt_core_3way_avx_loop2
+	
+	scrypt_shuffle %rsp, 0, %rdi, 0
+	scrypt_shuffle %rsp, 64, %rdi, 64
+	scrypt_shuffle %rsp, 128, %rdi, 128
+	scrypt_shuffle %rsp, 192, %rdi, 192
+	scrypt_shuffle %rsp, 256, %rdi, 256
+	scrypt_shuffle %rsp, 320, %rdi, 320
+	
+	scrypt_core_3way_cleanup
+	ret
+
+.macro salsa8_core_3way_xop_doubleround
+	vpaddd	%xmm0, %xmm1, %xmm4
+	vpaddd	%xmm8, %xmm9, %xmm6
+	vpaddd	%xmm12, %xmm13, %xmm7
+	vprotd	$7, %xmm4, %xmm4
+	vprotd	$7, %xmm6, %xmm6
+	vprotd	$7, %xmm7, %xmm7
+	vpxor	%xmm4, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm11, %xmm11
+	vpxor	%xmm7, %xmm15, %xmm15
+	
+	vpaddd	%xmm3, %xmm0, %xmm4
+	vpaddd	%xmm11, %xmm8, %xmm6
+	vpaddd	%xmm15, %xmm12, %xmm7
+	vprotd	$9, %xmm4, %xmm4
+	vprotd	$9, %xmm6, %xmm6
+	vprotd	$9, %xmm7, %xmm7
+	vpxor	%xmm4, %xmm2, %xmm2
+	vpxor	%xmm6, %xmm10, %xmm10
+	vpxor	%xmm7, %xmm14, %xmm14
+	
+	vpaddd	%xmm2, %xmm3, %xmm4
+	vpaddd	%xmm10, %xmm11, %xmm6
+	vpaddd	%xmm14, %xmm15, %xmm7
+	vprotd	$13, %xmm4, %xmm4
+	vprotd	$13, %xmm6, %xmm6
+	vprotd	$13, %xmm7, %xmm7
+	vpshufd	$0x93, %xmm3, %xmm3
+	vpshufd	$0x93, %xmm11, %xmm11
+	vpshufd	$0x93, %xmm15, %xmm15
+	vpxor	%xmm4, %xmm1, %xmm1
+	vpxor	%xmm6, %xmm9, %xmm9
+	vpxor	%xmm7, %xmm13, %xmm13
+	
+	vpaddd	%xmm1, %xmm2, %xmm4
+	vpaddd	%xmm9, %xmm10, %xmm6
+	vpaddd	%xmm13, %xmm14, %xmm7
+	vprotd	$18, %xmm4, %xmm4
+	vprotd	$18, %xmm6, %xmm6
+	vprotd	$18, %xmm7, %xmm7
+	vpshufd	$0x4e, %xmm2, %xmm2
+	vpshufd	$0x4e, %xmm10, %xmm10
+	vpshufd	$0x4e, %xmm14, %xmm14
+	vpxor	%xmm6, %xmm8, %xmm8
+	vpxor	%xmm4, %xmm0, %xmm0
+	vpxor	%xmm7, %xmm12, %xmm12
+	
+	vpaddd	%xmm0, %xmm3, %xmm4
+	vpaddd	%xmm8, %xmm11, %xmm6
+	vpaddd	%xmm12, %xmm15, %xmm7
+	vprotd	$7, %xmm4, %xmm4
+	vprotd	$7, %xmm6, %xmm6
+	vprotd	$7, %xmm7, %xmm7
+	vpshufd	$0x39, %xmm1, %xmm1
+	vpshufd	$0x39, %xmm9, %xmm9
+	vpshufd	$0x39, %xmm13, %xmm13
+	vpxor	%xmm4, %xmm1, %xmm1
+	vpxor	%xmm6, %xmm9, %xmm9
+	vpxor	%xmm7, %xmm13, %xmm13
+	
+	vpaddd	%xmm1, %xmm0, %xmm4
+	vpaddd	%xmm9, %xmm8, %xmm6
+	vpaddd	%xmm13, %xmm12, %xmm7
+	vprotd	$9, %xmm4, %xmm4
+	vprotd	$9, %xmm6, %xmm6
+	vprotd	$9, %xmm7, %xmm7
+	vpxor	%xmm4, %xmm2, %xmm2
+	vpxor	%xmm6, %xmm10, %xmm10
+	vpxor	%xmm7, %xmm14, %xmm14
+	
+	vpaddd	%xmm2, %xmm1, %xmm4
+	vpaddd	%xmm10, %xmm9, %xmm6
+	vpaddd	%xmm14, %xmm13, %xmm7
+	vprotd	$13, %xmm4, %xmm4
+	vprotd	$13, %xmm6, %xmm6
+	vprotd	$13, %xmm7, %xmm7
+	vpshufd	$0x93, %xmm1, %xmm1
+	vpshufd	$0x93, %xmm9, %xmm9
+	vpshufd	$0x93, %xmm13, %xmm13
+	vpxor	%xmm4, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm11, %xmm11
+	vpxor	%xmm7, %xmm15, %xmm15
+	
+	vpaddd	%xmm3, %xmm2, %xmm4
+	vpaddd	%xmm11, %xmm10, %xmm6
+	vpaddd	%xmm15, %xmm14, %xmm7
+	vprotd	$18, %xmm4, %xmm4
+	vprotd	$18, %xmm6, %xmm6
+	vprotd	$18, %xmm7, %xmm7
+	vpshufd	$0x4e, %xmm2, %xmm2
+	vpshufd	$0x4e, %xmm10, %xmm10
+	vpshufd	$0x4e, %xmm14, %xmm14
+	vpxor	%xmm4, %xmm0, %xmm0
+	vpxor	%xmm6, %xmm8, %xmm8
+	vpxor	%xmm7, %xmm12, %xmm12
+	vpshufd	$0x39, %xmm3, %xmm3
+	vpshufd	$0x39, %xmm11, %xmm11
+	vpshufd	$0x39, %xmm15, %xmm15
+.endm
+
+.macro salsa8_core_3way_xop
+	salsa8_core_3way_xop_doubleround
+	salsa8_core_3way_xop_doubleround
+	salsa8_core_3way_xop_doubleround
+	salsa8_core_3way_xop_doubleround
+.endm
+	
+	.p2align 6
+scrypt_core_3way_xop:
+	scrypt_shuffle %rdi, 0, %rsp, 0
+	scrypt_shuffle %rdi, 64, %rsp, 64
+	scrypt_shuffle %rdi, 128, %rsp, 128
+	scrypt_shuffle %rdi, 192, %rsp, 192
+	scrypt_shuffle %rdi, 256, %rsp, 256
+	scrypt_shuffle %rdi, 320, %rsp, 320
+	
+	movdqa	128+64(%rsp), %xmm8
+	movdqa	128+80(%rsp), %xmm9
+	movdqa	128+96(%rsp), %xmm10
+	movdqa	128+112(%rsp), %xmm11
+	
+	movq	%rsi, %rbx
+	leaq	3*131072(%rsi), %rax
+	.p2align 4
+scrypt_core_3way_xop_loop1:
+	movdqa	%xmm8, %xmm12
+	movdqa	%xmm9, %xmm13
+	movdqa	%xmm10, %xmm14
+	movdqa	%xmm11, %xmm15
+	movdqa	64(%rsp), %xmm4
+	movdqa	80(%rsp), %xmm5
+	movdqa	96(%rsp), %xmm6
+	movdqa	112(%rsp), %xmm7
+	vpxor	0(%rsp), %xmm4, %xmm0
+	vpxor	16(%rsp), %xmm5, %xmm1
+	vpxor	32(%rsp), %xmm6, %xmm2
+	vpxor	48(%rsp), %xmm7, %xmm3
+	vpxor	128+0(%rsp), %xmm12, %xmm8
+	vpxor	128+16(%rsp), %xmm13, %xmm9
+	vpxor	128+32(%rsp), %xmm14, %xmm10
+	vpxor	128+48(%rsp), %xmm15, %xmm11
+	movdqa	%xmm0, 0(%rbx)
+	movdqa	%xmm1, 16(%rbx)
+	movdqa	%xmm2, 32(%rbx)
+	movdqa	%xmm3, 48(%rbx)
+	movdqa	%xmm4, 64(%rbx)
+	movdqa	%xmm5, 80(%rbx)
+	movdqa	%xmm6, 96(%rbx)
+	movdqa	%xmm7, 112(%rbx)
+	movdqa	%xmm8, 128+0(%rbx)
+	movdqa	%xmm9, 128+16(%rbx)
+	movdqa	%xmm10, 128+32(%rbx)
+	movdqa	%xmm11, 128+48(%rbx)
+	movdqa	%xmm12, 128+64(%rbx)
+	movdqa	%xmm13, 128+80(%rbx)
+	movdqa	%xmm14, 128+96(%rbx)
+	movdqa	%xmm15, 128+112(%rbx)
+	movdqa	256+64(%rsp), %xmm4
+	movdqa	256+80(%rsp), %xmm5
+	movdqa	256+96(%rsp), %xmm6
+	movdqa	256+112(%rsp), %xmm7
+	vpxor	256+0(%rsp), %xmm4, %xmm12
+	vpxor	256+16(%rsp), %xmm5, %xmm13
+	vpxor	256+32(%rsp), %xmm6, %xmm14
+	vpxor	256+48(%rsp), %xmm7, %xmm15
+	movdqa	%xmm12, 256+0(%rbx)
+	movdqa	%xmm13, 256+16(%rbx)
+	movdqa	%xmm14, 256+32(%rbx)
+	movdqa	%xmm15, 256+48(%rbx)
+	movdqa	%xmm4, 256+64(%rbx)
+	movdqa	%xmm5, 256+80(%rbx)
+	movdqa	%xmm6, 256+96(%rbx)
+	movdqa	%xmm7, 256+112(%rbx)
+	
+	salsa8_core_3way_xop
+	paddd	0(%rbx), %xmm0
+	paddd	16(%rbx), %xmm1
+	paddd	32(%rbx), %xmm2
+	paddd	48(%rbx), %xmm3
+	paddd	128+0(%rbx), %xmm8
+	paddd	128+16(%rbx), %xmm9
+	paddd	128+32(%rbx), %xmm10
+	paddd	128+48(%rbx), %xmm11
+	paddd	256+0(%rbx), %xmm12
+	paddd	256+16(%rbx), %xmm13
+	paddd	256+32(%rbx), %xmm14
+	paddd	256+48(%rbx), %xmm15
+	movdqa	%xmm0, 0(%rsp)
+	movdqa	%xmm1, 16(%rsp)
+	movdqa	%xmm2, 32(%rsp)
+	movdqa	%xmm3, 48(%rsp)
+	movdqa	%xmm8, 128+0(%rsp)
+	movdqa	%xmm9, 128+16(%rsp)
+	movdqa	%xmm10, 128+32(%rsp)
+	movdqa	%xmm11, 128+48(%rsp)
+	movdqa	%xmm12, 256+0(%rsp)
+	movdqa	%xmm13, 256+16(%rsp)
+	movdqa	%xmm14, 256+32(%rsp)
+	movdqa	%xmm15, 256+48(%rsp)
+	
+	pxor	64(%rsp), %xmm0
+	pxor	80(%rsp), %xmm1
+	pxor	96(%rsp), %xmm2
+	pxor	112(%rsp), %xmm3
+	pxor	128+64(%rsp), %xmm8
+	pxor	128+80(%rsp), %xmm9
+	pxor	128+96(%rsp), %xmm10
+	pxor	128+112(%rsp), %xmm11
+	pxor	256+64(%rsp), %xmm12
+	pxor	256+80(%rsp), %xmm13
+	pxor	256+96(%rsp), %xmm14
+	pxor	256+112(%rsp), %xmm15
+	movdqa	%xmm0, 64(%rsp)
+	movdqa	%xmm1, 80(%rsp)
+	movdqa	%xmm2, 96(%rsp)
+	movdqa	%xmm3, 112(%rsp)
+	movdqa	%xmm8, 128+64(%rsp)
+	movdqa	%xmm9, 128+80(%rsp)
+	movdqa	%xmm10, 128+96(%rsp)
+	movdqa	%xmm11, 128+112(%rsp)
+	movdqa	%xmm12, 256+64(%rsp)
+	movdqa	%xmm13, 256+80(%rsp)
+	movdqa	%xmm14, 256+96(%rsp)
+	movdqa	%xmm15, 256+112(%rsp)
+	salsa8_core_3way_xop
+	paddd	64(%rsp), %xmm0
+	paddd	80(%rsp), %xmm1
+	paddd	96(%rsp), %xmm2
+	paddd	112(%rsp), %xmm3
+	paddd	128+64(%rsp), %xmm8
+	paddd	128+80(%rsp), %xmm9
+	paddd	128+96(%rsp), %xmm10
+	paddd	128+112(%rsp), %xmm11
+	paddd	256+64(%rsp), %xmm12
+	paddd	256+80(%rsp), %xmm13
+	paddd	256+96(%rsp), %xmm14
+	paddd	256+112(%rsp), %xmm15
+	movdqa	%xmm0, 64(%rsp)
+	movdqa	%xmm1, 80(%rsp)
+	movdqa	%xmm2, 96(%rsp)
+	movdqa	%xmm3, 112(%rsp)
+	movdqa	%xmm8, 128+64(%rsp)
+	movdqa	%xmm9, 128+80(%rsp)
+	movdqa	%xmm10, 128+96(%rsp)
+	movdqa	%xmm11, 128+112(%rsp)
+	movdqa	%xmm12, 256+64(%rsp)
+	movdqa	%xmm13, 256+80(%rsp)
+	movdqa	%xmm14, 256+96(%rsp)
+	movdqa	%xmm15, 256+112(%rsp)
+	
+	addq	$3*128, %rbx
+	cmpq	%rax, %rbx
+	jne scrypt_core_3way_xop_loop1
+	
+	movq	$1024, %rcx
+	.p2align 4
+scrypt_core_3way_xop_loop2:
+	movl	64(%rsp), %ebp
+	andl	$1023, %ebp
+	leaq	(%rbp, %rbp, 2), %rbp
+	movl	128+64(%rsp), %ebx
+	shll	$7, %ebp
+	movl	256+64(%rsp), %eax
+	andl	$1023, %ebx
+	leaq	(%rbx, %rbx, 2), %rbx
+	shll	$7, %ebx
+	shll	$7, %eax
+	addl	$128, %ebx
+	andl	$131071, %eax
+	leaq	(%rax, %rax, 2), %rax
+	addl	$256, %eax
+	movdqa	0(%rsp), %xmm0
+	movdqa	16(%rsp), %xmm1
+	movdqa	32(%rsp), %xmm2
+	movdqa	48(%rsp), %xmm3
+	movdqa	128+0(%rsp), %xmm8
+	movdqa	128+16(%rsp), %xmm9
+	movdqa	128+32(%rsp), %xmm10
+	movdqa	128+48(%rsp), %xmm11
+	movdqa	256+0(%rsp), %xmm12
+	movdqa	256+16(%rsp), %xmm13
+	movdqa	256+32(%rsp), %xmm14
+	movdqa	256+48(%rsp), %xmm15
+	pxor	0(%rsi, %rbp), %xmm0
+	pxor	16(%rsi, %rbp), %xmm1
+	pxor	32(%rsi, %rbp), %xmm2
+	pxor	48(%rsi, %rbp), %xmm3
+	pxor	0(%rsi, %rbx), %xmm8
+	pxor	16(%rsi, %rbx), %xmm9
+	pxor	32(%rsi, %rbx), %xmm10
+	pxor	48(%rsi, %rbx), %xmm11
+	pxor	0(%rsi, %rax), %xmm12
+	pxor	16(%rsi, %rax), %xmm13
+	pxor	32(%rsi, %rax), %xmm14
+	pxor	48(%rsi, %rax), %xmm15
+	
+	pxor	64(%rsp), %xmm0
+	pxor	80(%rsp), %xmm1
+	pxor	96(%rsp), %xmm2
+	pxor	112(%rsp), %xmm3
+	pxor	128+64(%rsp), %xmm8
+	pxor	128+80(%rsp), %xmm9
+	pxor	128+96(%rsp), %xmm10
+	pxor	128+112(%rsp), %xmm11
+	pxor	256+64(%rsp), %xmm12
+	pxor	256+80(%rsp), %xmm13
+	pxor	256+96(%rsp), %xmm14
+	pxor	256+112(%rsp), %xmm15
+	movdqa	%xmm0, 0(%rsp)
+	movdqa	%xmm1, 16(%rsp)
+	movdqa	%xmm2, 32(%rsp)
+	movdqa	%xmm3, 48(%rsp)
+	movdqa	%xmm8, 128+0(%rsp)
+	movdqa	%xmm9, 128+16(%rsp)
+	movdqa	%xmm10, 128+32(%rsp)
+	movdqa	%xmm11, 128+48(%rsp)
+	movdqa	%xmm12, 256+0(%rsp)
+	movdqa	%xmm13, 256+16(%rsp)
+	movdqa	%xmm14, 256+32(%rsp)
+	movdqa	%xmm15, 256+48(%rsp)
+	salsa8_core_3way_xop
+	paddd	0(%rsp), %xmm0
+	paddd	16(%rsp), %xmm1
+	paddd	32(%rsp), %xmm2
+	paddd	48(%rsp), %xmm3
+	paddd	128+0(%rsp), %xmm8
+	paddd	128+16(%rsp), %xmm9
+	paddd	128+32(%rsp), %xmm10
+	paddd	128+48(%rsp), %xmm11
+	paddd	256+0(%rsp), %xmm12
+	paddd	256+16(%rsp), %xmm13
+	paddd	256+32(%rsp), %xmm14
+	paddd	256+48(%rsp), %xmm15
+	movdqa	%xmm0, 0(%rsp)
+	movdqa	%xmm1, 16(%rsp)
+	movdqa	%xmm2, 32(%rsp)
+	movdqa	%xmm3, 48(%rsp)
+	movdqa	%xmm8, 128+0(%rsp)
+	movdqa	%xmm9, 128+16(%rsp)
+	movdqa	%xmm10, 128+32(%rsp)
+	movdqa	%xmm11, 128+48(%rsp)
+	movdqa	%xmm12, 256+0(%rsp)
+	movdqa	%xmm13, 256+16(%rsp)
+	movdqa	%xmm14, 256+32(%rsp)
+	movdqa	%xmm15, 256+48(%rsp)
+	
+	pxor	64(%rsi, %rbp), %xmm0
+	pxor	80(%rsi, %rbp), %xmm1
+	pxor	96(%rsi, %rbp), %xmm2
+	pxor	112(%rsi, %rbp), %xmm3
+	pxor	64(%rsi, %rbx), %xmm8
+	pxor	80(%rsi, %rbx), %xmm9
+	pxor	96(%rsi, %rbx), %xmm10
+	pxor	112(%rsi, %rbx), %xmm11
+	pxor	64(%rsi, %rax), %xmm12
+	pxor	80(%rsi, %rax), %xmm13
+	pxor	96(%rsi, %rax), %xmm14
+	pxor	112(%rsi, %rax), %xmm15
+	pxor	64(%rsp), %xmm0
+	pxor	80(%rsp), %xmm1
+	pxor	96(%rsp), %xmm2
+	pxor	112(%rsp), %xmm3
+	pxor	128+64(%rsp), %xmm8
+	pxor	128+80(%rsp), %xmm9
+	pxor	128+96(%rsp), %xmm10
+	pxor	128+112(%rsp), %xmm11
+	pxor	256+64(%rsp), %xmm12
+	pxor	256+80(%rsp), %xmm13
+	pxor	256+96(%rsp), %xmm14
+	pxor	256+112(%rsp), %xmm15
+	movdqa	%xmm0, 64(%rsp)
+	movdqa	%xmm1, 80(%rsp)
+	movdqa	%xmm2, 96(%rsp)
+	movdqa	%xmm3, 112(%rsp)
+	movdqa	%xmm8, 128+64(%rsp)
+	movdqa	%xmm9, 128+80(%rsp)
+	movdqa	%xmm10, 128+96(%rsp)
+	movdqa	%xmm11, 128+112(%rsp)
+	movdqa	%xmm12, 256+64(%rsp)
+	movdqa	%xmm13, 256+80(%rsp)
+	movdqa	%xmm14, 256+96(%rsp)
+	movdqa	%xmm15, 256+112(%rsp)
+	salsa8_core_3way_xop
+	paddd	64(%rsp), %xmm0
+	paddd	80(%rsp), %xmm1
+	paddd	96(%rsp), %xmm2
+	paddd	112(%rsp), %xmm3
+	paddd	128+64(%rsp), %xmm8
+	paddd	128+80(%rsp), %xmm9
+	paddd	128+96(%rsp), %xmm10
+	paddd	128+112(%rsp), %xmm11
+	paddd	256+64(%rsp), %xmm12
+	paddd	256+80(%rsp), %xmm13
+	paddd	256+96(%rsp), %xmm14
+	paddd	256+112(%rsp), %xmm15
+	movdqa	%xmm0, 64(%rsp)
+	movdqa	%xmm1, 80(%rsp)
+	movdqa	%xmm2, 96(%rsp)
+	movdqa	%xmm3, 112(%rsp)
+	movdqa	%xmm8, 128+64(%rsp)
+	movdqa	%xmm9, 128+80(%rsp)
+	movdqa	%xmm10, 128+96(%rsp)
+	movdqa	%xmm11, 128+112(%rsp)
+	movdqa	%xmm12, 256+64(%rsp)
+	movdqa	%xmm13, 256+80(%rsp)
+	movdqa	%xmm14, 256+96(%rsp)
+	movdqa	%xmm15, 256+112(%rsp)
+	
+	subq	$1, %rcx
+	ja scrypt_core_3way_xop_loop2
 	
 	scrypt_shuffle %rsp, 0, %rdi, 0
 	scrypt_shuffle %rsp, 64, %rdi, 64
