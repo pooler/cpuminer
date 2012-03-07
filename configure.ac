@@ -47,11 +47,19 @@ if test x$have_x86 = xtrue
 then
   AC_MSG_CHECKING(whether we can compile AVX code)
   AC_COMPILE_IFELSE([AC_LANG_PROGRAM(,[asm ("vmovdqa %ymm0, %ymm1");])],
-      AC_DEFINE(USE_AVX, 1, [Define to 1 if AVX assembly is available.])
+    AC_DEFINE(USE_AVX, 1, [Define to 1 if AVX assembly is available.])
+    AC_MSG_RESULT(yes)
+    AC_MSG_CHECKING(whether we can compile XOP code)
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM(,[asm ("vprotd \$7, %xmm0, %xmm1");])],
+      AC_DEFINE(USE_XOP, 1, [Define to 1 if XOP assembly is available.])
       AC_MSG_RESULT(yes)
     ,
       AC_MSG_RESULT(no)
-      AC_MSG_WARN([The assembler does not support the AVX instruction set.])
+      AC_MSG_WARN([The assembler does not support the XOP instruction set.])
+    )
+  ,
+    AC_MSG_RESULT(no)
+    AC_MSG_WARN([The assembler does not support the AVX instruction set.])
   )
 fi
 

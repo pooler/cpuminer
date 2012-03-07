@@ -1855,7 +1855,7 @@ scrypt_core_2way_loop2:
 	salsa8_core_3way_avx_doubleround
 	salsa8_core_3way_avx_doubleround
 .endm
-#endif
+#endif /* USE_AVX */
 	
 	.text
 	.p2align 6
@@ -1920,11 +1920,13 @@ _scrypt_core_3way:
 	andl	$0x00000006, %eax
 	cmpl	$0x00000006, %eax
 	jne scrypt_core_3way_xmm
+#if defined(USE_XOP)
 	# Check for XOP support
 	movl	$0x80000001, %eax
 	cpuid
 	andl	$0x00000800, %ecx
 	jnz scrypt_core_3way_xop
+#endif
 	
 scrypt_core_3way_avx:
 	scrypt_shuffle %rdi, 0, %rsp, 0
@@ -2238,6 +2240,7 @@ scrypt_core_3way_avx_loop2:
 	scrypt_core_3way_cleanup
 	ret
 
+#if defined(USE_XOP)
 .macro salsa8_core_3way_xop_doubleround
 	vpaddd	%xmm0, %xmm1, %xmm4
 	vpaddd	%xmm8, %xmm9, %xmm6
@@ -2658,7 +2661,8 @@ scrypt_core_3way_xop_loop2:
 	
 	scrypt_core_3way_cleanup
 	ret
-#endif
+#endif /* USE_XOP */
+#endif /* USE_AVX */
 	
 .macro salsa8_core_3way_xmm_doubleround
 	movdqa	%xmm1, %xmm4
