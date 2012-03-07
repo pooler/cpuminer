@@ -1,3 +1,10 @@
+Version 2.1.5 - Mar 7, 2012
+
+- Add optimizations for AVX-capable x86-64 processors
+- Assume HTTP if no protocol is specified for the mining server
+- Fix MinGW compatibility issues and update build instructions
+- Add support for building on Solaris using gcc (pontius)
+
 Version 2.1.4 - Feb 28, 2012
 
 - Implement 4-way SHA-256 on x86-64
