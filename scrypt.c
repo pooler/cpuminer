@@ -530,7 +530,7 @@ static void scrypt_1024_1_1_256_sp(const uint32_t *input, uint32_t *output,
 
 	scrypt_core(X, V);
 
-	return PBKDF2_SHA256_128_32(tstate, ostate, X, output);
+	PBKDF2_SHA256_128_32(tstate, ostate, X, output);
 }
 
 #if SCRYPT_MAX_WAYS >= 2
