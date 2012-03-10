@@ -602,43 +602,26 @@ static void scrypt_1024_1_1_256_sp_3way(const uint32_t *input,
 }
 #endif /* SCRYPT_MAX_WAYS >= 3 */
 
-__attribute__ ((noinline)) static int confirm_hash(const uint32_t *hash,
-	const uint32_t *target)
-{
-	int i;
-	for (i = 7; i >= 0; i--) {
-		uint32_t t = le32dec(&target[i]);
-		if (hash[i] > t)
-			return 0;
-		if (hash[i] < t)
-			return 1;
-	}
-	return 1;
-}
-
-int scanhash_scrypt(int thr_id, unsigned char *pdata,
-	unsigned char *scratchbuf, const unsigned char *ptarget,
-	uint32_t max_nonce, uint32_t *next_nonce, unsigned long *hashes_done)
+int scanhash_scrypt(int thr_id, uint32_t *pdata,
+	unsigned char *scratchbuf, const uint32_t *ptarget,
+	uint32_t max_nonce, unsigned long *hashes_done)
 {
 	uint32_t data[SCRYPT_MAX_WAYS * 20], hash[SCRYPT_MAX_WAYS * 8];
 	uint32_t midstate[8];
-	const uint32_t first_nonce = *next_nonce;
-	uint32_t n = *next_nonce;
-	const uint32_t Htarg = le32dec(&((const uint32_t *)ptarget)[7]);
+	uint32_t n = pdata[19] - 1;
+	const uint32_t Htarg = ptarget[7];
 	const int throughput = scrypt_best_throughput();
 	int i;
 	
-	for (i = 0; i < 19; i++)
-		data[i] = be32dec(&((const uint32_t *)pdata)[i]);
-	for (i = 1; i < throughput; i++)
-		memcpy(data + i * 20, data, 80);
+	for (i = 0; i < throughput; i++)
+		memcpy(data + i * 20, pdata, 80);
 	
 	SHA256_InitState(midstate);
 	SHA256_Transform(midstate, data, 1);
 	
 	do {
 		for (i = 0; i < throughput; i++)
-			data[i * 20 + 19] = n++;
+			data[i * 20 + 19] = ++n;
 		
 #if SCRYPT_MAX_WAYS >= 3
 		if (throughput == 3)
@@ -653,17 +636,15 @@ int scanhash_scrypt(int thr_id, unsigned char *pdata,
 			scrypt_1024_1_1_256_sp(data, hash, midstate, scratchbuf);
 		
 		for (i = 0; i < throughput; i++) {
-			if (hash[i * 8 + 7] <= Htarg
-				&& confirm_hash(hash + i * 8, (uint32_t *)ptarget)) {
-				be32enc(&((uint32_t *)pdata)[19], data[i * 20 + 19]);
-				*next_nonce = n;
-				*hashes_done = n - first_nonce;
+			if (hash[i * 8 + 7] <= Htarg && fulltest(hash + i * 8, ptarget)) {
+				*hashes_done = n - pdata[19] + 1;
+				pdata[19] = data[i * 20 + 19];
 				return 1;
 			}
 		}
-	} while (n <= max_nonce && !work_restart[thr_id].restart);
+	} while (n < max_nonce && !work_restart[thr_id].restart);
 	
-	*next_nonce = n;
-	*hashes_done = n - first_nonce;
+	*hashes_done = n - pdata[19] + 1;
+	pdata[19] = n;
 	return 0;
 }

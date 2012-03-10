@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2010 Jeff Garzik, 2012 pooler
  *
@@ -16,6 +15,8 @@
 #include <ctype.h>
 #include <stdarg.h>
 #include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <jansson.h>
 #include <curl/curl.h>
@@ -464,49 +465,44 @@ timeval_subtract (
   return x->tv_sec < y->tv_sec;
 }
 
-bool fulltest(const unsigned char *hash, const unsigned char *target)
+bool fulltest(const uint32_t *hash, const uint32_t *target)
 {
-	unsigned char hash_swap[32], target_swap[32];
-	uint32_t *hash32 = (uint32_t *) hash_swap;
-	uint32_t *target32 = (uint32_t *) target_swap;
 	int i;
 	bool rc = true;
-	char *hash_str, *target_str;
-
-	swap256(hash_swap, hash);
-	swap256(target_swap, target);
-
-	for (i = 0; i < 32/4; i++) {
-		uint32_t h32tmp = swab32(hash32[i]);
-		uint32_t t32tmp = target32[i];
-
-		target32[i] = swab32(target32[i]);	/* for printing */
-
-		if (h32tmp > t32tmp) {
+	
+	for (i = 7; i >= 0; i--) {
+		if (hash[i] > target[i]) {
 			rc = false;
 			break;
 		}
-		if (h32tmp < t32tmp) {
+		if (hash[i] < target[i]) {
 			rc = true;
 			break;
 		}
 	}
 
 	if (opt_debug) {
-		hash_str = bin2hex(hash_swap, 32);
-		target_str = bin2hex(target_swap, 32);
+		uint32_t hash_be[32], target_be[32];
+		char *hash_str, *target_str;
+		
+		for (i = 0; i < 8; i++) {
+			be32enc(hash_be + i, hash[7 - i]);
+			be32enc(target_be + i, target[7 - i]);
+		}
+		hash_str = bin2hex((unsigned char *)hash_be, 32);
+		target_str = bin2hex((unsigned char *)target_be, 32);
 
-		applog(LOG_DEBUG, " Proof: %s\nTarget: %s\nTrgVal? %s",
+		applog(LOG_DEBUG, "DEBUG: %s\nHash:   %s\nTarget: %s",
+			rc ? "hash <= target"
+			   : "hash > target (false positive)",
 			hash_str,
-			target_str,
-			rc ? "YES (hash < target)" :
-			     "no (false positive; hash > target)");
+			target_str);
 
 		free(hash_str);
 		free(target_str);
 	}
 
-	return true;	/* FIXME: return rc; */
+	return rc;
 }
 
 struct thread_q *tq_new(void)
@@ -621,4 +617,3 @@ out:
 	pthread_mutex_unlock(&tq->mutex);
 	return rval;
 }
-

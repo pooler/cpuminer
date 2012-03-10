@@ -104,21 +104,6 @@ static inline uint32_t swab32(uint32_t v)
 #endif
 }
 
-static inline void swap256(void *dest_p, const void *src_p)
-{
-	uint32_t *dest = dest_p;
-	const uint32_t *src = src_p;
-
-	dest[0] = src[7];
-	dest[1] = src[6];
-	dest[2] = src[5];
-	dest[3] = src[4];
-	dest[4] = src[3];
-	dest[5] = src[2];
-	dest[6] = src[1];
-	dest[7] = src[0];
-}
-
 static inline uint32_t be32dec(const void *pp)
 {
 	const uint8_t *p = (uint8_t const *)pp;
@@ -155,19 +140,19 @@ extern bool opt_debug;
 extern bool opt_protocol;
 
 extern json_t *json_rpc_call(CURL *curl, const char *url, const char *userpass,
-			     const char *rpc_req, bool, bool, int *);
+	const char *rpc_req, bool, bool, int *);
 extern char *bin2hex(const unsigned char *p, size_t len);
 extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
 
 extern unsigned char *scrypt_buffer_alloc();
-extern int scanhash_scrypt(int thr_id, unsigned char *pdata,
-	unsigned char *scratchbuf, const unsigned char *ptarget,
-	uint32_t max_nonce, uint32_t *next_nonce, unsigned long *hashes_done);
+extern int scanhash_scrypt(int thr_id, uint32_t *pdata,
+	unsigned char *scratchbuf, const uint32_t *ptarget,
+	uint32_t max_nonce, unsigned long *hashes_done);
 
 extern int
-timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y);
+timeval_subtract(struct timeval *result, struct timeval *x, struct timeval *y);
 
-extern bool fulltest(const unsigned char *hash, const unsigned char *target);
+extern bool fulltest(const uint32_t *hash, const uint32_t *target);
 
 extern int opt_timeout;
 extern bool want_longpoll;

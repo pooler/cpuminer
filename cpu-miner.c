@@ -180,10 +180,8 @@ static struct option const options[] = {
 };
 
 struct work {
-	unsigned char	data[128];
-	unsigned char	target[32];
-
-	unsigned char	hash[32];
+	uint32_t data[32];
+	uint32_t target[8];
 };
 
 static struct work g_work;
@@ -214,6 +212,8 @@ static bool jobj_binary(const json_t *obj, const char *key,
 
 static bool work_decode(const json_t *val, struct work *work)
 {
+	int i;
+	
 	if (unlikely(!jobj_binary(val, "data", work->data, sizeof(work->data)))) {
 		applog(LOG_ERR, "JSON inval data");
 		goto err_out;
@@ -223,7 +223,10 @@ static bool work_decode(const json_t *val, struct work *work)
 		goto err_out;
 	}
 
-	memset(work->hash, 0, sizeof(work->hash));
+	for (i = 0; i < ARRAY_SIZE(work->data); i++)
+		work->data[i] = be32dec(work->data + i);
+	for (i = 0; i < ARRAY_SIZE(work->target); i++)
+		work->target[i] = le32dec(work->target + i);
 
 	return true;
 
@@ -231,7 +234,7 @@ err_out:
 	return false;
 }
 
-static bool submit_upstream_work(CURL *curl, const struct work *work)
+static bool submit_upstream_work(CURL *curl, struct work *work)
 {
 	char *hexstr = NULL;
 	json_t *val, *res;
@@ -241,11 +244,16 @@ static bool submit_upstream_work(CURL *curl, const struct work *work)
 	bool rc = false;
 
 	/* pass if the previous hash is not the current previous hash */
-	if (!submit_old && memcmp(work->data + 4, g_work.data + 4, 32))
+	if (!submit_old && memcmp(work->data + 1, g_work.data + 1, 32)) {
+		if (opt_debug)
+			applog(LOG_DEBUG, "DEBUG: stale work detected, discarding");
 		return true;
+	}
 
 	/* build hex string */
-	hexstr = bin2hex(work->data, sizeof(work->data));
+	for (i = 0; i < ARRAY_SIZE(work->data); i++)
+		be32enc(work->data + i, work->data[i]);
+	hexstr = bin2hex((unsigned char *)work->data, sizeof(work->data));
 	if (unlikely(!hexstr)) {
 		applog(LOG_ERR, "submit_upstream_work OOM");
 		goto out;
@@ -483,8 +491,9 @@ static void *miner_thread(void *userdata)
 {
 	struct thr_info *mythr = userdata;
 	int thr_id = mythr->id;
+	struct work work;
 	uint32_t max_nonce;
-	uint32_t next_nonce;
+	uint32_t end_nonce = 0xffffffffU / opt_n_threads * (thr_id + 1) - 4;
 	unsigned char *scratchbuf = NULL;
 
 	/* Set worker threads to nice 19 and then preferentially to SCHED_IDLE
@@ -504,7 +513,6 @@ static void *miner_thread(void *userdata)
 	}
 
 	while (1) {
-		struct work work __attribute__((aligned(128)));
 		unsigned long hashes_done;
 		struct timeval tv_start, tv_end, diff;
 		int64_t max64;
@@ -512,7 +520,8 @@ static void *miner_thread(void *userdata)
 
 		/* obtain new work from internal workio thread */
 		pthread_mutex_lock(&g_work_lock);
-		if (!have_longpoll || time(NULL) >= g_work_time + LP_SCANTIME*3/4) {
+		if (!have_longpoll || time(NULL) >= g_work_time + LP_SCANTIME*3/4
+			|| work.data[19] >= end_nonce) {
 			if (unlikely(!get_work(mythr, &g_work))) {
 				applog(LOG_ERR, "work retrieval failed, exiting "
 					"mining thread %d", mythr->id);
@@ -525,8 +534,9 @@ static void *miner_thread(void *userdata)
 		}
 		if (memcmp(work.data, g_work.data, 76)) {
 			memcpy(&work, &g_work, sizeof(struct work));
-			next_nonce = 0xffffffffU / opt_n_threads * thr_id;
-		}
+			work.data[19] = 0xffffffffU / opt_n_threads * thr_id;
+		} else
+			work.data[19]++;
 		pthread_mutex_unlock(&g_work_lock);
 		work_restart[thr_id].restart = 0;
 		
@@ -536,10 +546,10 @@ static void *miner_thread(void *userdata)
 		max64 *= thr_hashrates[thr_id];
 		if (max64 <= 0)
 			max64 = 0xfffLL;
-		if (next_nonce + max64 > 0xfffffffeLL)
-			max_nonce = 0xfffffffeU;
+		if (work.data[19] + max64 > end_nonce)
+			max_nonce = end_nonce;
 		else
-			max_nonce = next_nonce + max64;
+			max_nonce = work.data[19] + max64;
 		
 		hashes_done = 0;
 		gettimeofday(&tv_start, NULL);
@@ -548,7 +558,7 @@ static void *miner_thread(void *userdata)
 		switch (opt_algo) {
 		case ALGO_SCRYPT:
 			rc = scanhash_scrypt(thr_id, work.data, scratchbuf, work.target,
-			                     max_nonce, &next_nonce, &hashes_done);
+			                     max_nonce, &hashes_done);
 			break;
 
 		default:
@@ -1000,4 +1010,3 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
-
