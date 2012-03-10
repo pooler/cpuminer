@@ -18,7 +18,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <time.h>
-#if defined(WIN32) || defined(WIN64)
+#if defined(WIN32)
 #include <windows.h>
 #elif defined(sun) || defined(__sun)
 #include <sys/resource.h>
@@ -175,8 +175,7 @@ static struct option const options[] = {
 	{ "user", 1, NULL, 'u' },
 	{ "userpass", 1, NULL, 'O' },
 	{ "version", 0, NULL, 'V' },
-
-	{ }
+	{ 0, 0, 0, 0 }
 };
 
 struct work {
@@ -906,7 +905,7 @@ int main(int argc, char *argv[])
 	pthread_mutex_init(&stats_lock, NULL);
 	pthread_mutex_init(&g_work_lock, NULL);
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(WIN32)
 	SYSTEM_INFO sysinfo;
 	GetSystemInfo(&sysinfo);
 	num_processors = sysinfo.dwNumberOfProcessors;

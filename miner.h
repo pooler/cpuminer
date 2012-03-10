@@ -89,12 +89,6 @@ enum {
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
 
-struct thr_info {
-	int		id;
-	pthread_t	pth;
-	struct thread_q	*q;
-};
-
 static inline uint32_t swab32(uint32_t v)
 {
 #ifdef WANT_BUILTIN_BSWAP
@@ -136,43 +130,46 @@ static inline void le32enc(void *pp, uint32_t x)
 	p[3] = (x >> 24) & 0xff;
 }
 
-extern bool opt_debug;
-extern bool opt_protocol;
-
-extern json_t *json_rpc_call(CURL *curl, const char *url, const char *userpass,
-	const char *rpc_req, bool, bool, int *);
-extern char *bin2hex(const unsigned char *p, size_t len);
-extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
-
 extern unsigned char *scrypt_buffer_alloc();
 extern int scanhash_scrypt(int thr_id, uint32_t *pdata,
 	unsigned char *scratchbuf, const uint32_t *ptarget,
 	uint32_t max_nonce, unsigned long *hashes_done);
 
-extern int
-timeval_subtract(struct timeval *result, struct timeval *x, struct timeval *y);
-
-extern bool fulltest(const uint32_t *hash, const uint32_t *target);
-
-extern int opt_timeout;
-extern bool want_longpoll;
-extern bool have_longpoll;
-extern char *opt_proxy;
-extern long opt_proxy_type;
-struct thread_q;
+struct thr_info {
+	int		id;
+	pthread_t	pth;
+	struct thread_q	*q;
+};
 
 struct work_restart {
 	volatile unsigned long	restart;
 	char			padding[128 - sizeof(unsigned long)];
 };
 
-extern pthread_mutex_t time_lock;
+extern bool opt_debug;
+extern bool opt_protocol;
+extern int opt_timeout;
+extern bool want_longpoll;
+extern bool have_longpoll;
+extern char *opt_proxy;
+extern long opt_proxy_type;
 extern bool use_syslog;
+extern pthread_mutex_t time_lock;
 extern struct thr_info *thr_info;
 extern int longpoll_thr_id;
 extern struct work_restart *work_restart;
 
 extern void applog(int prio, const char *fmt, ...);
+extern json_t *json_rpc_call(CURL *curl, const char *url, const char *userpass,
+	const char *rpc_req, bool, bool, int *);
+extern char *bin2hex(const unsigned char *p, size_t len);
+extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
+extern int timeval_subtract(struct timeval *result, struct timeval *x,
+	struct timeval *y);
+extern bool fulltest(const uint32_t *hash, const uint32_t *target);
+
+struct thread_q;
+
 extern struct thread_q *tq_new(void);
 extern void tq_free(struct thread_q *tq);
 extern bool tq_push(struct thread_q *tq, void *data);

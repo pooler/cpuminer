@@ -33,12 +33,6 @@
 #include "miner.h"
 #include "elist.h"
 
-#if JANSSON_MAJOR_VERSION >= 2
-#define JSON_LOADS(str, err_ptr) json_loads((str), 0, (err_ptr))
-#else
-#define JSON_LOADS(str, err_ptr) json_loads((str), (err_ptr))
-#endif
-
 struct data_buffer {
 	void		*buf;
 	size_t		len;
@@ -262,14 +256,14 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 {
 	json_t *val, *err_val, *res_val;
 	int rc;
-	struct data_buffer all_data = { };
+	struct data_buffer all_data = {0};
 	struct upload_buffer upload_data;
-	json_error_t err = { };
+	json_error_t err;
 	struct curl_slist *headers = NULL;
 	char len_hdr[64];
 	char curl_err_str[CURL_ERROR_SIZE];
 	long timeout = opt_timeout;
-	struct header_info hi = { };
+	struct header_info hi = {0};
 	bool lp_scanning = longpoll_scan && !have_longpoll;
 
 	/* it is assumed that 'curl' is freshly [re]initialized at this pt */
@@ -347,7 +341,11 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 		goto err_out;
 	}
 
-	val = JSON_LOADS(all_data.buf, &err);
+#if JANSSON_VERSION_HEX >= 0x020000
+	val = json_loads(all_data.buf, 0, &err);
+#else
+	val = json_loads(all_data.buf, &err);
+#endif
 	if (!val) {
 		applog(LOG_ERR, "JSON decode failed(%d): %s", err.line, err.text);
 		goto err_out;
@@ -360,8 +358,7 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	}
 
 	/* JSON-RPC valid response returns a non-null 'result',
-	 * and a null 'error'.
-	 */
+	 * and a null 'error'. */
 	res_val = json_object_get(val, "result");
 	err_val = json_object_get(val, "error");
 
@@ -439,30 +436,28 @@ bool hex2bin(unsigned char *p, const char *hexstr, size_t len)
 /* Subtract the `struct timeval' values X and Y,
    storing the result in RESULT.
    Return 1 if the difference is negative, otherwise 0.  */
-
-int
-timeval_subtract (
-     struct timeval *result, struct timeval *x, struct timeval *y)
+int timeval_subtract(struct timeval *result, struct timeval *x,
+	struct timeval *y)
 {
-  /* Perform the carry for the later subtraction by updating Y. */
-  if (x->tv_usec < y->tv_usec) {
-    int nsec = (y->tv_usec - x->tv_usec) / 1000000 + 1;
-    y->tv_usec -= 1000000 * nsec;
-    y->tv_sec += nsec;
-  }
-  if (x->tv_usec - y->tv_usec > 1000000) {
-    int nsec = (x->tv_usec - y->tv_usec) / 1000000;
-    y->tv_usec += 1000000 * nsec;
-    y->tv_sec -= nsec;
-  }
+	/* Perform the carry for the later subtraction by updating Y. */
+	if (x->tv_usec < y->tv_usec) {
+		int nsec = (y->tv_usec - x->tv_usec) / 1000000 + 1;
+		y->tv_usec -= 1000000 * nsec;
+		y->tv_sec += nsec;
+	}
+	if (x->tv_usec - y->tv_usec > 1000000) {
+		int nsec = (x->tv_usec - y->tv_usec) / 1000000;
+		y->tv_usec += 1000000 * nsec;
+		y->tv_sec -= nsec;
+	}
 
-  /* Compute the time remaining to wait.
-     `tv_usec' is certainly positive. */
-  result->tv_sec = x->tv_sec - y->tv_sec;
-  result->tv_usec = x->tv_usec - y->tv_usec;
+	/* Compute the time remaining to wait.
+	 * `tv_usec' is certainly positive. */
+	result->tv_sec = x->tv_sec - y->tv_sec;
+	result->tv_usec = x->tv_usec - y->tv_usec;
 
-  /* Return 1 if result is negative. */
-  return x->tv_sec < y->tv_sec;
+	/* Return 1 if result is negative. */
+	return x->tv_sec < y->tv_sec;
 }
 
 bool fulltest(const uint32_t *hash, const uint32_t *target)
