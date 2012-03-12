@@ -36,34 +36,6 @@ void *alloca (size_t);
 # endif
 #endif
 
-
-#if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
-#define WANT_BUILTIN_BSWAP
-#else
-#if HAVE_BYTESWAP_H
-#include <byteswap.h>
-#elif defined(USE_SYS_ENDIAN_H)
-#include <sys/endian.h>
-#elif defined(__APPLE__)
-#include <libkern/OSByteOrder.h>
-#define bswap_16 OSSwapInt16
-#define bswap_32 OSSwapInt32
-#define bswap_64 OSSwapInt64
-#else
-#define	bswap_16(value)  \
- 	((((value) & 0xff) << 8) | ((value) >> 8))
-
-#define	bswap_32(value)	\
- 	(((uint32_t)bswap_16((uint16_t)((value) & 0xffff)) << 16) | \
- 	(uint32_t)bswap_16((uint16_t)((value) >> 16)))
- 
-#define	bswap_64(value)	\
- 	(((uint64_t)bswap_32((uint32_t)((value) & 0xffffffff)) \
- 	    << 32) | \
- 	(uint64_t)bswap_32((uint32_t)((value) >> 32)))
-#endif
-#endif /* !defined(__GLXBYTEORDER_H__) */
-
 #ifdef HAVE_SYSLOG_H
 #include <syslog.h>
 #else
@@ -87,6 +59,13 @@ enum {
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+#endif
+
+#if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
+#define WANT_BUILTIN_BSWAP
+#else
+#define bswap_32(x) ((((x) << 24) & 0xff000000u) | (((x) << 8) & 0x00ff0000u) \
+                   | (((x) >> 8) & 0x0000ff00u) | (((x) >> 24) & 0x000000ffu))
 #endif
 
 static inline uint32_t swab32(uint32_t v)
@@ -129,6 +108,15 @@ static inline void le32enc(void *pp, uint32_t x)
 	p[2] = (x >> 16) & 0xff;
 	p[3] = (x >> 24) & 0xff;
 }
+
+void sha256_init(uint32_t *state);
+void sha256_transform(uint32_t *state, const uint32_t *block, int swap);
+
+#if defined(__x86_64__)
+#define SHA256_4WAY
+void sha256_init_4way(uint32_t *state);
+void sha256_transform_4way(uint32_t *state, const uint32_t *block, int swap);
+#endif
 
 extern unsigned char *scrypt_buffer_alloc();
 extern int scanhash_scrypt(int thr_id, uint32_t *pdata,
