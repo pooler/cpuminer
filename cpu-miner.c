@@ -284,11 +284,12 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 	json_is_true(res) ? accepted_count++ : rejected_count++;
 	pthread_mutex_unlock(&stats_lock);
 	
-	applog(LOG_INFO, "accepted: %lu/%lu (%.2f%%), %.2f khash/s %s",
+	sprintf(s, hashrate >= 1e6 ? "%.0f" : "%.2f", 1e-3 * hashrate);
+	applog(LOG_INFO, "accepted: %lu/%lu (%.2f%%), %s khash/s %s",
 	       accepted_count,
 	       accepted_count + rejected_count,
 	       100. * accepted_count / (accepted_count + rejected_count),
-	       1e-3 * hashrate,
+	       s,
 	       json_is_true(res) ? "(yay!!!)" : "(booooo)");
 
 	json_decref(val);
@@ -584,9 +585,13 @@ static void *miner_thread(void *userdata)
 				hashes_done / (diff.tv_sec + 1e-6 * diff.tv_usec);
 			pthread_mutex_unlock(&stats_lock);
 		}
-		if (!opt_quiet)
-			applog(LOG_INFO, "thread %d: %lu hashes, %.2f khash/s",
-				   thr_id, hashes_done, 1e-3 * thr_hashrates[thr_id]);
+		if (!opt_quiet) {
+			char s[16];
+			sprintf(s, thr_hashrates[thr_id] >= 1e6 ? "%.0f" : "%.2f",
+				1e-3 * thr_hashrates[thr_id]);
+			applog(LOG_INFO, "thread %d: %lu hashes, %s khash/s",
+				thr_id, hashes_done, s);
+		}
 
 		/* if nonce found, submit work */
 		if (rc && !submit_work(mythr, &work))
