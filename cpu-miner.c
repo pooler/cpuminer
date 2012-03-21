@@ -22,6 +22,9 @@
 #include <windows.h>
 #elif defined(sun) || defined(__sun)
 #include <sys/resource.h>
+#elif defined (__FreeBSD__) || defined (__OpenBSD__) || defined (__NetBSD__) || defined (__DragonFly__)
+#include <sys/param.h>
+#include <sys/sysctl.h>
 #else
 #include <sys/resource.h>
 #include <sys/sysctl.h>
