@@ -1,5 +1,7 @@
 AC_INIT([cpuminer], [2.1.5])
 
+m4_include(m4/acx_pthread.m4)
+
 AC_PREREQ([2.59c])
 AC_CANONICAL_SYSTEM
 AC_CONFIG_SRCDIR([cpu-miner.c])
@@ -32,7 +34,6 @@ case $target in
     ;;
 esac
 
-PTHREAD_FLAGS="-pthread"
 WS2_LIBS=""
 
 case $target in
@@ -63,12 +64,8 @@ then
   )
 fi
 
+ACX_PTHREAD()
 AC_CHECK_LIB(jansson, json_loads, request_jansson=false, request_jansson=true)
-AC_CHECK_LIB([pthread], [pthread_create], PTHREAD_LIBS="-lpthread",
-  AC_CHECK_LIB([pthreadGC2], [pthread_create], PTHREAD_LIBS="-lpthreadGC2",
-    AC_CHECK_LIB([pthreadGC1], [pthread_create], PTHREAD_LIBS="-lpthreadGC1",
-      AC_CHECK_LIB([pthreadGC], [pthread_create], PTHREAD_LIBS="-lpthreadGC"
-))))
 
 AM_CONDITIONAL([WANT_JANSSON], [test x$request_jansson = xtrue])
 AM_CONDITIONAL([HAVE_WINDOWS], [test x$have_win32 = xtrue])
@@ -86,8 +83,6 @@ LIBCURL_CHECK_CONFIG(, 7.10.1, ,
   [AC_MSG_ERROR([Missing required libcurl >= 7.10.1])])
 
 AC_SUBST(JANSSON_LIBS)
-AC_SUBST(PTHREAD_FLAGS)
-AC_SUBST(PTHREAD_LIBS)
 AC_SUBST(WS2_LIBS)
 
 AC_CONFIG_FILES([
