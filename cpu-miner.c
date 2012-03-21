@@ -84,10 +84,12 @@ struct workio_cmd {
 
 enum sha256_algos {
 	ALGO_SCRYPT,		/* scrypt(1024,1,1) */
+	ALGO_SHA256D,		/* SHA-256d */
 };
 
 static const char *algo_names[] = {
 	[ALGO_SCRYPT]		= "scrypt",
+	[ALGO_SHA256D]		= "sha256d",
 };
 
 bool opt_debug = false;
@@ -125,6 +127,9 @@ double *thr_hashrates;
 static char const usage[] = "\
 Usage: " PROGRAM_NAME " [OPTIONS]\n\
 Options:\n\
+  -a, --algo=ALGO       specify the algorithm to use\n\
+                          scrypt    scrypt(1024, 1, 1) (default)\n\
+                          sha256d   SHA-256d\n\
   -o, --url=URL         URL of mining server (default: " DEF_RPC_URL ")\n\
   -O, --userpass=U:P    username:password pair for mining server\n\
   -u, --user=USERNAME   username for mining server\n\
@@ -223,7 +228,7 @@ static bool work_decode(const json_t *val, struct work *work)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(work->data); i++)
-		work->data[i] = be32dec(work->data + i);
+		work->data[i] = le32dec(work->data + i);
 	for (i = 0; i < ARRAY_SIZE(work->target); i++)
 		work->target[i] = le32dec(work->target + i);
 
@@ -251,7 +256,7 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 
 	/* build hex string */
 	for (i = 0; i < ARRAY_SIZE(work->data); i++)
-		be32enc(work->data + i, work->data[i]);
+		le32enc(work->data + i, work->data[i]);
 	hexstr = bin2hex((unsigned char *)work->data, sizeof(work->data));
 	if (unlikely(!hexstr)) {
 		applog(LOG_ERR, "submit_upstream_work OOM");
@@ -544,7 +549,7 @@ static void *miner_thread(void *userdata)
 		      - time(NULL);
 		max64 *= thr_hashrates[thr_id];
 		if (max64 <= 0)
-			max64 = 0xfffLL;
+			max64 = opt_algo == ALGO_SCRYPT ? 0xfffLL : 0xfffffLL;
 		if (work.data[19] + max64 > end_nonce)
 			max_nonce = end_nonce;
 		else
@@ -558,6 +563,11 @@ static void *miner_thread(void *userdata)
 		case ALGO_SCRYPT:
 			rc = scanhash_scrypt(thr_id, work.data, scratchbuf, work.target,
 			                     max_nonce, &hashes_done);
+			break;
+
+		case ALGO_SHA256D:
+			rc = scanhash_sha256d(thr_id, work.data, work.target,
+			                      max_nonce, &hashes_done);
 			break;
 
 		default:

@@ -35,7 +35,7 @@
 #include <string.h>
 
 static const uint32_t keypad[12] = {
-	0x00000080, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80020000
+	0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000280
 };
 static const uint32_t innerpad[11] = {
 	0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x000004a0
@@ -57,7 +57,7 @@ static inline void HMAC_SHA256_80_init(const uint32_t *key,
 	/* tstate is assumed to contain the midstate of key */
 	memcpy(pad, key + 16, 16);
 	memcpy(pad + 4, keypad, 48);
-	sha256_transform(tstate, pad, 1);
+	sha256_transform(tstate, pad, 0);
 	memcpy(ihash, tstate, 32);
 
 	sha256_init(ostate);
@@ -83,10 +83,9 @@ static inline void PBKDF2_SHA256_80_128(const uint32_t *tstate,
 	int i, j;
 
 	memcpy(istate, tstate, 32);
-	sha256_transform(istate, salt, 1);
+	sha256_transform(istate, salt, 0);
 	
-	for (i = 0; i < 4; i++)
-		ibuf[i] = swab32(salt[16 + i]);
+	memcpy(ibuf, salt + 16, 16);
 	memcpy(ibuf + 5, innerpad, 44);
 	memcpy(obuf + 8, outerpad, 32);
 
@@ -123,7 +122,7 @@ static inline void PBKDF2_SHA256_128_32(uint32_t *tstate, uint32_t *ostate,
 #ifdef SHA256_4WAY
 
 static const uint32_t keypad_4way[4 * 12] = {
-	0x00000080, 0x00000080, 0x00000080, 0x00000080,
+	0x80000000, 0x80000000, 0x80000000, 0x80000000,
 	0x00000000, 0x00000000, 0x00000000, 0x00000000,
 	0x00000000, 0x00000000, 0x00000000, 0x00000000,
 	0x00000000, 0x00000000, 0x00000000, 0x00000000,
@@ -134,7 +133,7 @@ static const uint32_t keypad_4way[4 * 12] = {
 	0x00000000, 0x00000000, 0x00000000, 0x00000000,
 	0x00000000, 0x00000000, 0x00000000, 0x00000000,
 	0x00000000, 0x00000000, 0x00000000, 0x00000000,
-	0x80020000, 0x80020000, 0x80020000, 0x80020000
+	0x00000280, 0x00000280, 0x00000280, 0x00000280
 };
 static const uint32_t innerpad_4way[4 * 11] = {
 	0x80000000, 0x80000000, 0x80000000, 0x80000000,
@@ -159,7 +158,7 @@ static const uint32_t outerpad_4way[4 * 8] = {
 	0x00000000, 0x00000000, 0x00000000, 0x00000000,
 	0x00000300, 0x00000300, 0x00000300, 0x00000300
 };
-static const uint32_t finalblk_4way[4 * 16] = {
+static const uint32_t finalblk_4way[4 * 16] __attribute__((aligned(16))) = {
 	0x00000001, 0x00000001, 0x00000001, 0x00000001,
 	0x80000000, 0x80000000, 0x80000000, 0x80000000,
 	0x00000000, 0x00000000, 0x00000000, 0x00000000,
@@ -181,14 +180,14 @@ static const uint32_t finalblk_4way[4 * 16] = {
 static inline void HMAC_SHA256_80_init_4way(const uint32_t *key,
 	uint32_t *tstate, uint32_t *ostate)
 {
-	uint32_t ihash[4 * 8];
-	uint32_t pad[4 * 16];
+	uint32_t ihash[4 * 8] __attribute__((aligned(16)));
+	uint32_t pad[4 * 16] __attribute__((aligned(16)));
 	int i;
 
 	/* tstate is assumed to contain the midstate of key */
 	memcpy(pad, key + 4 * 16, 4 * 16);
 	memcpy(pad + 4 * 4, keypad_4way, 4 * 48);
-	sha256_transform_4way(tstate, pad, 1);
+	sha256_transform_4way(tstate, pad, 0);
 	memcpy(ihash, tstate, 4 * 32);
 
 	sha256_init_4way(ostate);
@@ -209,15 +208,16 @@ static inline void HMAC_SHA256_80_init_4way(const uint32_t *key,
 static inline void PBKDF2_SHA256_80_128_4way(const uint32_t *tstate,
 	const uint32_t *ostate, const uint32_t *salt, uint32_t *output)
 {
-	uint32_t istate[4 * 8], ostate2[4 * 8];
-	uint32_t ibuf[4 * 16], obuf[4 * 16];
+	uint32_t istate[4 * 8] __attribute__((aligned(16)));
+	uint32_t ostate2[4 * 8] __attribute__((aligned(16)));
+	uint32_t ibuf[4 * 16] __attribute__((aligned(16)));
+	uint32_t obuf[4 * 16] __attribute__((aligned(16)));
 	int i, j;
 
 	memcpy(istate, tstate, 4 * 32);
-	sha256_transform_4way(istate, salt, 1);
+	sha256_transform_4way(istate, salt, 0);
 	
-	for (i = 0; i < 4 * 4; i++)
-		ibuf[i] = swab32(salt[4 * 16 + i]);
+	memcpy(ibuf, salt + 4 * 16, 4 * 16);
 	memcpy(ibuf + 4 * 5, innerpad_4way, 4 * 44);
 	memcpy(obuf + 4 * 8, outerpad_4way, 4 * 32);
 
@@ -239,7 +239,7 @@ static inline void PBKDF2_SHA256_80_128_4way(const uint32_t *tstate,
 static inline void PBKDF2_SHA256_128_32_4way(uint32_t *tstate,
 	uint32_t *ostate, const uint32_t *salt, uint32_t *output)
 {
-	uint32_t buf[4 * 16];
+	uint32_t buf[4 * 16] __attribute__((aligned(16)));
 	int i;
 	
 	sha256_transform_4way(tstate, salt, 1);
@@ -270,7 +270,7 @@ void scrypt_core(uint32_t *X, uint32_t *V);
 
 #else
 
-static inline void salsa20_8(uint32_t B[16], const uint32_t Bx[16])
+static inline void xor_salsa8(uint32_t B[16], const uint32_t Bx[16])
 {
 	uint32_t x00,x01,x02,x03,x04,x05,x06,x07,x08,x09,x10,x11,x12,x13,x14,x15;
 	int i;
@@ -341,21 +341,18 @@ static inline void salsa20_8(uint32_t B[16], const uint32_t Bx[16])
 static inline void scrypt_core(uint32_t *X, uint32_t *V)
 {
 	uint32_t i, j, k;
-	uint64_t *p1, *p2;
 	
-	p1 = (uint64_t *)X;
 	for (i = 0; i < 1024; i++) {
 		memcpy(&V[i * 32], X, 128);
-		salsa20_8(&X[0], &X[16]);
-		salsa20_8(&X[16], &X[0]);
+		xor_salsa8(&X[0], &X[16]);
+		xor_salsa8(&X[16], &X[0]);
 	}
 	for (i = 0; i < 1024; i++) {
-		j = X[16] & 1023;
-		p2 = (uint64_t *)(&V[j * 32]);
-		for (k = 0; k < 16; k++)
-			p1[k] ^= p2[k];
-		salsa20_8(&X[0], &X[16]);
-		salsa20_8(&X[16], &X[0]);
+		j = 32 * (X[16] & 1023);
+		for (k = 0; k < 32; k++)
+			X[k] ^= V[j + k];
+		xor_salsa8(&X[0], &X[16]);
+		xor_salsa8(&X[16], &X[0]);
 	}
 }
 
@@ -377,8 +374,9 @@ static void scrypt_1024_1_1_256_sp(const uint32_t *input, uint32_t *output,
 	uint32_t *midstate, unsigned char *scratchpad)
 {
 	uint32_t tstate[8], ostate[8];
-	uint32_t *V;
 	uint32_t X[32];
+	uint32_t *V;
+	
 	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
 
 	memcpy(tstate, midstate, 32);
@@ -396,8 +394,8 @@ static void scrypt_1024_1_1_256_sp_2way(const uint32_t *input,
 {
 	uint32_t tstate1[8], tstate2[8];
 	uint32_t ostate1[8], ostate2[8];
-	uint32_t *V;
 	uint32_t X[2 * 32], *Y = X + 32;
+	uint32_t *V;
 	
 	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
 
@@ -419,9 +417,10 @@ static void scrypt_1024_1_1_256_sp_2way(const uint32_t *input,
 static void scrypt_1024_1_1_256_sp_3way(const uint32_t *input,
 	uint32_t *output, uint32_t *midstate, unsigned char *scratchpad)
 {
-	uint32_t tstate[4 * 8], ostate[4 * 8];
-	uint32_t X[3 * 32];
-	uint32_t W[4 * 32];
+	uint32_t tstate[4 * 8] __attribute__((aligned(128)));
+	uint32_t ostate[4 * 8] __attribute__((aligned(128)));
+	uint32_t W[4 * 32] __attribute__((aligned(128)));
+	uint32_t X[3 * 32] __attribute__((aligned(128)));
 	uint32_t *V;
 	int i;
 	
@@ -474,7 +473,7 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 		memcpy(data + i * 20, pdata, 80);
 	
 	sha256_init(midstate);
-	sha256_transform(midstate, data, 1);
+	sha256_transform(midstate, data, 0);
 	
 	do {
 		for (i = 0; i < throughput; i++)
