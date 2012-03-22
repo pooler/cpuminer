@@ -360,61 +360,61 @@ sha256_sse2_main_loop:
 #if defined(USE_AVX)	
 
 .macro sha256_avx_extend_round i
-	movdqa	(\i-15)*16(%rcx), %xmm0
-	movdqa	(\i-14)*16(%rcx), %xmm4
+	vmovdqa	(\i-15)*16(%rcx), %xmm0
+	vmovdqa	(\i-14)*16(%rcx), %xmm4
 	vpslld	$14, %xmm0, %xmm2
 	vpslld	$14, %xmm4, %xmm6
-	psrld	$3, %xmm0
-	psrld	$3, %xmm4
+	vpsrld	$3, %xmm0, %xmm0
+	vpsrld	$3, %xmm4, %xmm4
 	vpsrld	$4, %xmm0, %xmm1
 	vpsrld	$4, %xmm4, %xmm5
-	pxor	%xmm1, %xmm0
-	pxor	%xmm5, %xmm4
-	psrld	$11, %xmm1
-	psrld	$11, %xmm5
-	pxor	%xmm2, %xmm0
-	pxor	%xmm6, %xmm4
-	pslld	$11, %xmm2
-	pslld	$11, %xmm6
-	pxor	%xmm1, %xmm0
-	pxor	%xmm5, %xmm4
-	pxor	%xmm2, %xmm0
-	pxor	%xmm6, %xmm4
+	vpxor	%xmm1, %xmm0, %xmm0
+	vpxor	%xmm5, %xmm4, %xmm4
+	vpsrld	$11, %xmm1, %xmm1
+	vpsrld	$11, %xmm5, %xmm5
+	vpxor	%xmm2, %xmm0, %xmm0
+	vpxor	%xmm6, %xmm4, %xmm4
+	vpslld	$11, %xmm2, %xmm2
+	vpslld	$11, %xmm6, %xmm6
+	vpxor	%xmm1, %xmm0, %xmm0
+	vpxor	%xmm5, %xmm4, %xmm4
+	vpxor	%xmm2, %xmm0, %xmm0
+	vpxor	%xmm6, %xmm4, %xmm4
 
-	movdqa	(\i-2)*16(%rcx), %xmm3
-	movdqa	(\i-1)*16(%rcx), %xmm7
-	paddd	(\i-16)*16(%rcx), %xmm0
-	paddd	(\i-15)*16(%rcx), %xmm4
+	vmovdqa	(\i-2)*16(%rcx), %xmm3
+	vmovdqa	(\i-1)*16(%rcx), %xmm7
+	vpaddd	(\i-16)*16(%rcx), %xmm0, %xmm0
+	vpaddd	(\i-15)*16(%rcx), %xmm4, %xmm4
 
 	vpslld	$13, %xmm3, %xmm2
 	vpslld	$13, %xmm7, %xmm6
-	psrld	$10, %xmm3
-	psrld	$10, %xmm7
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
 
-	paddd	(\i-7)*16(%rcx), %xmm0
+	vpaddd	(\i-7)*16(%rcx), %xmm0, %xmm0
 
 	vpsrld	$7, %xmm3, %xmm1
 	vpsrld	$7, %xmm7, %xmm5
 
-	paddd	(\i-6)*16(%rcx), %xmm4
+	vpaddd	(\i-6)*16(%rcx), %xmm4, %xmm4
 
-	pxor	%xmm1, %xmm3
-	pxor	%xmm5, %xmm7
-	psrld	$2, %xmm1
-	psrld	$2, %xmm5
-	pxor	%xmm2, %xmm3
-	pxor	%xmm6, %xmm7
-	pslld	$2, %xmm2
-	pslld	$2, %xmm6
-	pxor	%xmm1, %xmm3
-	pxor	%xmm5, %xmm7
-	pxor	%xmm2, %xmm3
-	pxor	%xmm6, %xmm7
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpsrld	$2, %xmm1, %xmm1
+	vpsrld	$2, %xmm5, %xmm5
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpslld	$2, %xmm2, %xmm2
+	vpslld	$2, %xmm6, %xmm6
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
 
-	paddd	%xmm3, %xmm0
-	paddd	%xmm7, %xmm4
-	movdqa	%xmm0, \i*16(%rcx)
-	movdqa	%xmm4, (\i+1)*16(%rcx)
+	vpaddd	%xmm3, %xmm0, %xmm0
+	vpaddd	%xmm7, %xmm4, %xmm4
+	vmovdqa	%xmm0, \i*16(%rcx)
+	vmovdqa	%xmm4, (\i+1)*16(%rcx)
 .endm
 
 	.text
@@ -448,47 +448,47 @@ sha256_avx_extend_loop:
 
 .macro sha256_avx_main_round i, r0, r1, r2, r3, r4, r5, r6, r7
 	vpaddd	16*(\i)(%rax), \r0, %xmm6
-	paddd	16*(\i)(%rcx), %xmm6
+	vpaddd	16*(\i)(%rcx), %xmm6, %xmm6
 
 	vpandn	\r1, \r3, %xmm1
 	vpand	\r3, \r2, %xmm2
-	pxor	%xmm2, %xmm1
-	paddd	%xmm1, %xmm6
+	vpxor	%xmm2, %xmm1, %xmm1
+	vpaddd	%xmm1, %xmm6, %xmm6
 
 	vpslld	$7, \r3, %xmm1
 	vpsrld	$6, \r3, \r0
 	vpsrld	$5, \r0, %xmm2
-	pxor	%xmm1, \r0
-	pxor	%xmm2, \r0
-	pslld	$14, %xmm1
-	psrld	$14, %xmm2
-	pxor	%xmm1, \r0
-	pxor	%xmm2, \r0
-	pslld	$5, %xmm1
-	pxor	%xmm1, \r0
-	paddd	\r0, %xmm6
+	vpxor	%xmm1, \r0, \r0
+	vpxor	%xmm2, \r0, \r0
+	vpslld	$14, %xmm1, %xmm1
+	vpsrld	$14, %xmm2, %xmm2
+	vpxor	%xmm1, \r0, \r0
+	vpxor	%xmm2, \r0, \r0
+	vpslld	$5, %xmm1, %xmm1
+	vpxor	%xmm1, \r0, \r0
+	vpaddd	\r0, %xmm6, %xmm6
 
 	vpaddd	%xmm6, \r4, \r0
 
 	vpand	\r6, \r5, %xmm2
 	vpand	\r7, \r5, \r4
 	vpand	\r7, \r6, %xmm1
-	pxor	\r4, %xmm1
-	pxor	%xmm2, %xmm1
-	paddd	%xmm1, %xmm6
+	vpxor	\r4, %xmm1, %xmm1
+	vpxor	%xmm2, %xmm1, %xmm1
+	vpaddd	%xmm1, %xmm6, %xmm6
 
 	vpslld	$10, \r7, %xmm2
 	vpsrld	$2, \r7, \r4
 	vpsrld	$11, \r4, %xmm1
-	pxor	%xmm2, \r4
-	pxor	%xmm1, \r4
-	pslld	$9, %xmm2
-	psrld	$9, %xmm1
-	pxor	%xmm2, \r4
-	pxor	%xmm1, \r4
-	pslld	$11, %xmm2
-	pxor	%xmm2, \r4
-	paddd	%xmm6, \r4
+	vpxor	%xmm2, \r4, \r4
+	vpxor	%xmm1, \r4, \r4
+	vpslld	$9, %xmm2, %xmm2
+	vpsrld	$9, %xmm1, %xmm1
+	vpxor	%xmm2, \r4, \r4
+	vpxor	%xmm1, \r4, \r4
+	vpslld	$11, %xmm2, %xmm2
+	vpxor	%xmm2, \r4, \r4
+	vpaddd	%xmm6, \r4, \r4
 .endm
 
 .macro sha256_avx_main_quadround i
@@ -522,7 +522,7 @@ sha256_avx_main_loop:
 #endif /* USE_AVX */
 
 
-#if defined(USE_XOP)	
+#if defined(USE_XOP)
 
 .macro sha256_xop_extend_round i
 	vmovdqa	(\i-15)*16(%rcx), %xmm0
@@ -657,101 +657,12 @@ sha256_xop_main_loop:
 #endif /* USE_XOP */
 
 
-.macro p2bswap_rsi_rsp i
-	movdqu	\i*16(%rsi), %xmm0
-	movdqu	(\i+1)*16(%rsi), %xmm2
-	pshuflw	$0xb1, %xmm0, %xmm0
-	pshuflw	$0xb1, %xmm2, %xmm2
-	pshufhw	$0xb1, %xmm0, %xmm0
-	pshufhw	$0xb1, %xmm2, %xmm2
-	movdqa	%xmm0, %xmm1
-	movdqa	%xmm2, %xmm3
-	psrlw	$8, %xmm1
-	psrlw	$8, %xmm3
-	psllw	$8, %xmm0
-	psllw	$8, %xmm2
-	pxor	%xmm1, %xmm0
-	pxor	%xmm3, %xmm2
-	movdqa	%xmm0, \i*16(%rsp)
-	movdqa	%xmm2, (\i+1)*16(%rsp)
-.endm
-	
 	.text
 	.p2align 6
-	.globl sha256_transform_4way
-	.globl _sha256_transform_4way
-sha256_transform_4way:
-_sha256_transform_4way:
-#if defined(WIN64)
-	pushq	%rdi
-	subq	$96, %rsp
-	movdqa	%xmm6, 0(%rsp)
-	movdqa	%xmm7, 16(%rsp)
-	movdqa	%xmm8, 32(%rsp)
-	movdqa	%xmm9, 48(%rsp)
-	movdqa	%xmm10, 64(%rsp)
-	movdqa	%xmm11, 80(%rsp)
-	pushq	%rsi
-	movq	%rcx, %rdi
-	movq	%rdx, %rsi
-	movq	%r8, %rdx
-#endif
-	movq	%rsp, %r8
-	subq	$1032, %rsp
-	andq	$-128, %rsp
-	
-	testq	%rdx, %rdx
-	jz sha256_transform_4way_block_copy
-	
-	p2bswap_rsi_rsp 0
-	p2bswap_rsi_rsp 2
-	p2bswap_rsi_rsp 4
-	p2bswap_rsi_rsp 6
-	p2bswap_rsi_rsp 8
-	p2bswap_rsi_rsp 10
-	p2bswap_rsi_rsp 12
-	p2bswap_rsi_rsp 14
-	jmp sha256_transform_4way_extend
-	
-	.p2align 6
-sha256_transform_4way_block_copy:
-	movdqu	0*16(%rsi), %xmm0
-	movdqu	1*16(%rsi), %xmm1
-	movdqu	2*16(%rsi), %xmm2
-	movdqu	3*16(%rsi), %xmm3
-	movdqu	4*16(%rsi), %xmm4
-	movdqu	5*16(%rsi), %xmm5
-	movdqu	6*16(%rsi), %xmm6
-	movdqu	7*16(%rsi), %xmm7
-	movdqa	%xmm0, 0*16(%rsp)
-	movdqa	%xmm1, 1*16(%rsp)
-	movdqa	%xmm2, 2*16(%rsp)
-	movdqa	%xmm3, 3*16(%rsp)
-	movdqa	%xmm4, 4*16(%rsp)
-	movdqa	%xmm5, 5*16(%rsp)
-	movdqa	%xmm6, 6*16(%rsp)
-	movdqa	%xmm7, 7*16(%rsp)
-	movdqu	8*16(%rsi), %xmm0
-	movdqu	9*16(%rsi), %xmm1
-	movdqu	10*16(%rsi), %xmm2
-	movdqu	11*16(%rsi), %xmm3
-	movdqu	12*16(%rsi), %xmm4
-	movdqu	13*16(%rsi), %xmm5
-	movdqu	14*16(%rsi), %xmm6
-	movdqu	15*16(%rsi), %xmm7
-	movdqa	%xmm0, 8*16(%rsp)
-	movdqa	%xmm1, 9*16(%rsp)
-	movdqa	%xmm2, 10*16(%rsp)
-	movdqa	%xmm3, 11*16(%rsp)
-	movdqa	%xmm4, 12*16(%rsp)
-	movdqa	%xmm5, 13*16(%rsp)
-	movdqa	%xmm6, 14*16(%rsp)
-	movdqa	%xmm7, 15*16(%rsp)
-	
-sha256_transform_4way_extend:
+sha256_transform_4way_core_sse2:
 	leaq	256(%rsp), %rcx
 	leaq	48*16(%rcx), %rax
-sha256_transform_4way_extend_loop:
+sha256_transform_4way_sse2_extend_loop:
 	movdqa	-15*16(%rcx), %xmm0
 	movdqa	-14*16(%rcx), %xmm4
 	movdqa	%xmm0, %xmm2
@@ -817,7 +728,7 @@ sha256_transform_4way_extend_loop:
 	movdqa	%xmm4, 16(%rcx)
 	addq	$2*16, %rcx
 	cmpq	%rcx, %rax
-	jne sha256_transform_4way_extend_loop
+	jne sha256_transform_4way_sse2_extend_loop
 	
 	movdqu	0(%rdi), %xmm7
 	movdqu	16(%rdi), %xmm5
@@ -830,7 +741,7 @@ sha256_transform_4way_extend_loop:
 	
 	leaq	sha256_4k(%rip), %rcx
 	xorq	%rax, %rax
-sha256_transform_4way_main_loop:
+sha256_transform_4way_sse2_main_loop:
 	movdqa	(%rsp, %rax), %xmm6
 	paddd	(%rcx, %rax), %xmm6
 	paddd	%xmm10, %xmm6
@@ -896,8 +807,156 @@ sha256_transform_4way_main_loop:
 	
 	addq	$16, %rax
 	cmpq	$16*64, %rax
-	jne sha256_transform_4way_main_loop
+	jne sha256_transform_4way_sse2_main_loop
+	jmp sha256_transform_4way_finish
+
+#if defined(USE_AVX)
+	.text
+	.p2align 6
+sha256_transform_4way_core_avx:
+	leaq	256(%rsp), %rcx
+	call sha256_avx_extend_loop
+	movdqu	0(%rdi), %xmm7
+	movdqu	16(%rdi), %xmm5
+	movdqu	32(%rdi), %xmm4
+	movdqu	48(%rdi), %xmm3
+	movdqu	64(%rdi), %xmm0
+	movdqu	80(%rdi), %xmm8
+	movdqu	96(%rdi), %xmm9
+	movdqu	112(%rdi), %xmm10
+	movq	%rsp, %rax
+	leaq	sha256_4k(%rip), %rcx
+	call sha256_avx_main_loop
+	jmp sha256_transform_4way_finish
+#endif /* USE_AVX */
+
+#if defined(USE_XOP)
+	.text
+	.p2align 6
+sha256_transform_4way_core_xop:
+	leaq	256(%rsp), %rcx
+	call sha256_xop_extend_loop
+	movdqu	0(%rdi), %xmm7
+	movdqu	16(%rdi), %xmm5
+	movdqu	32(%rdi), %xmm4
+	movdqu	48(%rdi), %xmm3
+	movdqu	64(%rdi), %xmm0
+	movdqu	80(%rdi), %xmm8
+	movdqu	96(%rdi), %xmm9
+	movdqu	112(%rdi), %xmm10
+	movq	%rsp, %rax
+	leaq	sha256_4k(%rip), %rcx
+	call sha256_xop_main_loop
+	jmp sha256_transform_4way_finish
+#endif /* USE_XOP */
+
+
+	.data
+	.p2align 3
+sha256_transform_4way_core_addr:
+	.quad 0x0
+
+.macro p2bswap_rsi_rsp i
+	movdqu	\i*16(%rsi), %xmm0
+	movdqu	(\i+1)*16(%rsi), %xmm2
+	pshuflw	$0xb1, %xmm0, %xmm0
+	pshuflw	$0xb1, %xmm2, %xmm2
+	pshufhw	$0xb1, %xmm0, %xmm0
+	pshufhw	$0xb1, %xmm2, %xmm2
+	movdqa	%xmm0, %xmm1
+	movdqa	%xmm2, %xmm3
+	psrlw	$8, %xmm1
+	psrlw	$8, %xmm3
+	psllw	$8, %xmm0
+	psllw	$8, %xmm2
+	pxor	%xmm1, %xmm0
+	pxor	%xmm3, %xmm2
+	movdqa	%xmm0, \i*16(%rsp)
+	movdqa	%xmm2, (\i+1)*16(%rsp)
+.endm
 	
+	.text
+	.p2align 6
+	.globl sha256_transform_4way
+	.globl _sha256_transform_4way
+sha256_transform_4way:
+_sha256_transform_4way:
+	movq	sha256_transform_4way_core_addr(%rip), %rax
+	testq	%rax, %rax
+	jz sha256_transform_4way_init
+#if defined(WIN64)
+	pushq	%rdi
+	subq	$96, %rsp
+	movdqa	%xmm6, 0(%rsp)
+	movdqa	%xmm7, 16(%rsp)
+	movdqa	%xmm8, 32(%rsp)
+	movdqa	%xmm9, 48(%rsp)
+	movdqa	%xmm10, 64(%rsp)
+	movdqa	%xmm11, 80(%rsp)
+	pushq	%rsi
+	movq	%rcx, %rdi
+	movq	%rdx, %rsi
+	movq	%r8, %rdx
+#endif
+	movq	%rsp, %r8
+	subq	$1032, %rsp
+	andq	$-128, %rsp
+	
+	testq	%rdx, %rdx
+	jz sha256_transform_4way_block_copy
+	
+	p2bswap_rsi_rsp 0
+	p2bswap_rsi_rsp 2
+	p2bswap_rsi_rsp 4
+	p2bswap_rsi_rsp 6
+	p2bswap_rsi_rsp 8
+	p2bswap_rsi_rsp 10
+	p2bswap_rsi_rsp 12
+	p2bswap_rsi_rsp 14
+	jmp *%rax
+	
+	.p2align 6
+sha256_transform_4way_block_copy:
+	movdqu	0*16(%rsi), %xmm0
+	movdqu	1*16(%rsi), %xmm1
+	movdqu	2*16(%rsi), %xmm2
+	movdqu	3*16(%rsi), %xmm3
+	movdqu	4*16(%rsi), %xmm4
+	movdqu	5*16(%rsi), %xmm5
+	movdqu	6*16(%rsi), %xmm6
+	movdqu	7*16(%rsi), %xmm7
+	movdqa	%xmm0, 0*16(%rsp)
+	movdqa	%xmm1, 1*16(%rsp)
+	movdqa	%xmm2, 2*16(%rsp)
+	movdqa	%xmm3, 3*16(%rsp)
+	movdqa	%xmm4, 4*16(%rsp)
+	movdqa	%xmm5, 5*16(%rsp)
+	movdqa	%xmm6, 6*16(%rsp)
+	movdqa	%xmm7, 7*16(%rsp)
+	movdqu	8*16(%rsi), %xmm0
+	movdqu	9*16(%rsi), %xmm1
+	movdqu	10*16(%rsi), %xmm2
+	movdqu	11*16(%rsi), %xmm3
+	movdqu	12*16(%rsi), %xmm4
+	movdqu	13*16(%rsi), %xmm5
+	movdqu	14*16(%rsi), %xmm6
+	movdqu	15*16(%rsi), %xmm7
+	movdqa	%xmm0, 8*16(%rsp)
+	movdqa	%xmm1, 9*16(%rsp)
+	movdqa	%xmm2, 10*16(%rsp)
+	movdqa	%xmm3, 11*16(%rsp)
+	movdqa	%xmm4, 12*16(%rsp)
+	movdqa	%xmm5, 13*16(%rsp)
+	movdqa	%xmm6, 14*16(%rsp)
+	movdqa	%xmm7, 15*16(%rsp)
+	jmp *%rax
+	
+sha256_transform_4way_init:
+	call sha2_4way_init
+	jmp sha256_transform_4way
+	
+	.p2align 6
+sha256_transform_4way_finish:
 	movdqu	0(%rdi), %xmm2
 	movdqu	16(%rdi), %xmm6
 	movdqu	32(%rdi), %xmm11
@@ -952,53 +1011,12 @@ sha256d_4way:
 _sha256d_4way:
 	movq	sha256d_4way_addr(%rip), %rax
 	testq	%rax, %rax
-	jz sha256d_4way_set
+	jz sha256d_4way_init
 	jmp *%rax
 	
-sha256d_4way_set:
-	pushq	%rbx
-	pushq	%rcx
-	pushq	%rdx
-	
-#if defined(USE_AVX)
-	# Check for AVX and OSXSAVE support
-	movl	$1, %eax
-	cpuid
-	andl	$0x18000000, %ecx
-	cmpl	$0x18000000, %ecx
-	jne sha256d_4way_set_sse2
-	# Check for XMM and YMM state support
-	xorl	%ecx, %ecx
-	xgetbv
-	andl	$0x00000006, %eax
-	cmpl	$0x00000006, %eax
-	jne sha256d_4way_set_sse2
-#if defined(USE_XOP)
-	# Check for XOP support
-	movl	$0x80000001, %eax
-	cpuid
-	andl	$0x00000800, %ecx
-	jz sha256d_4way_set_avx
-	
-sha256d_4way_set_xop:
-	leaq	sha256d_4way_xop(%rip), %rax
-	jmp sha256d_4way_set_done
-#endif /* USE_XOP */
-	
-sha256d_4way_set_avx:
-	leaq	sha256d_4way_avx(%rip), %rax
-	jmp sha256d_4way_set_done
-#endif /* USE_AVX */
-	
-sha256d_4way_set_sse2:
-	leaq	sha256d_4way_sse2(%rip), %rax
-	
-sha256d_4way_set_done:
-	movq	%rax, sha256d_4way_addr(%rip)
-	popq	%rdx
-	popq	%rcx
-	popq	%rbx
-	jmp *%rax
+sha256d_4way_init:
+	call sha2_4way_init
+	jmp sha256d_4way
 	
 	
 	.p2align 6
@@ -1346,5 +1364,56 @@ sha256d_4way_xop:
 	ret
 	
 #endif /* USE_XOP */
+
+
+	.p2align 6
+sha2_4way_init:
+	pushq	%rbx
+	pushq	%rcx
+	pushq	%rdx
+	
+#if defined(USE_AVX)
+	# Check for AVX and OSXSAVE support
+	movl	$1, %eax
+	cpuid
+	andl	$0x18000000, %ecx
+	cmpl	$0x18000000, %ecx
+	jne sha2_4way_init_sse2
+	# Check for XMM and YMM state support
+	xorl	%ecx, %ecx
+	xgetbv
+	andl	$0x00000006, %eax
+	cmpl	$0x00000006, %eax
+	jne sha2_4way_init_sse2
+#if defined(USE_XOP)
+	# Check for XOP support
+	movl	$0x80000001, %eax
+	cpuid
+	andl	$0x00000800, %ecx
+	jz sha2_4way_init_avx
+	
+sha2_4way_init_xop:
+	leaq	sha256d_4way_xop(%rip), %rax
+	leaq	sha256_transform_4way_core_xop(%rip), %rdx
+	jmp sha2_4way_init_done
+#endif /* USE_XOP */
+	
+sha2_4way_init_avx:
+	leaq	sha256d_4way_avx(%rip), %rax
+	leaq	sha256_transform_4way_core_avx(%rip), %rdx
+	jmp sha2_4way_init_done
+#endif /* USE_AVX */
+	
+sha2_4way_init_sse2:
+	leaq	sha256d_4way_sse2(%rip), %rax
+	leaq	sha256_transform_4way_core_sse2(%rip), %rdx
+	
+sha2_4way_init_done:
+	movq	%rax, sha256d_4way_addr(%rip)
+	movq	%rdx, sha256_transform_4way_core_addr(%rip)
+	popq	%rdx
+	popq	%rcx
+	popq	%rbx
+	ret
 
 #endif
