@@ -881,9 +881,6 @@ sha256_transform_4way_core_addr:
 	.globl _sha256_transform_4way
 sha256_transform_4way:
 _sha256_transform_4way:
-	movq	sha256_transform_4way_core_addr(%rip), %rax
-	testq	%rax, %rax
-	jz sha256_transform_4way_init
 #if defined(WIN64)
 	pushq	%rdi
 	subq	$96, %rsp
@@ -903,20 +900,8 @@ _sha256_transform_4way:
 	andq	$-128, %rsp
 	
 	testq	%rdx, %rdx
-	jz sha256_transform_4way_block_copy
+	jnz sha256_transform_4way_swap
 	
-	p2bswap_rsi_rsp 0
-	p2bswap_rsi_rsp 2
-	p2bswap_rsi_rsp 4
-	p2bswap_rsi_rsp 6
-	p2bswap_rsi_rsp 8
-	p2bswap_rsi_rsp 10
-	p2bswap_rsi_rsp 12
-	p2bswap_rsi_rsp 14
-	jmp *%rax
-	
-	.p2align 6
-sha256_transform_4way_block_copy:
 	movdqu	0*16(%rsi), %xmm0
 	movdqu	1*16(%rsi), %xmm1
 	movdqu	2*16(%rsi), %xmm2
@@ -949,11 +934,19 @@ sha256_transform_4way_block_copy:
 	movdqa	%xmm5, 13*16(%rsp)
 	movdqa	%xmm6, 14*16(%rsp)
 	movdqa	%xmm7, 15*16(%rsp)
-	jmp *%rax
+	jmp *sha256_transform_4way_core_addr(%rip)
 	
-sha256_transform_4way_init:
-	call sha2_4way_init
-	jmp sha256_transform_4way
+	.p2align 6
+sha256_transform_4way_swap:
+	p2bswap_rsi_rsp 0
+	p2bswap_rsi_rsp 2
+	p2bswap_rsi_rsp 4
+	p2bswap_rsi_rsp 6
+	p2bswap_rsi_rsp 8
+	p2bswap_rsi_rsp 10
+	p2bswap_rsi_rsp 12
+	p2bswap_rsi_rsp 14
+	jmp *sha256_transform_4way_core_addr(%rip)
 	
 	.p2align 6
 sha256_transform_4way_finish:
@@ -1009,14 +1002,7 @@ sha256d_4way_addr:
 	.globl _sha256d_4way
 sha256d_4way:
 _sha256d_4way:
-	movq	sha256d_4way_addr(%rip), %rax
-	testq	%rax, %rax
-	jz sha256d_4way_init
-	jmp *%rax
-	
-sha256d_4way_init:
-	call sha2_4way_init
-	jmp sha256d_4way
+	jmp *sha256d_4way_addr(%rip)
 	
 	
 	.p2align 6
@@ -1366,8 +1352,12 @@ sha256d_4way_xop:
 #endif /* USE_XOP */
 
 
+	.text
 	.p2align 6
-sha2_4way_init:
+	.globl sha256_use_4way
+	.globl _sha256_use_4way
+sha256_use_4way:
+_sha256_use_4way:
 	pushq	%rbx
 	pushq	%rcx
 	pushq	%rdx
@@ -1414,6 +1404,7 @@ sha2_4way_init_done:
 	popq	%rdx
 	popq	%rcx
 	popq	%rbx
+	movl	$1, %eax
 	ret
 
 #endif

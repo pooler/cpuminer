@@ -119,7 +119,7 @@ static inline void PBKDF2_SHA256_128_32(uint32_t *tstate, uint32_t *ostate,
 }
 
 
-#ifdef SHA256_4WAY
+#ifdef HAVE_SHA256_4WAY
 
 static const uint32_t keypad_4way[4 * 12] = {
 	0x80000000, 0x80000000, 0x80000000, 0x80000000,
@@ -253,15 +253,15 @@ static inline void PBKDF2_SHA256_128_32_4way(uint32_t *tstate,
 		output[i] = swab32(ostate[i]);
 }
 
-#endif /* SHA256_4WAY */
+#endif /* HAVE_SHA256_4WAY */
 
 
 #if defined(__x86_64__)
 
 #define SCRYPT_MAX_WAYS 3
+#define HAVE_SCRYPT_3WAY 1
 int scrypt_best_throughput();
 void scrypt_core(uint32_t *X, uint32_t *V);
-void scrypt_core_2way(uint32_t *X, uint32_t *V);
 void scrypt_core_3way(uint32_t *X, uint32_t *V);
 
 #elif defined(__i386__)
@@ -370,7 +370,7 @@ unsigned char *scrypt_buffer_alloc()
 	return malloc(SCRYPT_BUFFER_SIZE);
 }
 
-static void scrypt_1024_1_1_256_sp(const uint32_t *input, uint32_t *output,
+static void scrypt_1024_1_1_256(const uint32_t *input, uint32_t *output,
 	uint32_t *midstate, unsigned char *scratchpad)
 {
 	uint32_t tstate[8], ostate[8];
@@ -388,33 +388,8 @@ static void scrypt_1024_1_1_256_sp(const uint32_t *input, uint32_t *output,
 	PBKDF2_SHA256_128_32(tstate, ostate, X, output);
 }
 
-#if SCRYPT_MAX_WAYS >= 2
-static void scrypt_1024_1_1_256_sp_2way(const uint32_t *input,
-	uint32_t *output, uint32_t *midstate, unsigned char *scratchpad)
-{
-	uint32_t tstate1[8], tstate2[8];
-	uint32_t ostate1[8], ostate2[8];
-	uint32_t X[2 * 32], *Y = X + 32;
-	uint32_t *V;
-	
-	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
-
-	memcpy(tstate1, midstate, 32);
-	memcpy(tstate2, midstate, 32);
-	HMAC_SHA256_80_init(input, tstate1, ostate1);
-	HMAC_SHA256_80_init(input + 20, tstate2, ostate2);
-	PBKDF2_SHA256_80_128(tstate1, ostate1, input, X);
-	PBKDF2_SHA256_80_128(tstate2, ostate2, input + 20, Y);
-
-	scrypt_core_2way(X, V);
-
-	PBKDF2_SHA256_128_32(tstate1, ostate1, X, output);
-	PBKDF2_SHA256_128_32(tstate2, ostate2, Y, output + 8);
-}
-#endif /* SCRYPT_MAX_WAYS >= 2 */
-
-#if SCRYPT_MAX_WAYS >= 3
-static void scrypt_1024_1_1_256_sp_3way(const uint32_t *input,
+#ifdef HAVE_SCRYPT_3WAY
+static void scrypt_1024_1_1_256_3way(const uint32_t *input,
 	uint32_t *output, uint32_t *midstate, unsigned char *scratchpad)
 {
 	uint32_t tstate[4 * 8] __attribute__((aligned(128)));
@@ -456,7 +431,7 @@ static void scrypt_1024_1_1_256_sp_3way(const uint32_t *input,
 		output[i + 16] = W[4 * i + 2];
 	}
 }
-#endif /* SCRYPT_MAX_WAYS >= 3 */
+#endif /* HAVE_SCRYPT_3WAY */
 
 int scanhash_scrypt(int thr_id, uint32_t *pdata,
 	unsigned char *scratchbuf, const uint32_t *ptarget,
@@ -469,6 +444,10 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 	const int throughput = scrypt_best_throughput();
 	int i;
 	
+#ifdef HAVE_SHA256_4WAY
+	sha256_use_4way();
+#endif
+	
 	for (i = 0; i < throughput; i++)
 		memcpy(data + i * 20, pdata, 80);
 	
@@ -479,17 +458,12 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 		for (i = 0; i < throughput; i++)
 			data[i * 20 + 19] = ++n;
 		
-#if SCRYPT_MAX_WAYS >= 3
+#ifdef HAVE_SCRYPT_3WAY
 		if (throughput == 3)
-			scrypt_1024_1_1_256_sp_3way(data, hash, midstate, scratchbuf);
+			scrypt_1024_1_1_256_3way(data, hash, midstate, scratchbuf);
 		else
 #endif
-#if SCRYPT_MAX_WAYS >= 2
-		if (throughput == 2)
-			scrypt_1024_1_1_256_sp_2way(data, hash, midstate, scratchbuf);
-		else
-#endif
-			scrypt_1024_1_1_256_sp(data, hash, midstate, scratchbuf);
+		scrypt_1024_1_1_256(data, hash, midstate, scratchbuf);
 		
 		for (i = 0; i < throughput; i++) {
 			if (hash[i * 8 + 7] <= Htarg && fulltest(hash + i * 8, ptarget)) {

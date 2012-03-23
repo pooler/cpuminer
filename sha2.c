@@ -164,15 +164,12 @@ void sha256_transform(uint32_t *state, const uint32_t *block, int swap)
 		state[i] += S[i];
 }
 
-#if defined(__x86_64__)
-
-#define SHA256D_WAYS 4
-
+#ifdef HAVE_SHA256_4WAY
+#define SHA256D_MAX_WAYS 4
 void sha256d_4way(uint32_t *hash,  uint32_t *data, const uint32_t *midstate);
-
 #else
-
-#define SHA256D_WAYS 1
+#define SHA256D_MAX_WAYS 1
+#endif
 
 static const uint32_t sha256d_hash1[16] = {
 	0x00000000, 0x00000000, 0x00000000, 0x00000000,
@@ -340,48 +337,62 @@ static inline void sha256d(uint32_t *hash, uint32_t *W,
 		hash[i] += sha256_h[i];
 }
 
-#endif
-
 int scanhash_sha256d(int thr_id, uint32_t *pdata, const uint32_t *ptarget,
 	uint32_t max_nonce, unsigned long *hashes_done)
 {
-	uint32_t data[SHA256D_WAYS * 64] __attribute__((aligned(128)));
-	uint32_t hash[SHA256D_WAYS * 8] __attribute__((aligned(32)));
-	uint32_t midstate[SHA256D_WAYS * 8] __attribute__((aligned(32)));
-	uint32_t tmp[8];
+	uint32_t data[SHA256D_MAX_WAYS * 64] __attribute__((aligned(128)));
+	uint32_t hash[SHA256D_MAX_WAYS * 8] __attribute__((aligned(32)));
+	uint32_t midstate[SHA256D_MAX_WAYS * 8] __attribute__((aligned(32)));
 	uint32_t n = pdata[19] - 1;
 	const uint32_t Htarg = ptarget[7];
+#ifdef HAVE_SHA256_4WAY
+	const int ways = sha256_use_4way() ? 4 : 1;
+#else
+	const int ways = 1;
+#endif
 	int i, j;
 	
 	for (i = 15; i >= 0; i--)
-		for (j = 0; j < SHA256D_WAYS; j++)
-			data[i * SHA256D_WAYS + j] = pdata[16 + i];
+		for (j = 0; j < ways; j++)
+			data[i * ways + j] = pdata[16 + i];
 	
 	sha256_init(midstate);
 	sha256_transform(midstate, pdata, 0);
 	for (i = 7; i >= 0; i--)
-		for (j = 0; j < SHA256D_WAYS; j++)
-			midstate[i * SHA256D_WAYS + j] = midstate[i];
+		for (j = 0; j < ways; j++)
+			midstate[i * ways + j] = midstate[i];
 	
-	do {
-		for (i = 0; i < SHA256D_WAYS; i++)
-			data[SHA256D_WAYS * 3 + i] = ++n;
-		
-#if SHA256D_WAYS == 4
-		sha256d_4way(hash, data, midstate);
-#else
-		sha256d(hash, data, midstate);
-#endif
-		
-		for (i = 0; i < SHA256D_WAYS; i++) {
-			if (hash[SHA256D_WAYS * 7 + i] <= Htarg) {
-				for (j = 0; j < 8; j++)
-					tmp[j] = hash[SHA256D_WAYS * j + i];
-				if (fulltest(tmp, ptarget)) {
-					*hashes_done = n - pdata[19] + 1;
-					pdata[19] = data[SHA256D_WAYS * 3 + i];
-					return 1;
+#ifdef HAVE_SHA256_4WAY
+	if (ways == 4)
+		do {
+			for (i = 0; i < 4; i++)
+				data[4 * 3 + i] = ++n;
+			
+			sha256d_4way(hash, data, midstate);
+			
+			for (i = 0; i < 4; i++) {
+				if (hash[4 * 7 + i] <= Htarg) {
+					uint32_t tmp[8];
+					for (j = 0; j < 8; j++)
+						tmp[j] = hash[4 * j + i];
+					if (fulltest(tmp, ptarget)) {
+						*hashes_done = n - pdata[19] + 1;
+						pdata[19] = data[4 * 3 + i];
+						return 1;
+					}
 				}
+			}
+		} while (n < max_nonce && !work_restart[thr_id].restart);
+	else
+#endif
+	do {
+		data[3 + i] = ++n;
+		sha256d(hash, data, midstate);
+		if (hash[7 + i] <= Htarg) {
+			if (fulltest(hash, ptarget)) {
+				*hashes_done = n - pdata[19] + 1;
+				pdata[19] = data[3 + i];
+				return 1;
 			}
 		}
 	} while (n < max_nonce && !work_restart[thr_id].restart);
