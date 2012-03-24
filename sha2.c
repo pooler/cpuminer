@@ -164,12 +164,6 @@ void sha256_transform(uint32_t *state, const uint32_t *block, int swap)
 		state[i] += S[i];
 }
 
-#ifdef HAVE_SHA256_4WAY
-#define SHA256D_MAX_WAYS 4
-void sha256d_4way(uint32_t *hash,  uint32_t *data, const uint32_t *midstate);
-#else
-#define SHA256D_MAX_WAYS 1
-#endif
 
 static const uint32_t sha256d_hash1[16] = {
 	0x00000000, 0x00000000, 0x00000000, 0x00000000,
@@ -178,23 +172,64 @@ static const uint32_t sha256d_hash1[16] = {
 	0x00000000, 0x00000000, 0x00000000, 0x00000100
 };
 
+static inline void sha256d_preextend(uint32_t *W)
+{
+	W[16] = s1(W[14]) + W[ 9] + s0(W[ 1]) + W[ 0];
+	W[17] = s1(W[15]) + W[10] + s0(W[ 2]) + W[ 1];
+	W[18] = s1(W[16]) + W[11]             + W[ 2];
+	W[19] = s1(W[17]) + W[12] + s0(W[ 4]);
+	W[20] =             W[13] + s0(W[ 5]) + W[ 4];
+	W[21] =             W[14] + s0(W[ 6]) + W[ 5];
+	W[22] =             W[15] + s0(W[ 7]) + W[ 6];
+	W[23] =             W[16] + s0(W[ 8]) + W[ 7];
+	W[24] =             W[17] + s0(W[ 9]) + W[ 8];
+	W[25] =                     s0(W[10]) + W[ 9];
+	W[26] =                     s0(W[11]) + W[10];
+	W[27] =                     s0(W[12]) + W[11];
+	W[28] =                     s0(W[13]) + W[12];
+	W[29] =                     s0(W[14]) + W[13];
+	W[30] =                     s0(W[15]) + W[14];
+	W[31] =                     s0(W[16]) + W[15];
+}
+
+static inline void sha256d_prehash(uint32_t *S, const uint32_t *W)
+{
+	uint32_t t0, t1;
+	RNDr(S, W, 0);
+	RNDr(S, W, 1);
+	RNDr(S, W, 2);
+}
+
 static inline void sha256d(uint32_t *hash, uint32_t *W,
-	const uint32_t *midstate)
+	const uint32_t *midstate, const uint32_t *prehash)
 {
 	uint32_t S[64];
+	uint32_t E[14];
 	uint32_t t0, t1;
 	int i;
 
-	for (i = 16; i < 64; i += 2) {
+	memcpy(E, W + 18, sizeof(E));
+	W[18] += s0(W[3]);
+	W[19] += W[3];
+	W[20] += s1(W[18]);
+	W[21] += s1(W[19]);
+	W[22] += s1(W[20]);
+	W[23] += s1(W[21]);
+	W[24] += s1(W[22]);
+	W[25] += s1(W[23]) + W[18];
+	W[26] += s1(W[24]) + W[19];
+	W[27] += s1(W[25]) + W[20];
+	W[28] += s1(W[26]) + W[21];
+	W[29] += s1(W[27]) + W[22];
+	W[30] += s1(W[28]) + W[23];
+	W[31] += s1(W[29]) + W[24];
+	for (i = 32; i < 64; i += 2) {
 		W[i]   = s1(W[i - 2]) + W[i - 7] + s0(W[i - 15]) + W[i - 16];
 		W[i+1] = s1(W[i - 1]) + W[i - 6] + s0(W[i - 14]) + W[i - 15];
 	}
 
-	memcpy(S, midstate, 32);
+	memcpy(S, prehash, 32);
 
-	RNDr(S, W,  0);
-	RNDr(S, W,  1);
-	RNDr(S, W,  2);
 	RNDr(S, W,  3);
 	RNDr(S, W,  4);
 	RNDr(S, W,  5);
@@ -259,6 +294,8 @@ static inline void sha256d(uint32_t *hash, uint32_t *W,
 
 	for (i = 0; i < 8; i++)
 		S[i] += midstate[i];
+	
+	memcpy(W + 18, E, sizeof(E));
 	
 	memcpy(S + 8, sha256d_hash1 + 8, 32);
 	for (i = 16; i < 64; i += 2) {
@@ -337,12 +374,21 @@ static inline void sha256d(uint32_t *hash, uint32_t *W,
 		hash[i] += sha256_h[i];
 }
 
+#ifdef HAVE_SHA256_4WAY
+#define SHA256D_MAX_WAYS 4
+void sha256d_4way(uint32_t *hash,  uint32_t *data,
+	const uint32_t *midstate, const uint32_t *prehash);
+#else
+#define SHA256D_MAX_WAYS 1
+#endif
+
 int scanhash_sha256d(int thr_id, uint32_t *pdata, const uint32_t *ptarget,
 	uint32_t max_nonce, unsigned long *hashes_done)
 {
 	uint32_t data[SHA256D_MAX_WAYS * 64] __attribute__((aligned(128)));
 	uint32_t hash[SHA256D_MAX_WAYS * 8] __attribute__((aligned(32)));
 	uint32_t midstate[SHA256D_MAX_WAYS * 8] __attribute__((aligned(32)));
+	uint32_t prehash[SHA256D_MAX_WAYS * 8] __attribute__((aligned(32)));
 	uint32_t n = pdata[19] - 1;
 	const uint32_t Htarg = ptarget[7];
 #ifdef HAVE_SHA256_4WAY
@@ -352,15 +398,22 @@ int scanhash_sha256d(int thr_id, uint32_t *pdata, const uint32_t *ptarget,
 #endif
 	int i, j;
 	
-	for (i = 15; i >= 0; i--)
+	memcpy(data, pdata + 16, 64);
+	sha256d_preextend(data);
+	for (i = 31; i >= 0; i--)
 		for (j = 0; j < ways; j++)
-			data[i * ways + j] = pdata[16 + i];
+			data[i * ways + j] = data[i];
 	
 	sha256_init(midstate);
 	sha256_transform(midstate, pdata, 0);
-	for (i = 7; i >= 0; i--)
-		for (j = 0; j < ways; j++)
+	memcpy(prehash, midstate, 32);
+	sha256d_prehash(prehash, pdata + 16);
+	for (i = 7; i >= 0; i--) {
+		for (j = 0; j < ways; j++) {
 			midstate[i * ways + j] = midstate[i];
+			prehash[i * ways + j] = prehash[i];
+		}
+	}
 	
 #ifdef HAVE_SHA256_4WAY
 	if (ways == 4)
@@ -368,7 +421,7 @@ int scanhash_sha256d(int thr_id, uint32_t *pdata, const uint32_t *ptarget,
 			for (i = 0; i < 4; i++)
 				data[4 * 3 + i] = ++n;
 			
-			sha256d_4way(hash, data, midstate);
+			sha256d_4way(hash, data, midstate, prehash);
 			
 			for (i = 0; i < 4; i++) {
 				if (hash[4 * 7 + i] <= Htarg) {
@@ -386,12 +439,12 @@ int scanhash_sha256d(int thr_id, uint32_t *pdata, const uint32_t *ptarget,
 	else
 #endif
 	do {
-		data[3 + i] = ++n;
-		sha256d(hash, data, midstate);
-		if (hash[7 + i] <= Htarg) {
+		data[3] = ++n;
+		sha256d(hash, data, midstate, prehash);
+		if (hash[7] <= Htarg) {
 			if (fulltest(hash, ptarget)) {
 				*hashes_done = n - pdata[19] + 1;
-				pdata[19] = data[3 + i];
+				pdata[19] = data[3];
 				return 1;
 			}
 		}

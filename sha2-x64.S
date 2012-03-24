@@ -128,8 +128,8 @@ _sha256_init_4way:
 	
 
 .macro sha256_sse2_extend_round i
-	movdqa	(\i-15)*16(%rcx), %xmm0
-	movdqa	(\i-14)*16(%rcx), %xmm4
+	movdqa	(\i-15)*16(%rax), %xmm0
+	movdqa	(\i-14)*16(%rax), %xmm4
 	movdqa	%xmm0, %xmm2
 	movdqa	%xmm4, %xmm6
 	psrld	$3, %xmm0
@@ -153,10 +153,10 @@ _sha256_init_4way:
 	pxor	%xmm2, %xmm0
 	pxor	%xmm6, %xmm4
 
-	movdqa	(\i-2)*16(%rcx), %xmm3
-	movdqa	(\i-1)*16(%rcx), %xmm7
-	paddd	(\i-16)*16(%rcx), %xmm0
-	paddd	(\i-15)*16(%rcx), %xmm4
+	movdqa	(\i-2)*16(%rax), %xmm3
+	movdqa	(\i-1)*16(%rax), %xmm7
+	paddd	(\i-16)*16(%rax), %xmm0
+	paddd	(\i-15)*16(%rax), %xmm4
 
 	movdqa	%xmm3, %xmm2
 	movdqa	%xmm7, %xmm6
@@ -165,14 +165,14 @@ _sha256_init_4way:
 	movdqa	%xmm3, %xmm1
 	movdqa	%xmm7, %xmm5
 
-	paddd	(\i-7)*16(%rcx), %xmm0
+	paddd	(\i-7)*16(%rax), %xmm0
 
 	pslld	$13, %xmm2
 	pslld	$13, %xmm6
 	psrld	$7, %xmm1
 	psrld	$7, %xmm5
 
-	paddd	(\i-6)*16(%rcx), %xmm4
+	paddd	(\i-6)*16(%rax), %xmm4
 
 	pxor	%xmm1, %xmm3
 	pxor	%xmm5, %xmm7
@@ -189,14 +189,15 @@ _sha256_init_4way:
 
 	paddd	%xmm3, %xmm0
 	paddd	%xmm7, %xmm4
-	movdqa	%xmm0, \i*16(%rcx)
-	movdqa	%xmm4, (\i+1)*16(%rcx)
+	movdqa	%xmm0, \i*16(%rax)
+	movdqa	%xmm4, (\i+1)*16(%rax)
 .endm
 
 	.text
 	.p2align 6
 sha256_sse2_extend_loop:
 	sha256_sse2_extend_round 0
+sha256_sse2_extend_loop_pre:
 	sha256_sse2_extend_round 2
 	sha256_sse2_extend_round 4
 	sha256_sse2_extend_round 6
@@ -293,6 +294,7 @@ sha256_sse2_main_loop:
 	sha256_sse2_main_round 0
 	sha256_sse2_main_round 1
 	sha256_sse2_main_round 2
+sha256_sse2_main_loop_pre:
 	sha256_sse2_main_round 3
 	sha256_sse2_main_round 4
 	sha256_sse2_main_round 5
@@ -360,8 +362,8 @@ sha256_sse2_main_loop:
 #if defined(USE_AVX)	
 
 .macro sha256_avx_extend_round i
-	vmovdqa	(\i-15)*16(%rcx), %xmm0
-	vmovdqa	(\i-14)*16(%rcx), %xmm4
+	vmovdqa	(\i-15)*16(%rax), %xmm0
+	vmovdqa	(\i-14)*16(%rax), %xmm4
 	vpslld	$14, %xmm0, %xmm2
 	vpslld	$14, %xmm4, %xmm6
 	vpsrld	$3, %xmm0, %xmm0
@@ -381,22 +383,22 @@ sha256_sse2_main_loop:
 	vpxor	%xmm2, %xmm0, %xmm0
 	vpxor	%xmm6, %xmm4, %xmm4
 
-	vmovdqa	(\i-2)*16(%rcx), %xmm3
-	vmovdqa	(\i-1)*16(%rcx), %xmm7
-	vpaddd	(\i-16)*16(%rcx), %xmm0, %xmm0
-	vpaddd	(\i-15)*16(%rcx), %xmm4, %xmm4
+	vmovdqa	(\i-2)*16(%rax), %xmm3
+	vmovdqa	(\i-1)*16(%rax), %xmm7
+	vpaddd	(\i-16)*16(%rax), %xmm0, %xmm0
+	vpaddd	(\i-15)*16(%rax), %xmm4, %xmm4
 
 	vpslld	$13, %xmm3, %xmm2
 	vpslld	$13, %xmm7, %xmm6
 	vpsrld	$10, %xmm3, %xmm3
 	vpsrld	$10, %xmm7, %xmm7
 
-	vpaddd	(\i-7)*16(%rcx), %xmm0, %xmm0
+	vpaddd	(\i-7)*16(%rax), %xmm0, %xmm0
 
 	vpsrld	$7, %xmm3, %xmm1
 	vpsrld	$7, %xmm7, %xmm5
 
-	vpaddd	(\i-6)*16(%rcx), %xmm4, %xmm4
+	vpaddd	(\i-6)*16(%rax), %xmm4, %xmm4
 
 	vpxor	%xmm1, %xmm3, %xmm3
 	vpxor	%xmm5, %xmm7, %xmm7
@@ -413,14 +415,15 @@ sha256_sse2_main_loop:
 
 	vpaddd	%xmm3, %xmm0, %xmm0
 	vpaddd	%xmm7, %xmm4, %xmm4
-	vmovdqa	%xmm0, \i*16(%rcx)
-	vmovdqa	%xmm4, (\i+1)*16(%rcx)
+	vmovdqa	%xmm0, \i*16(%rax)
+	vmovdqa	%xmm4, (\i+1)*16(%rax)
 .endm
 
 	.text
 	.p2align 6
 sha256_avx_extend_loop:
 	sha256_avx_extend_round 0
+sha256_avx_extend_loop_pre:
 	sha256_avx_extend_round 2
 	sha256_avx_extend_round 4
 	sha256_avx_extend_round 6
@@ -501,7 +504,11 @@ sha256_avx_extend_loop:
 	.text
 	.p2align 6
 sha256_avx_main_loop:
-	sha256_avx_main_quadround 0
+	sha256_avx_main_round 0, %xmm10, %xmm9, %xmm8, %xmm0, %xmm3, %xmm4, %xmm5, %xmm7
+	sha256_avx_main_round 1, %xmm9, %xmm8, %xmm0, %xmm10, %xmm4, %xmm5, %xmm7, %xmm3
+	sha256_avx_main_round 2, %xmm8, %xmm0, %xmm10, %xmm9, %xmm5, %xmm7, %xmm3, %xmm4
+sha256_avx_main_loop_pre:
+	sha256_avx_main_round 3, %xmm0, %xmm10, %xmm9, %xmm8, %xmm7, %xmm3, %xmm4, %xmm5
 	sha256_avx_main_quadround 4
 	sha256_avx_main_quadround 8
 	sha256_avx_main_quadround 12
@@ -525,8 +532,8 @@ sha256_avx_main_loop:
 #if defined(USE_XOP)
 
 .macro sha256_xop_extend_round i
-	vmovdqa	(\i-15)*16(%rcx), %xmm0
-	vmovdqa	(\i-14)*16(%rcx), %xmm4
+	vmovdqa	(\i-15)*16(%rax), %xmm0
+	vmovdqa	(\i-14)*16(%rax), %xmm4
 	vprotd	$25, %xmm0, %xmm1
 	vprotd	$25, %xmm4, %xmm5
 	vprotd	$14, %xmm0, %xmm2
@@ -538,10 +545,10 @@ sha256_avx_main_loop:
 	vpxor	%xmm2, %xmm0, %xmm0
 	vpxor	%xmm6, %xmm4, %xmm4
 
-	vmovdqa	(\i-2)*16(%rcx), %xmm3
-	vmovdqa	(\i-1)*16(%rcx), %xmm7
-	vpaddd	(\i-16)*16(%rcx), %xmm0, %xmm0
-	vpaddd	(\i-15)*16(%rcx), %xmm4, %xmm4
+	vmovdqa	(\i-2)*16(%rax), %xmm3
+	vmovdqa	(\i-1)*16(%rax), %xmm7
+	vpaddd	(\i-16)*16(%rax), %xmm0, %xmm0
+	vpaddd	(\i-15)*16(%rax), %xmm4, %xmm4
 
 	vprotd	$15, %xmm3, %xmm1
 	vprotd	$15, %xmm7, %xmm5
@@ -550,8 +557,8 @@ sha256_avx_main_loop:
 	vpxor	%xmm1, %xmm2, %xmm2
 	vpxor	%xmm5, %xmm6, %xmm6
 
-	vpaddd	(\i-7)*16(%rcx), %xmm0, %xmm0
-	vpaddd	(\i-6)*16(%rcx), %xmm4, %xmm4
+	vpaddd	(\i-7)*16(%rax), %xmm0, %xmm0
+	vpaddd	(\i-6)*16(%rax), %xmm4, %xmm4
 
 	vpsrld	$10, %xmm3, %xmm3
 	vpsrld	$10, %xmm7, %xmm7
@@ -560,14 +567,15 @@ sha256_avx_main_loop:
 
 	vpaddd	%xmm3, %xmm0, %xmm0
 	vpaddd	%xmm7, %xmm4, %xmm4
-	vmovdqa	%xmm0, \i*16(%rcx)
-	vmovdqa	%xmm4, (\i+1)*16(%rcx)
+	vmovdqa	%xmm0, \i*16(%rax)
+	vmovdqa	%xmm4, (\i+1)*16(%rax)
 .endm
 
 	.text
 	.p2align 6
 sha256_xop_extend_loop:
 	sha256_xop_extend_round 0
+sha256_xop_extend_loop_pre:
 	sha256_xop_extend_round 2
 	sha256_xop_extend_round 4
 	sha256_xop_extend_round 6
@@ -636,7 +644,11 @@ sha256_xop_extend_loop:
 	.text
 	.p2align 6
 sha256_xop_main_loop:
-	sha256_xop_main_quadround 0
+	sha256_xop_main_round 0, %xmm10, %xmm9, %xmm8, %xmm0, %xmm3, %xmm4, %xmm5, %xmm7
+	sha256_xop_main_round 1, %xmm9, %xmm8, %xmm0, %xmm10, %xmm4, %xmm5, %xmm7, %xmm3
+	sha256_xop_main_round 2, %xmm8, %xmm0, %xmm10, %xmm9, %xmm5, %xmm7, %xmm3, %xmm4
+sha256_xop_main_loop_pre:
+	sha256_xop_main_round 3, %xmm0, %xmm10, %xmm9, %xmm8, %xmm7, %xmm3, %xmm4, %xmm5
 	sha256_xop_main_quadround 4
 	sha256_xop_main_quadround 8
 	sha256_xop_main_quadround 12
@@ -810,11 +822,12 @@ sha256_transform_4way_sse2_main_loop:
 	jne sha256_transform_4way_sse2_main_loop
 	jmp sha256_transform_4way_finish
 
+
 #if defined(USE_AVX)
 	.text
 	.p2align 6
 sha256_transform_4way_core_avx:
-	leaq	256(%rsp), %rcx
+	leaq	256(%rsp), %rax
 	call sha256_avx_extend_loop
 	movdqu	0(%rdi), %xmm7
 	movdqu	16(%rdi), %xmm5
@@ -830,11 +843,12 @@ sha256_transform_4way_core_avx:
 	jmp sha256_transform_4way_finish
 #endif /* USE_AVX */
 
+
 #if defined(USE_XOP)
 	.text
 	.p2align 6
 sha256_transform_4way_core_xop:
-	leaq	256(%rsp), %rcx
+	leaq	256(%rsp), %rax
 	call sha256_xop_extend_loop
 	movdqu	0(%rdi), %xmm7
 	movdqu	16(%rdi), %xmm5
@@ -1019,24 +1033,25 @@ sha256d_4way_sse2:
 	movq	%rcx, %rdi
 	movq	%rdx, %rsi
 	movq	%r8, %rdx
+	movq	%r9, %rcx
 #endif
 	subq	$1032, %rsp
 	
-	leaq	256(%rsi), %rcx
-	call sha256_sse2_extend_loop
+	leaq	256(%rsi), %rax
+	call sha256_sse2_extend_loop_pre
 	
-	movdqa	0(%rdx), %xmm7
-	movdqa	16(%rdx), %xmm5
-	movdqa	32(%rdx), %xmm4
-	movdqa	48(%rdx), %xmm3
-	movdqa	64(%rdx), %xmm0
-	movdqa	80(%rdx), %xmm8
-	movdqa	96(%rdx), %xmm9
-	movdqa	112(%rdx), %xmm10
+	movdqa	0(%rcx), %xmm3
+	movdqa	16(%rcx), %xmm0
+	movdqa	32(%rcx), %xmm8
+	movdqa	48(%rcx), %xmm9
+	movdqa	64(%rcx), %xmm10
+	movdqa	80(%rcx), %xmm7
+	movdqa	96(%rcx), %xmm5
+	movdqa	112(%rcx), %xmm4
 	
 	movq	%rsi, %rax
 	leaq	sha256_4k(%rip), %rcx
-	call sha256_sse2_main_loop
+	call sha256_sse2_main_loop_pre
 	
 	paddd	0(%rdx), %xmm7
 	paddd	16(%rdx), %xmm5
@@ -1070,7 +1085,7 @@ sha256d_4way_sse2:
 	movdqa	%xmm0, 224(%rsp)
 	movdqa	%xmm1, 240(%rsp)
 	
-	leaq	256(%rsp), %rcx
+	leaq	256(%rsp), %rax
 	call sha256_sse2_extend_loop
 	
 	movdqa	sha256_4h+0(%rip), %xmm7
@@ -1134,24 +1149,25 @@ sha256d_4way_avx:
 	movq	%rcx, %rdi
 	movq	%rdx, %rsi
 	movq	%r8, %rdx
+	movq	%r9, %rcx
 #endif
 	subq	$1032, %rsp
 	
-	leaq	256(%rsi), %rcx
-	call sha256_avx_extend_loop
+	leaq	256(%rsi), %rax
+	call sha256_avx_extend_loop_pre
 	
-	movdqa	0(%rdx), %xmm7
-	movdqa	16(%rdx), %xmm5
-	movdqa	32(%rdx), %xmm4
-	movdqa	48(%rdx), %xmm3
-	movdqa	64(%rdx), %xmm0
-	movdqa	80(%rdx), %xmm8
-	movdqa	96(%rdx), %xmm9
-	movdqa	112(%rdx), %xmm10
+	movdqa	0(%rcx), %xmm7
+	movdqa	16(%rcx), %xmm8
+	movdqa	32(%rcx), %xmm9
+	movdqa	48(%rcx), %xmm10
+	movdqa	64(%rcx), %xmm0
+	movdqa	80(%rcx), %xmm5
+	movdqa	96(%rcx), %xmm4
+	movdqa	112(%rcx), %xmm3
 	
 	movq	%rsi, %rax
 	leaq	sha256_4k(%rip), %rcx
-	call sha256_avx_main_loop
+	call sha256_avx_main_loop_pre
 	
 	paddd	0(%rdx), %xmm7
 	paddd	16(%rdx), %xmm5
@@ -1185,7 +1201,7 @@ sha256d_4way_avx:
 	movdqa	%xmm0, 224(%rsp)
 	movdqa	%xmm1, 240(%rsp)
 	
-	leaq	256(%rsp), %rcx
+	leaq	256(%rsp), %rax
 	call sha256_avx_extend_loop
 	
 	movdqa	sha256_4h+0(%rip), %xmm7
@@ -1251,24 +1267,25 @@ sha256d_4way_xop:
 	movq	%rcx, %rdi
 	movq	%rdx, %rsi
 	movq	%r8, %rdx
+	movq	%r9, %rcx
 #endif
 	subq	$1032, %rsp
 	
-	leaq	256(%rsi), %rcx
-	call sha256_xop_extend_loop
+	leaq	256(%rsi), %rax
+	call sha256_xop_extend_loop_pre
 	
-	movdqa	0(%rdx), %xmm7
-	movdqa	16(%rdx), %xmm5
-	movdqa	32(%rdx), %xmm4
-	movdqa	48(%rdx), %xmm3
-	movdqa	64(%rdx), %xmm0
-	movdqa	80(%rdx), %xmm8
-	movdqa	96(%rdx), %xmm9
-	movdqa	112(%rdx), %xmm10
+	movdqa	0(%rcx), %xmm7
+	movdqa	16(%rcx), %xmm8
+	movdqa	32(%rcx), %xmm9
+	movdqa	48(%rcx), %xmm10
+	movdqa	64(%rcx), %xmm0
+	movdqa	80(%rcx), %xmm5
+	movdqa	96(%rcx), %xmm4
+	movdqa	112(%rcx), %xmm3
 	
 	movq	%rsi, %rax
 	leaq	sha256_4k(%rip), %rcx
-	call sha256_xop_main_loop
+	call sha256_xop_main_loop_pre
 	
 	paddd	0(%rdx), %xmm7
 	paddd	16(%rdx), %xmm5
@@ -1302,7 +1319,7 @@ sha256d_4way_xop:
 	movdqa	%xmm0, 224(%rsp)
 	movdqa	%xmm1, 240(%rsp)
 	
-	leaq	256(%rsp), %rcx
+	leaq	256(%rsp), %rax
 	call sha256_xop_extend_loop
 	
 	movdqa	sha256_4h+0(%rip), %xmm7
