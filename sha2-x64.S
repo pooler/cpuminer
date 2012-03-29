@@ -95,6 +95,17 @@ sha256_4k:
 	.long 0xbef9a3f7, 0xbef9a3f7, 0xbef9a3f7, 0xbef9a3f7
 	.long 0xc67178f2, 0xc67178f2, 0xc67178f2, 0xc67178f2
 
+	.data
+	.p2align 6
+sha256d_4preext2_17:
+	.long 0x00a00000, 0x00a00000, 0x00a00000, 0x00a00000
+sha256d_4preext2_23:
+	.long 0x11002000, 0x11002000, 0x11002000, 0x11002000
+sha256d_4preext2_24:
+	.long 0x80000000, 0x80000000, 0x80000000, 0x80000000
+sha256d_4preext2_30:
+	.long 0x00400022, 0x00400022, 0x00400022, 0x00400022
+
 
 	.text
 	.p2align 6
@@ -194,14 +205,12 @@ _sha256_init_4way:
 	psrld	$10, %xmm7
 	movdqa	%xmm3, %xmm1
 	movdqa	%xmm7, %xmm5
-
-	paddd	(\i-7)*16(%rax), %xmm0
-
 	pslld	$13, %xmm2
 	pslld	$13, %xmm6
 	psrld	$7, %xmm1
 	psrld	$7, %xmm5
 
+	paddd	(\i-7)*16(%rax), %xmm0
 	paddd	(\i-6)*16(%rax), %xmm4
 
 	pxor	%xmm1, %xmm3
@@ -323,25 +332,25 @@ _sha256_init_4way:
 	vmovdqa	(\i-14)*16(%rax), %xmm4
 	vpslld	$14, %xmm0, %xmm2
 	vpslld	$14, %xmm4, %xmm6
-	vpsrld	$3, %xmm0, %xmm0
+	vpsrld	$3, %xmm0, %xmm8
 	vpsrld	$3, %xmm4, %xmm4
-	vpsrld	$4, %xmm0, %xmm1
+	vpsrld	$7, %xmm0, %xmm1
 	vpsrld	$4, %xmm4, %xmm5
-	vpxor	%xmm1, %xmm0, %xmm0
+	vpxor	%xmm1, %xmm8, %xmm8
 	vpxor	%xmm5, %xmm4, %xmm4
 	vpsrld	$11, %xmm1, %xmm1
 	vpsrld	$11, %xmm5, %xmm5
-	vpxor	%xmm2, %xmm0, %xmm0
+	vpxor	%xmm2, %xmm8, %xmm8
 	vpxor	%xmm6, %xmm4, %xmm4
 	vpslld	$11, %xmm2, %xmm2
 	vpslld	$11, %xmm6, %xmm6
-	vpxor	%xmm1, %xmm0, %xmm0
+	vpxor	%xmm1, %xmm8, %xmm8
 	vpxor	%xmm5, %xmm4, %xmm4
-	vpxor	%xmm2, %xmm0, %xmm0
+	vpxor	%xmm2, %xmm8, %xmm8
 	vpxor	%xmm6, %xmm4, %xmm4
 
-	vpaddd	(\i-16)*16(%rax), %xmm0, %xmm0
-	vpaddd	(\i-15)*16(%rax), %xmm4, %xmm4
+	vpaddd	%xmm0, %xmm4, %xmm4
+	vpaddd	(\i-16)*16(%rax), %xmm8, %xmm0
 
 	vpslld	$13, %xmm3, %xmm2
 	vpslld	$13, %xmm7, %xmm6
@@ -349,12 +358,10 @@ _sha256_init_4way:
 	vpsrld	$10, %xmm7, %xmm7
 
 	vpaddd	(\i-7)*16(%rax), %xmm0, %xmm0
+	vpaddd	(\i-6)*16(%rax), %xmm4, %xmm4
 
 	vpsrld	$7, %xmm3, %xmm1
 	vpsrld	$7, %xmm7, %xmm5
-
-	vpaddd	(\i-6)*16(%rax), %xmm4, %xmm4
-
 	vpxor	%xmm1, %xmm3, %xmm3
 	vpxor	%xmm5, %xmm7, %xmm7
 	vpsrld	$2, %xmm1, %xmm1
@@ -535,6 +542,8 @@ _sha256_init_4way:
 sha256_transform_4way_core_sse2:
 	leaq	256(%rsp), %rcx
 	leaq	48*16(%rcx), %rax
+	movdqa	-2*16(%rcx), %xmm3
+	movdqa	-1*16(%rcx), %xmm7
 sha256_transform_4way_sse2_extend_loop:
 	movdqa	-15*16(%rcx), %xmm0
 	movdqa	-14*16(%rcx), %xmm4
@@ -561,8 +570,6 @@ sha256_transform_4way_sse2_extend_loop:
 	pxor	%xmm2, %xmm0
 	pxor	%xmm6, %xmm4
 
-	movdqa	-2*16(%rcx), %xmm3
-	movdqa	-1*16(%rcx), %xmm7
 	paddd	-16*16(%rcx), %xmm0
 	paddd	-15*16(%rcx), %xmm4
 
@@ -572,14 +579,12 @@ sha256_transform_4way_sse2_extend_loop:
 	psrld	$10, %xmm7
 	movdqa	%xmm3, %xmm1
 	movdqa	%xmm7, %xmm5
-
-	paddd	-7*16(%rcx), %xmm0
-
 	pslld	$13, %xmm2
 	pslld	$13, %xmm6
 	psrld	$7, %xmm1
 	psrld	$7, %xmm5
 
+	paddd	-7*16(%rcx), %xmm0
 	paddd	-6*16(%rcx), %xmm4
 
 	pxor	%xmm1, %xmm3
@@ -595,10 +600,10 @@ sha256_transform_4way_sse2_extend_loop:
 	pxor	%xmm2, %xmm3
 	pxor	%xmm6, %xmm7
 
-	paddd	%xmm3, %xmm0
-	paddd	%xmm7, %xmm4
-	movdqa	%xmm0, (%rcx)
-	movdqa	%xmm4, 16(%rcx)
+	paddd	%xmm0, %xmm3
+	paddd	%xmm4, %xmm7
+	movdqa	%xmm3, (%rcx)
+	movdqa	%xmm7, 16(%rcx)
 	addq	$2*16, %rcx
 	cmpq	%rcx, %rax
 	jne sha256_transform_4way_sse2_extend_loop
@@ -979,20 +984,206 @@ sha256d_ms_4way_sse2:
 	subq	$1032, %rsp
 	
 	leaq	256(%rsi), %rax
-	movdqa	0*16(%rax), %xmm3
-	movdqa	1*16(%rax), %xmm7
-	jmp sha256d_ms_4way_sse2_extend_loop1
+	
+sha256d_ms_4way_sse2_extend_loop1:
+	movdqa	3*16(%rsi), %xmm0
+	movdqa	2*16(%rax), %xmm3
+	movdqa	3*16(%rax), %xmm7
+	movdqa	%xmm3, 2*16(%rsp)
+	movdqa	%xmm7, 3*16(%rsp)
+	movdqa	%xmm0, %xmm2
+	paddd	%xmm0, %xmm7
+	psrld	$3, %xmm0
+	movdqa	%xmm0, %xmm1
+	pslld	$14, %xmm2
+	psrld	$4, %xmm1
+	pxor	%xmm1, %xmm0
+	pxor	%xmm2, %xmm0
+	psrld	$11, %xmm1
+	pslld	$11, %xmm2
+	pxor	%xmm1, %xmm0
+	pxor	%xmm2, %xmm0
+	paddd	%xmm0, %xmm3
+	movdqa	%xmm3, 2*16(%rax)
+	movdqa	%xmm7, 3*16(%rax)
+	
+	movdqa	4*16(%rax), %xmm0
+	movdqa	%xmm0, 4*16(%rsp)
+	movdqa	%xmm3, %xmm2
+	movdqa	%xmm7, %xmm6
+	psrld	$10, %xmm3
+	psrld	$10, %xmm7
+	movdqa	%xmm3, %xmm1
+	movdqa	%xmm7, %xmm5
+	pslld	$13, %xmm2
+	pslld	$13, %xmm6
+	psrld	$7, %xmm1
+	psrld	$7, %xmm5
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	psrld	$2, %xmm1
+	psrld	$2, %xmm5
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	pslld	$2, %xmm2
+	pslld	$2, %xmm6
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	paddd	%xmm0, %xmm3
+	movdqa	%xmm3, 4*16(%rax)
+	movdqa	%xmm7, 5*16(%rax)
+	
+	movdqa	6*16(%rax), %xmm0
+	movdqa	7*16(%rax), %xmm4
+	movdqa	%xmm0, 6*16(%rsp)
+	movdqa	%xmm4, 7*16(%rsp)
+	movdqa	%xmm3, %xmm2
+	movdqa	%xmm7, %xmm6
+	psrld	$10, %xmm3
+	psrld	$10, %xmm7
+	movdqa	%xmm3, %xmm1
+	movdqa	%xmm7, %xmm5
+	pslld	$13, %xmm2
+	pslld	$13, %xmm6
+	psrld	$7, %xmm1
+	psrld	$7, %xmm5
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	psrld	$2, %xmm1
+	psrld	$2, %xmm5
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	pslld	$2, %xmm2
+	pslld	$2, %xmm6
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	paddd	%xmm0, %xmm3
+	paddd	%xmm4, %xmm7
+	movdqa	%xmm3, 6*16(%rax)
+	movdqa	%xmm7, 7*16(%rax)
+	
+	movdqa	8*16(%rax), %xmm0
+	movdqa	2*16(%rax), %xmm4
+	movdqa	%xmm0, 8*16(%rsp)
+	movdqa	%xmm3, %xmm2
+	movdqa	%xmm7, %xmm6
+	psrld	$10, %xmm3
+	psrld	$10, %xmm7
+	movdqa	%xmm3, %xmm1
+	movdqa	%xmm7, %xmm5
+	pslld	$13, %xmm2
+	pslld	$13, %xmm6
+	psrld	$7, %xmm1
+	psrld	$7, %xmm5
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	psrld	$2, %xmm1
+	psrld	$2, %xmm5
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	pslld	$2, %xmm2
+	pslld	$2, %xmm6
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	paddd	%xmm0, %xmm3
+	paddd	%xmm4, %xmm7
+	movdqa	%xmm3, 8*16(%rax)
+	movdqa	%xmm7, 9*16(%rax)
+	
+	movdqa	%xmm3, %xmm2
+	movdqa	%xmm7, %xmm6
+	psrld	$10, %xmm3
+	psrld	$10, %xmm7
+	movdqa	%xmm3, %xmm1
+	movdqa	%xmm7, %xmm5
+	pslld	$13, %xmm2
+	pslld	$13, %xmm6
+	psrld	$7, %xmm1
+	psrld	$7, %xmm5
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	psrld	$2, %xmm1
+	psrld	$2, %xmm5
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	pslld	$2, %xmm2
+	pslld	$2, %xmm6
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	paddd	3*16(%rax), %xmm3
+	paddd	4*16(%rax), %xmm7
+	movdqa	%xmm3, 10*16(%rax)
+	movdqa	%xmm7, 11*16(%rax)
+	
+	movdqa	%xmm3, %xmm2
+	movdqa	%xmm7, %xmm6
+	psrld	$10, %xmm3
+	psrld	$10, %xmm7
+	movdqa	%xmm3, %xmm1
+	movdqa	%xmm7, %xmm5
+	pslld	$13, %xmm2
+	pslld	$13, %xmm6
+	psrld	$7, %xmm1
+	psrld	$7, %xmm5
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	psrld	$2, %xmm1
+	psrld	$2, %xmm5
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	pslld	$2, %xmm2
+	pslld	$2, %xmm6
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	paddd	5*16(%rax), %xmm3
+	paddd	6*16(%rax), %xmm7
+	movdqa	%xmm3, 12*16(%rax)
+	movdqa	%xmm7, 13*16(%rax)
+	
+	movdqa	14*16(%rax), %xmm0
+	movdqa	15*16(%rax), %xmm4
+	movdqa	%xmm0, 14*16(%rsp)
+	movdqa	%xmm4, 15*16(%rsp)
+	movdqa	%xmm3, %xmm2
+	movdqa	%xmm7, %xmm6
+	psrld	$10, %xmm3
+	psrld	$10, %xmm7
+	movdqa	%xmm3, %xmm1
+	movdqa	%xmm7, %xmm5
+	paddd	7*16(%rax), %xmm0
+	paddd	8*16(%rax), %xmm4
+	pslld	$13, %xmm2
+	pslld	$13, %xmm6
+	psrld	$7, %xmm1
+	psrld	$7, %xmm5
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	psrld	$2, %xmm1
+	psrld	$2, %xmm5
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	pslld	$2, %xmm2
+	pslld	$2, %xmm6
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	paddd	%xmm0, %xmm3
+	paddd	%xmm4, %xmm7
+	movdqa	%xmm3, 14*16(%rax)
+	movdqa	%xmm7, 15*16(%rax)
 	
 sha256d_ms_4way_sse2_extend_loop2:
-	sha256_sse2_extend_doubleround 0
-sha256d_ms_4way_sse2_extend_loop1:
-	sha256_sse2_extend_doubleround 2
-	sha256_sse2_extend_doubleround 4
-	sha256_sse2_extend_doubleround 6
-	sha256_sse2_extend_doubleround 8
-	sha256_sse2_extend_doubleround 10
-	sha256_sse2_extend_doubleround 12
-	sha256_sse2_extend_doubleround 14
 	sha256_sse2_extend_doubleround 16
 	sha256_sse2_extend_doubleround 18
 	sha256_sse2_extend_doubleround 20
@@ -1092,6 +1283,23 @@ sha256d_ms_4way_sse2_main_loop1:
 	sha256_sse2_main_round 62
 	sha256_sse2_main_round 63
 	
+	movdqa	2*16(%rsp), %xmm1
+	movdqa	3*16(%rsp), %xmm2
+	movdqa	4*16(%rsp), %xmm6
+	movdqa	%xmm1, 18*16(%rsi)
+	movdqa	%xmm2, 19*16(%rsi)
+	movdqa	%xmm6, 20*16(%rsi)
+	movdqa	6*16(%rsp), %xmm1
+	movdqa	7*16(%rsp), %xmm2
+	movdqa	8*16(%rsp), %xmm6
+	movdqa	%xmm1, 22*16(%rsi)
+	movdqa	%xmm2, 23*16(%rsi)
+	movdqa	%xmm6, 24*16(%rsi)
+	movdqa	14*16(%rsp), %xmm1
+	movdqa	15*16(%rsp), %xmm2
+	movdqa	%xmm1, 30*16(%rsi)
+	movdqa	%xmm2, 31*16(%rsi)
+	
 	paddd	0(%rdx), %xmm7
 	paddd	16(%rdx), %xmm5
 	paddd	32(%rdx), %xmm4
@@ -1126,8 +1334,212 @@ sha256d_ms_4way_sse2_main_loop1:
 	
 	leaq	256(%rsp), %rax
 	cmpq	%rax, %rax
-	movdqa	-2*16(%rax), %xmm3
-	movdqa	-1*16(%rax), %xmm7
+	
+	movdqa	-15*16(%rax), %xmm0
+	movdqa	-14*16(%rax), %xmm4
+	movdqa	%xmm0, %xmm2
+	movdqa	%xmm4, %xmm6
+	psrld	$3, %xmm0
+	psrld	$3, %xmm4
+	movdqa	%xmm0, %xmm1
+	movdqa	%xmm4, %xmm5
+	pslld	$14, %xmm2
+	pslld	$14, %xmm6
+	psrld	$4, %xmm1
+	psrld	$4, %xmm5
+	pxor	%xmm1, %xmm0
+	pxor	%xmm5, %xmm4
+	psrld	$11, %xmm1
+	psrld	$11, %xmm5
+	pxor	%xmm2, %xmm0
+	pxor	%xmm6, %xmm4
+	pslld	$11, %xmm2
+	pslld	$11, %xmm6
+	pxor	%xmm1, %xmm0
+	pxor	%xmm5, %xmm4
+	pxor	%xmm2, %xmm0
+	pxor	%xmm6, %xmm4
+	paddd	-16*16(%rax), %xmm0
+	paddd	-15*16(%rax), %xmm4
+	paddd	sha256d_4preext2_17(%rip), %xmm4
+	movdqa	%xmm0, %xmm3
+	movdqa	%xmm4, %xmm7
+	movdqa	%xmm3, 0*16(%rax)
+	movdqa	%xmm7, 1*16(%rax)
+	
+	sha256_sse2_extend_doubleround 2
+	sha256_sse2_extend_doubleround 4
+	
+	movdqa	-9*16(%rax), %xmm0
+	movdqa	sha256d_4preext2_23(%rip), %xmm4
+	movdqa	%xmm0, %xmm2
+	psrld	$3, %xmm0
+	movdqa	%xmm0, %xmm1
+	pslld	$14, %xmm2
+	psrld	$4, %xmm1
+	pxor	%xmm1, %xmm0
+	pxor	%xmm2, %xmm0
+	psrld	$11, %xmm1
+	pslld	$11, %xmm2
+	pxor	%xmm1, %xmm0
+	pxor	%xmm2, %xmm0
+	paddd	-10*16(%rax), %xmm0
+	paddd	-9*16(%rax), %xmm4
+	movdqa	%xmm3, %xmm2
+	movdqa	%xmm7, %xmm6
+	psrld	$10, %xmm3
+	psrld	$10, %xmm7
+	movdqa	%xmm3, %xmm1
+	movdqa	%xmm7, %xmm5
+	paddd	-1*16(%rax), %xmm0
+	pslld	$13, %xmm2
+	pslld	$13, %xmm6
+	psrld	$7, %xmm1
+	psrld	$7, %xmm5
+	paddd	0*16(%rax), %xmm4
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	psrld	$2, %xmm1
+	psrld	$2, %xmm5
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	pslld	$2, %xmm2
+	pslld	$2, %xmm6
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	paddd	%xmm0, %xmm3
+	paddd	%xmm4, %xmm7
+	movdqa	%xmm3, 6*16(%rax)
+	movdqa	%xmm7, 7*16(%rax)
+	
+	movdqa	sha256d_4preext2_24(%rip), %xmm0
+	movdqa	%xmm3, %xmm2
+	movdqa	%xmm7, %xmm6
+	psrld	$10, %xmm3
+	psrld	$10, %xmm7
+	movdqa	%xmm3, %xmm1
+	movdqa	%xmm7, %xmm5
+	paddd	1*16(%rax), %xmm0
+	pslld	$13, %xmm2
+	pslld	$13, %xmm6
+	psrld	$7, %xmm1
+	psrld	$7, %xmm5
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	psrld	$2, %xmm1
+	psrld	$2, %xmm5
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	pslld	$2, %xmm2
+	pslld	$2, %xmm6
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	paddd	%xmm0, %xmm3
+	paddd	2*16(%rax), %xmm7
+	movdqa	%xmm3, 8*16(%rax)
+	movdqa	%xmm7, 9*16(%rax)
+	
+	movdqa	%xmm3, %xmm2
+	movdqa	%xmm7, %xmm6
+	psrld	$10, %xmm3
+	psrld	$10, %xmm7
+	movdqa	%xmm3, %xmm1
+	movdqa	%xmm7, %xmm5
+	pslld	$13, %xmm2
+	pslld	$13, %xmm6
+	psrld	$7, %xmm1
+	psrld	$7, %xmm5
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	psrld	$2, %xmm1
+	psrld	$2, %xmm5
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	pslld	$2, %xmm2
+	pslld	$2, %xmm6
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	paddd	3*16(%rax), %xmm3
+	paddd	4*16(%rax), %xmm7
+	movdqa	%xmm3, 10*16(%rax)
+	movdqa	%xmm7, 11*16(%rax)
+	
+	movdqa	%xmm3, %xmm2
+	movdqa	%xmm7, %xmm6
+	psrld	$10, %xmm3
+	psrld	$10, %xmm7
+	movdqa	%xmm3, %xmm1
+	movdqa	%xmm7, %xmm5
+	pslld	$13, %xmm2
+	pslld	$13, %xmm6
+	psrld	$7, %xmm1
+	psrld	$7, %xmm5
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	psrld	$2, %xmm1
+	psrld	$2, %xmm5
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	pslld	$2, %xmm2
+	pslld	$2, %xmm6
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	paddd	5*16(%rax), %xmm3
+	paddd	6*16(%rax), %xmm7
+	movdqa	%xmm3, 12*16(%rax)
+	movdqa	%xmm7, 13*16(%rax)
+	
+	movdqa	sha256d_4preext2_30(%rip), %xmm0
+	movdqa	0*16(%rax), %xmm4
+	movdqa	%xmm4, %xmm6
+	psrld	$3, %xmm4
+	movdqa	%xmm4, %xmm5
+	pslld	$14, %xmm6
+	psrld	$4, %xmm5
+	pxor	%xmm5, %xmm4
+	pxor	%xmm6, %xmm4
+	psrld	$11, %xmm5
+	pslld	$11, %xmm6
+	pxor	%xmm5, %xmm4
+	pxor	%xmm6, %xmm4
+	paddd	-1*16(%rax), %xmm4
+	movdqa	%xmm3, %xmm2
+	movdqa	%xmm7, %xmm6
+	psrld	$10, %xmm3
+	psrld	$10, %xmm7
+	movdqa	%xmm3, %xmm1
+	movdqa	%xmm7, %xmm5
+	paddd	7*16(%rax), %xmm0
+	pslld	$13, %xmm2
+	pslld	$13, %xmm6
+	psrld	$7, %xmm1
+	psrld	$7, %xmm5
+	paddd	8*16(%rax), %xmm4
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	psrld	$2, %xmm1
+	psrld	$2, %xmm5
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	pslld	$2, %xmm2
+	pslld	$2, %xmm6
+	pxor	%xmm1, %xmm3
+	pxor	%xmm5, %xmm7
+	pxor	%xmm2, %xmm3
+	pxor	%xmm6, %xmm7
+	paddd	%xmm0, %xmm3
+	paddd	%xmm4, %xmm7
+	movdqa	%xmm3, 14*16(%rax)
+	movdqa	%xmm7, 15*16(%rax)
+	
 	jmp sha256d_ms_4way_sse2_extend_loop2
 	
 sha256d_ms_4way_sse2_extend_coda2:
@@ -1219,20 +1631,180 @@ sha256d_ms_4way_avx:
 	subq	$1032, %rsp
 	
 	leaq	256(%rsi), %rax
-	movdqa	0*16(%rax), %xmm3
-	movdqa	1*16(%rax), %xmm7
-	jmp sha256d_ms_4way_avx_extend_loop1
+	
+sha256d_ms_4way_avx_extend_loop1:
+	vmovdqa	3*16(%rsi), %xmm0
+	vmovdqa	2*16(%rax), %xmm3
+	vmovdqa	3*16(%rax), %xmm7
+	vmovdqa	%xmm3, 2*16(%rsp)
+	vmovdqa	%xmm7, 3*16(%rsp)
+	vpaddd	%xmm0, %xmm7, %xmm7
+	vpslld	$14, %xmm0, %xmm2
+	vpsrld	$3, %xmm0, %xmm0
+	vpsrld	$4, %xmm0, %xmm1
+	vpxor	%xmm1, %xmm0, %xmm0
+	vpxor	%xmm2, %xmm0, %xmm0
+	vpsrld	$11, %xmm1, %xmm1
+	vpslld	$11, %xmm2, %xmm2
+	vpxor	%xmm1, %xmm0, %xmm0
+	vpxor	%xmm2, %xmm0, %xmm0
+	vpaddd	%xmm0, %xmm3, %xmm3
+	vmovdqa	%xmm3, 2*16(%rax)
+	vmovdqa	%xmm7, 3*16(%rax)
+	
+	vmovdqa	4*16(%rax), %xmm0
+	vmovdqa	%xmm0, 4*16(%rsp)
+	vpslld	$13, %xmm3, %xmm2
+	vpslld	$13, %xmm7, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpsrld	$7, %xmm3, %xmm1
+	vpsrld	$7, %xmm7, %xmm5
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpsrld	$2, %xmm1, %xmm1
+	vpsrld	$2, %xmm5, %xmm5
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpslld	$2, %xmm2, %xmm2
+	vpslld	$2, %xmm6, %xmm6
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	%xmm0, %xmm3, %xmm3
+	vmovdqa	%xmm3, 4*16(%rax)
+	vmovdqa	%xmm7, 5*16(%rax)
+	
+	vmovdqa	6*16(%rax), %xmm0
+	vmovdqa	7*16(%rax), %xmm4
+	vmovdqa	%xmm0, 6*16(%rsp)
+	vmovdqa	%xmm4, 7*16(%rsp)
+	vpslld	$13, %xmm3, %xmm2
+	vpslld	$13, %xmm7, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpsrld	$7, %xmm3, %xmm1
+	vpsrld	$7, %xmm7, %xmm5
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpsrld	$2, %xmm1, %xmm1
+	vpsrld	$2, %xmm5, %xmm5
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpslld	$2, %xmm2, %xmm2
+	vpslld	$2, %xmm6, %xmm6
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	%xmm0, %xmm3, %xmm3
+	vpaddd	%xmm4, %xmm7, %xmm7
+	vmovdqa	%xmm3, 6*16(%rax)
+	vmovdqa	%xmm7, 7*16(%rax)
+	
+	vmovdqa	8*16(%rax), %xmm0
+	vmovdqa	2*16(%rax), %xmm4
+	vmovdqa	%xmm0, 8*16(%rsp)
+	vpslld	$13, %xmm3, %xmm2
+	vpslld	$13, %xmm7, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpsrld	$7, %xmm3, %xmm1
+	vpsrld	$7, %xmm7, %xmm5
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpsrld	$2, %xmm1, %xmm1
+	vpsrld	$2, %xmm5, %xmm5
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpslld	$2, %xmm2, %xmm2
+	vpslld	$2, %xmm6, %xmm6
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	%xmm0, %xmm3, %xmm3
+	vpaddd	%xmm4, %xmm7, %xmm7
+	vmovdqa	%xmm3, 8*16(%rax)
+	vmovdqa	%xmm7, 9*16(%rax)
+	
+	vpslld	$13, %xmm3, %xmm2
+	vpslld	$13, %xmm7, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpsrld	$7, %xmm3, %xmm1
+	vpsrld	$7, %xmm7, %xmm5
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpsrld	$2, %xmm1, %xmm1
+	vpsrld	$2, %xmm5, %xmm5
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpslld	$2, %xmm2, %xmm2
+	vpslld	$2, %xmm6, %xmm6
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	3*16(%rax), %xmm3, %xmm3
+	vpaddd	4*16(%rax), %xmm7, %xmm7
+	vmovdqa	%xmm3, 10*16(%rax)
+	vmovdqa	%xmm7, 11*16(%rax)
+	
+	vpslld	$13, %xmm3, %xmm2
+	vpslld	$13, %xmm7, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpsrld	$7, %xmm3, %xmm1
+	vpsrld	$7, %xmm7, %xmm5
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpsrld	$2, %xmm1, %xmm1
+	vpsrld	$2, %xmm5, %xmm5
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpslld	$2, %xmm2, %xmm2
+	vpslld	$2, %xmm6, %xmm6
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	5*16(%rax), %xmm3, %xmm3
+	vpaddd	6*16(%rax), %xmm7, %xmm7
+	vmovdqa	%xmm3, 12*16(%rax)
+	vmovdqa	%xmm7, 13*16(%rax)
+	
+	vmovdqa	14*16(%rax), %xmm0
+	vmovdqa	15*16(%rax), %xmm4
+	vmovdqa	%xmm0, 14*16(%rsp)
+	vmovdqa	%xmm4, 15*16(%rsp)
+	vpslld	$13, %xmm3, %xmm2
+	vpslld	$13, %xmm7, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpaddd	7*16(%rax), %xmm0, %xmm0
+	vpaddd	8*16(%rax), %xmm4, %xmm4
+	vpsrld	$7, %xmm3, %xmm1
+	vpsrld	$7, %xmm7, %xmm5
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpsrld	$2, %xmm1, %xmm1
+	vpsrld	$2, %xmm5, %xmm5
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpslld	$2, %xmm2, %xmm2
+	vpslld	$2, %xmm6, %xmm6
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	%xmm0, %xmm3, %xmm3
+	vpaddd	%xmm4, %xmm7, %xmm7
+	vmovdqa	%xmm3, 14*16(%rax)
+	vmovdqa	%xmm7, 15*16(%rax)
 	
 sha256d_ms_4way_avx_extend_loop2:
-	sha256_avx_extend_doubleround 0
-sha256d_ms_4way_avx_extend_loop1:
-	sha256_avx_extend_doubleround 2
-	sha256_avx_extend_doubleround 4
-	sha256_avx_extend_doubleround 6
-	sha256_avx_extend_doubleround 8
-	sha256_avx_extend_doubleround 10
-	sha256_avx_extend_doubleround 12
-	sha256_avx_extend_doubleround 14
 	sha256_avx_extend_doubleround 16
 	sha256_avx_extend_doubleround 18
 	sha256_avx_extend_doubleround 20
@@ -1290,6 +1862,23 @@ sha256d_ms_4way_avx_main_loop1:
 	sha256_avx_main_round 59, %xmm0, %xmm10, %xmm9, %xmm8, %xmm7, %xmm3, %xmm4, %xmm5
 	sha256_avx_main_quadround 60
 	
+	movdqa	2*16(%rsp), %xmm1
+	movdqa	3*16(%rsp), %xmm2
+	movdqa	4*16(%rsp), %xmm6
+	movdqa	%xmm1, 18*16(%rsi)
+	movdqa	%xmm2, 19*16(%rsi)
+	movdqa	%xmm6, 20*16(%rsi)
+	movdqa	6*16(%rsp), %xmm1
+	movdqa	7*16(%rsp), %xmm2
+	movdqa	8*16(%rsp), %xmm6
+	movdqa	%xmm1, 22*16(%rsi)
+	movdqa	%xmm2, 23*16(%rsi)
+	movdqa	%xmm6, 24*16(%rsi)
+	movdqa	14*16(%rsp), %xmm1
+	movdqa	15*16(%rsp), %xmm2
+	movdqa	%xmm1, 30*16(%rsi)
+	movdqa	%xmm2, 31*16(%rsi)
+	
 	paddd	0(%rdx), %xmm7
 	paddd	16(%rdx), %xmm5
 	paddd	32(%rdx), %xmm4
@@ -1324,8 +1913,180 @@ sha256d_ms_4way_avx_main_loop1:
 	
 	leaq	256(%rsp), %rax
 	cmpq	%rax, %rax
-	movdqa	-2*16(%rax), %xmm3
-	movdqa	-1*16(%rax), %xmm7
+	
+	vmovdqa	-15*16(%rax), %xmm0
+	vmovdqa	-14*16(%rax), %xmm4
+	vpslld	$14, %xmm0, %xmm2
+	vpslld	$14, %xmm4, %xmm6
+	vpsrld	$3, %xmm0, %xmm8
+	vpsrld	$3, %xmm4, %xmm4
+	vpsrld	$7, %xmm0, %xmm1
+	vpsrld	$4, %xmm4, %xmm5
+	vpxor	%xmm1, %xmm8, %xmm8
+	vpxor	%xmm5, %xmm4, %xmm4
+	vpsrld	$11, %xmm1, %xmm1
+	vpsrld	$11, %xmm5, %xmm5
+	vpxor	%xmm2, %xmm8, %xmm8
+	vpxor	%xmm6, %xmm4, %xmm4
+	vpslld	$11, %xmm2, %xmm2
+	vpslld	$11, %xmm6, %xmm6
+	vpxor	%xmm1, %xmm8, %xmm8
+	vpxor	%xmm5, %xmm4, %xmm4
+	vpxor	%xmm2, %xmm8, %xmm8
+	vpxor	%xmm6, %xmm4, %xmm4
+	vpaddd	%xmm0, %xmm4, %xmm4
+	vpaddd	-16*16(%rax), %xmm8, %xmm3
+	vpaddd	sha256d_4preext2_17(%rip), %xmm4, %xmm7
+	vmovdqa	%xmm3, 0*16(%rax)
+	vmovdqa	%xmm7, 1*16(%rax)
+	
+	sha256_avx_extend_doubleround 2
+	sha256_avx_extend_doubleround 4
+	
+	vmovdqa	-9*16(%rax), %xmm0
+	vpslld	$14, %xmm0, %xmm2
+	vpsrld	$3, %xmm0, %xmm8
+	vpsrld	$7, %xmm0, %xmm1
+	vpxor	%xmm1, %xmm8, %xmm8
+	vpxor	%xmm2, %xmm8, %xmm8
+	vpsrld	$11, %xmm1, %xmm1
+	vpslld	$11, %xmm2, %xmm2
+	vpxor	%xmm1, %xmm8, %xmm8
+	vpxor	%xmm2, %xmm8, %xmm8
+	vpaddd	sha256d_4preext2_23(%rip), %xmm0, %xmm4
+	vpaddd	-10*16(%rax), %xmm8, %xmm0
+	vpslld	$13, %xmm3, %xmm2
+	vpslld	$13, %xmm7, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpaddd	-1*16(%rax), %xmm0, %xmm0
+	vpaddd	0*16(%rax), %xmm4, %xmm4
+	vpsrld	$7, %xmm3, %xmm1
+	vpsrld	$7, %xmm7, %xmm5
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpsrld	$2, %xmm1, %xmm1
+	vpsrld	$2, %xmm5, %xmm5
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpslld	$2, %xmm2, %xmm2
+	vpslld	$2, %xmm6, %xmm6
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	%xmm0, %xmm3, %xmm3
+	vpaddd	%xmm4, %xmm7, %xmm7
+	vmovdqa	%xmm3, 6*16(%rax)
+	vmovdqa	%xmm7, 7*16(%rax)
+	
+	vpslld	$13, %xmm3, %xmm2
+	vpslld	$13, %xmm7, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpsrld	$7, %xmm3, %xmm1
+	vpsrld	$7, %xmm7, %xmm5
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpsrld	$2, %xmm1, %xmm1
+	vpsrld	$2, %xmm5, %xmm5
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpslld	$2, %xmm2, %xmm2
+	vpslld	$2, %xmm6, %xmm6
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	sha256d_4preext2_24(%rip), %xmm3, %xmm3
+	vpaddd	1*16(%rax), %xmm3, %xmm3
+	vpaddd	2*16(%rax), %xmm7, %xmm7
+	vmovdqa	%xmm3, 8*16(%rax)
+	vmovdqa	%xmm7, 9*16(%rax)
+	
+	vpslld	$13, %xmm3, %xmm2
+	vpslld	$13, %xmm7, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpsrld	$7, %xmm3, %xmm1
+	vpsrld	$7, %xmm7, %xmm5
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpsrld	$2, %xmm1, %xmm1
+	vpsrld	$2, %xmm5, %xmm5
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpslld	$2, %xmm2, %xmm2
+	vpslld	$2, %xmm6, %xmm6
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	3*16(%rax), %xmm3, %xmm3
+	vpaddd	4*16(%rax), %xmm7, %xmm7
+	vmovdqa	%xmm3, 10*16(%rax)
+	vmovdqa	%xmm7, 11*16(%rax)
+	
+	vpslld	$13, %xmm3, %xmm2
+	vpslld	$13, %xmm7, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpsrld	$7, %xmm3, %xmm1
+	vpsrld	$7, %xmm7, %xmm5
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpsrld	$2, %xmm1, %xmm1
+	vpsrld	$2, %xmm5, %xmm5
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpslld	$2, %xmm2, %xmm2
+	vpslld	$2, %xmm6, %xmm6
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	5*16(%rax), %xmm3, %xmm3
+	vpaddd	6*16(%rax), %xmm7, %xmm7
+	vmovdqa	%xmm3, 12*16(%rax)
+	vmovdqa	%xmm7, 13*16(%rax)
+	
+	vmovdqa	sha256d_4preext2_30(%rip), %xmm0
+	vmovdqa	0*16(%rax), %xmm4
+	vpslld	$14, %xmm4, %xmm6
+	vpsrld	$3, %xmm4, %xmm4
+	vpsrld	$4, %xmm4, %xmm5
+	vpxor	%xmm5, %xmm4, %xmm4
+	vpxor	%xmm6, %xmm4, %xmm4
+	vpsrld	$11, %xmm5, %xmm5
+	vpslld	$11, %xmm6, %xmm6
+	vpxor	%xmm5, %xmm4, %xmm4
+	vpxor	%xmm6, %xmm4, %xmm4
+	vpaddd	-1*16(%rax), %xmm4, %xmm4
+	vpslld	$13, %xmm3, %xmm2
+	vpslld	$13, %xmm7, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpaddd	7*16(%rax), %xmm0, %xmm0
+	vpaddd	8*16(%rax), %xmm4, %xmm4
+	vpsrld	$7, %xmm3, %xmm1
+	vpsrld	$7, %xmm7, %xmm5
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpsrld	$2, %xmm1, %xmm1
+	vpsrld	$2, %xmm5, %xmm5
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpslld	$2, %xmm2, %xmm2
+	vpslld	$2, %xmm6, %xmm6
+	vpxor	%xmm1, %xmm3, %xmm3
+	vpxor	%xmm5, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	%xmm0, %xmm3, %xmm3
+	vpaddd	%xmm4, %xmm7, %xmm7
+	vmovdqa	%xmm3, 14*16(%rax)
+	vmovdqa	%xmm7, 15*16(%rax)
+	
 	jmp sha256d_ms_4way_avx_extend_loop2
 	
 sha256d_ms_4way_avx_extend_coda2:
@@ -1412,20 +2173,128 @@ sha256d_ms_4way_xop:
 	subq	$1032, %rsp
 	
 	leaq	256(%rsi), %rax
-	movdqa	0*16(%rax), %xmm3
-	movdqa	1*16(%rax), %xmm7
-	jmp sha256d_ms_4way_xop_extend_loop1
+	
+sha256d_ms_4way_xop_extend_loop1:
+	vmovdqa	3*16(%rsi), %xmm0
+	vmovdqa	2*16(%rax), %xmm3
+	vmovdqa	3*16(%rax), %xmm7
+	vmovdqa	%xmm3, 2*16(%rsp)
+	vmovdqa	%xmm7, 3*16(%rsp)
+	vpaddd	%xmm0, %xmm7, %xmm7
+	vprotd	$25, %xmm0, %xmm1
+	vprotd	$14, %xmm0, %xmm2
+	vpsrld	$3, %xmm0, %xmm0
+	vpxor	%xmm1, %xmm2, %xmm2
+	vpxor	%xmm2, %xmm0, %xmm0
+	vpaddd	%xmm0, %xmm3, %xmm3
+	vmovdqa	%xmm3, 2*16(%rax)
+	vmovdqa	%xmm7, 3*16(%rax)
+	
+	vmovdqa	4*16(%rax), %xmm0
+	vmovdqa	%xmm0, 4*16(%rsp)
+	vprotd	$15, %xmm3, %xmm1
+	vprotd	$15, %xmm7, %xmm5
+	vprotd	$13, %xmm3, %xmm2
+	vprotd	$13, %xmm7, %xmm6
+	vpxor	%xmm1, %xmm2, %xmm2
+	vpxor	%xmm5, %xmm6, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	%xmm0, %xmm3, %xmm3
+	vmovdqa	%xmm3, 4*16(%rax)
+	vmovdqa	%xmm7, 5*16(%rax)
+	
+	vmovdqa	6*16(%rax), %xmm0
+	vmovdqa	7*16(%rax), %xmm4
+	vmovdqa	%xmm0, 6*16(%rsp)
+	vmovdqa	%xmm4, 7*16(%rsp)
+	vprotd	$15, %xmm3, %xmm1
+	vprotd	$15, %xmm7, %xmm5
+	vprotd	$13, %xmm3, %xmm2
+	vprotd	$13, %xmm7, %xmm6
+	vpxor	%xmm1, %xmm2, %xmm2
+	vpxor	%xmm5, %xmm6, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	%xmm0, %xmm3, %xmm3
+	vpaddd	%xmm4, %xmm7, %xmm7
+	vmovdqa	%xmm3, 6*16(%rax)
+	vmovdqa	%xmm7, 7*16(%rax)
+	
+	vmovdqa	8*16(%rax), %xmm0
+	vmovdqa	2*16(%rax), %xmm4
+	vmovdqa	%xmm0, 8*16(%rsp)
+	vprotd	$15, %xmm3, %xmm1
+	vprotd	$15, %xmm7, %xmm5
+	vprotd	$13, %xmm3, %xmm2
+	vprotd	$13, %xmm7, %xmm6
+	vpxor	%xmm1, %xmm2, %xmm2
+	vpxor	%xmm5, %xmm6, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	%xmm0, %xmm3, %xmm3
+	vpaddd	%xmm4, %xmm7, %xmm7
+	vmovdqa	%xmm3, 8*16(%rax)
+	vmovdqa	%xmm7, 9*16(%rax)
+	
+	vprotd	$15, %xmm3, %xmm1
+	vprotd	$15, %xmm7, %xmm5
+	vprotd	$13, %xmm3, %xmm2
+	vprotd	$13, %xmm7, %xmm6
+	vpxor	%xmm1, %xmm2, %xmm2
+	vpxor	%xmm5, %xmm6, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	3*16(%rax), %xmm3, %xmm3
+	vpaddd	4*16(%rax), %xmm7, %xmm7
+	vmovdqa	%xmm3, 10*16(%rax)
+	vmovdqa	%xmm7, 11*16(%rax)
+	
+	vprotd	$15, %xmm3, %xmm1
+	vprotd	$15, %xmm7, %xmm5
+	vprotd	$13, %xmm3, %xmm2
+	vprotd	$13, %xmm7, %xmm6
+	vpxor	%xmm1, %xmm2, %xmm2
+	vpxor	%xmm5, %xmm6, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	5*16(%rax), %xmm3, %xmm3
+	vpaddd	6*16(%rax), %xmm7, %xmm7
+	vmovdqa	%xmm3, 12*16(%rax)
+	vmovdqa	%xmm7, 13*16(%rax)
+	
+	vmovdqa	14*16(%rax), %xmm0
+	vmovdqa	15*16(%rax), %xmm4
+	vmovdqa	%xmm0, 14*16(%rsp)
+	vmovdqa	%xmm4, 15*16(%rsp)
+	vprotd	$15, %xmm3, %xmm1
+	vprotd	$15, %xmm7, %xmm5
+	vprotd	$13, %xmm3, %xmm2
+	vprotd	$13, %xmm7, %xmm6
+	vpxor	%xmm1, %xmm2, %xmm2
+	vpxor	%xmm5, %xmm6, %xmm6
+	vpaddd	7*16(%rax), %xmm0, %xmm0
+	vpaddd	8*16(%rax), %xmm4, %xmm4
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	%xmm0, %xmm3, %xmm3
+	vpaddd	%xmm4, %xmm7, %xmm7
+	vmovdqa	%xmm3, 14*16(%rax)
+	vmovdqa	%xmm7, 15*16(%rax)
 	
 sha256d_ms_4way_xop_extend_loop2:
-	sha256_xop_extend_doubleround 0
-sha256d_ms_4way_xop_extend_loop1:
-	sha256_xop_extend_doubleround 2
-	sha256_xop_extend_doubleround 4
-	sha256_xop_extend_doubleround 6
-	sha256_xop_extend_doubleround 8
-	sha256_xop_extend_doubleround 10
-	sha256_xop_extend_doubleround 12
-	sha256_xop_extend_doubleround 14
 	sha256_xop_extend_doubleround 16
 	sha256_xop_extend_doubleround 18
 	sha256_xop_extend_doubleround 20
@@ -1483,6 +2352,23 @@ sha256d_ms_4way_xop_main_loop1:
 	sha256_xop_main_round 59, %xmm0, %xmm10, %xmm9, %xmm8, %xmm7, %xmm3, %xmm4, %xmm5
 	sha256_xop_main_quadround 60
 	
+	movdqa	2*16(%rsp), %xmm1
+	movdqa	3*16(%rsp), %xmm2
+	movdqa	4*16(%rsp), %xmm6
+	movdqa	%xmm1, 18*16(%rsi)
+	movdqa	%xmm2, 19*16(%rsi)
+	movdqa	%xmm6, 20*16(%rsi)
+	movdqa	6*16(%rsp), %xmm1
+	movdqa	7*16(%rsp), %xmm2
+	movdqa	8*16(%rsp), %xmm6
+	movdqa	%xmm1, 22*16(%rsi)
+	movdqa	%xmm2, 23*16(%rsi)
+	movdqa	%xmm6, 24*16(%rsi)
+	movdqa	14*16(%rsp), %xmm1
+	movdqa	15*16(%rsp), %xmm2
+	movdqa	%xmm1, 30*16(%rsi)
+	movdqa	%xmm2, 31*16(%rsi)
+	
 	paddd	0(%rdx), %xmm7
 	paddd	16(%rdx), %xmm5
 	paddd	32(%rdx), %xmm4
@@ -1517,8 +2403,124 @@ sha256d_ms_4way_xop_main_loop1:
 	
 	leaq	256(%rsp), %rax
 	cmpq	%rax, %rax
-	movdqa	-2*16(%rax), %xmm3
-	movdqa	-1*16(%rax), %xmm7
+	
+	vmovdqa	-15*16(%rax), %xmm0
+	vmovdqa	-14*16(%rax), %xmm4
+	vprotd	$25, %xmm0, %xmm1
+	vprotd	$25, %xmm4, %xmm5
+	vprotd	$14, %xmm0, %xmm2
+	vprotd	$14, %xmm4, %xmm6
+	vpxor	%xmm1, %xmm2, %xmm2
+	vpxor	%xmm5, %xmm6, %xmm6
+	vpsrld	$3, %xmm0, %xmm8
+	vpsrld	$3, %xmm4, %xmm4
+	vpxor	%xmm2, %xmm8, %xmm8
+	vpxor	%xmm6, %xmm4, %xmm4
+	vpaddd	%xmm0, %xmm4, %xmm4
+	vpaddd	-16*16(%rax), %xmm8, %xmm3
+	vpaddd	sha256d_4preext2_17(%rip), %xmm4, %xmm7
+	vmovdqa	%xmm3, 0*16(%rax)
+	vmovdqa	%xmm7, 1*16(%rax)
+	
+	sha256_xop_extend_doubleround 2
+	sha256_xop_extend_doubleround 4
+	
+	vmovdqa	-9*16(%rax), %xmm0
+	vprotd	$25, %xmm0, %xmm1
+	vprotd	$14, %xmm0, %xmm2
+	vpsrld	$3, %xmm0, %xmm8
+	vpxor	%xmm1, %xmm2, %xmm2
+	vpxor	%xmm2, %xmm8, %xmm8
+	vpaddd	sha256d_4preext2_23(%rip), %xmm0, %xmm4
+	vpaddd	-10*16(%rax), %xmm8, %xmm0
+	vprotd	$15, %xmm3, %xmm1
+	vprotd	$15, %xmm7, %xmm5
+	vprotd	$13, %xmm3, %xmm2
+	vprotd	$13, %xmm7, %xmm6
+	vpxor	%xmm1, %xmm2, %xmm2
+	vpxor	%xmm5, %xmm6, %xmm6
+	vpaddd	-1*16(%rax), %xmm0, %xmm0
+	vpaddd	0*16(%rax), %xmm4, %xmm4
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	%xmm0, %xmm3, %xmm3
+	vpaddd	%xmm4, %xmm7, %xmm7
+	vmovdqa	%xmm3, 6*16(%rax)
+	vmovdqa	%xmm7, 7*16(%rax)
+	
+	vprotd	$15, %xmm3, %xmm1
+	vprotd	$15, %xmm7, %xmm5
+	vprotd	$13, %xmm3, %xmm2
+	vprotd	$13, %xmm7, %xmm6
+	vpxor	%xmm1, %xmm2, %xmm2
+	vpxor	%xmm5, %xmm6, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	sha256d_4preext2_24(%rip), %xmm3, %xmm3
+	vpaddd	1*16(%rax), %xmm3, %xmm3
+	vpaddd	2*16(%rax), %xmm7, %xmm7
+	vmovdqa	%xmm3, 8*16(%rax)
+	vmovdqa	%xmm7, 9*16(%rax)
+	
+	vprotd	$15, %xmm3, %xmm1
+	vprotd	$15, %xmm7, %xmm5
+	vprotd	$13, %xmm3, %xmm2
+	vprotd	$13, %xmm7, %xmm6
+	vpxor	%xmm1, %xmm2, %xmm2
+	vpxor	%xmm5, %xmm6, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	3*16(%rax), %xmm3, %xmm3
+	vpaddd	4*16(%rax), %xmm7, %xmm7
+	vmovdqa	%xmm3, 10*16(%rax)
+	vmovdqa	%xmm7, 11*16(%rax)
+	
+	vprotd	$15, %xmm3, %xmm1
+	vprotd	$15, %xmm7, %xmm5
+	vprotd	$13, %xmm3, %xmm2
+	vprotd	$13, %xmm7, %xmm6
+	vpxor	%xmm1, %xmm2, %xmm2
+	vpxor	%xmm5, %xmm6, %xmm6
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	5*16(%rax), %xmm3, %xmm3
+	vpaddd	6*16(%rax), %xmm7, %xmm7
+	vmovdqa	%xmm3, 12*16(%rax)
+	vmovdqa	%xmm7, 13*16(%rax)
+	
+	vmovdqa	sha256d_4preext2_30(%rip), %xmm0
+	vmovdqa	0*16(%rax), %xmm4
+	vprotd	$25, %xmm4, %xmm5
+	vprotd	$14, %xmm4, %xmm6
+	vpxor	%xmm5, %xmm6, %xmm6
+	vpsrld	$3, %xmm4, %xmm4
+	vpxor	%xmm6, %xmm4, %xmm4
+	vpaddd	-1*16(%rax), %xmm4, %xmm4
+	vprotd	$15, %xmm3, %xmm1
+	vprotd	$15, %xmm7, %xmm5
+	vprotd	$13, %xmm3, %xmm2
+	vprotd	$13, %xmm7, %xmm6
+	vpxor	%xmm1, %xmm2, %xmm2
+	vpxor	%xmm5, %xmm6, %xmm6
+	vpaddd	7*16(%rax), %xmm0, %xmm0
+	vpaddd	8*16(%rax), %xmm4, %xmm4
+	vpsrld	$10, %xmm3, %xmm3
+	vpsrld	$10, %xmm7, %xmm7
+	vpxor	%xmm2, %xmm3, %xmm3
+	vpxor	%xmm6, %xmm7, %xmm7
+	vpaddd	%xmm0, %xmm3, %xmm3
+	vpaddd	%xmm4, %xmm7, %xmm7
+	vmovdqa	%xmm3, 14*16(%rax)
+	vmovdqa	%xmm7, 15*16(%rax)
+	
 	jmp sha256d_ms_4way_xop_extend_loop2
 	
 sha256d_ms_4way_xop_extend_coda2:
@@ -1594,38 +2596,38 @@ _sha256_use_4way:
 	cpuid
 	andl	$0x18000000, %ecx
 	cmpl	$0x18000000, %ecx
-	jne sha2_4way_init_sse2
+	jne sha256_use_4way_sse2
 	# Check for XMM and YMM state support
 	xorl	%ecx, %ecx
 	xgetbv
 	andl	$0x00000006, %eax
 	cmpl	$0x00000006, %eax
-	jne sha2_4way_init_sse2
+	jne sha256_use_4way_sse2
 #if defined(USE_XOP)
 	# Check for XOP support
 	movl	$0x80000001, %eax
 	cpuid
 	andl	$0x00000800, %ecx
-	jz sha2_4way_init_avx
+	jz sha256_use_4way_avx
 	
-sha2_4way_init_xop:
-	leaq	sha256d_ms_4way_xop(%rip), %rax
+sha256_use_4way_xop:
+	leaq	sha256d_ms_4way_xop(%rip), %rcx
 	leaq	sha256_transform_4way_core_xop(%rip), %rdx
-	jmp sha2_4way_init_done
+	jmp sha256_use_4way_done
 #endif /* USE_XOP */
 	
-sha2_4way_init_avx:
-	leaq	sha256d_ms_4way_avx(%rip), %rax
+sha256_use_4way_avx:
+	leaq	sha256d_ms_4way_avx(%rip), %rcx
 	leaq	sha256_transform_4way_core_avx(%rip), %rdx
-	jmp sha2_4way_init_done
+	jmp sha256_use_4way_done
 #endif /* USE_AVX */
 	
-sha2_4way_init_sse2:
-	leaq	sha256d_ms_4way_sse2(%rip), %rax
+sha256_use_4way_sse2:
+	leaq	sha256d_ms_4way_sse2(%rip), %rcx
 	leaq	sha256_transform_4way_core_sse2(%rip), %rdx
 	
-sha2_4way_init_done:
-	movq	%rax, sha256d_ms_4way_addr(%rip)
+sha256_use_4way_done:
+	movq	%rcx, sha256d_ms_4way_addr(%rip)
 	movq	%rdx, sha256_transform_4way_core_addr(%rip)
 	popq	%rdx
 	popq	%rcx

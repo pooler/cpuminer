@@ -216,23 +216,30 @@ static inline void sha256d_ms(uint32_t *hash, uint32_t *W,
 	const uint32_t *midstate, const uint32_t *prehash)
 {
 	uint32_t S[64];
-	uint32_t E[14];
 	uint32_t t0, t1;
 	int i;
 
-	memcpy(E, W + 18, sizeof(E));
+	S[18] = W[18];
+	S[19] = W[19];
+	S[20] = W[20];
+	S[22] = W[22];
+	S[23] = W[23];
+	S[24] = W[24];
+	S[30] = W[30];
+	S[31] = W[31];
+
 	W[18] += s0(W[3]);
 	W[19] += W[3];
 	W[20] += s1(W[18]);
-	W[21] += s1(W[19]);
+	W[21]  = s1(W[19]);
 	W[22] += s1(W[20]);
 	W[23] += s1(W[21]);
 	W[24] += s1(W[22]);
-	W[25] += s1(W[23]) + W[18];
-	W[26] += s1(W[24]) + W[19];
-	W[27] += s1(W[25]) + W[20];
-	W[28] += s1(W[26]) + W[21];
-	W[29] += s1(W[27]) + W[22];
+	W[25]  = s1(W[23]) + W[18];
+	W[26]  = s1(W[24]) + W[19];
+	W[27]  = s1(W[25]) + W[20];
+	W[28]  = s1(W[26]) + W[21];
+	W[29]  = s1(W[27]) + W[22];
 	W[30] += s1(W[28]) + W[23];
 	W[31] += s1(W[29]) + W[24];
 	for (i = 32; i < 64; i += 2) {
@@ -307,7 +314,14 @@ static inline void sha256d_ms(uint32_t *hash, uint32_t *W,
 	for (i = 0; i < 8; i++)
 		S[i] += midstate[i];
 	
-	memcpy(W + 18, E, sizeof(E));
+	W[18] = S[18];
+	W[19] = S[19];
+	W[20] = S[20];
+	W[22] = S[22];
+	W[23] = S[23];
+	W[24] = S[24];
+	W[30] = S[30];
+	W[31] = S[31];
 	
 	memcpy(S + 8, sha256d_hash1 + 8, 32);
 	S[16] = s1(sha256d_hash1[14]) + sha256d_hash1[ 9] + s0(S[ 1]) + S[ 0];
