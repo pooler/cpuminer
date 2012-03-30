@@ -262,7 +262,7 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	struct curl_slist *headers = NULL;
 	char len_hdr[64];
 	char curl_err_str[CURL_ERROR_SIZE];
-	long timeout = opt_timeout;
+	long timeout = longpoll ? opt_timeout : 30;
 	struct header_info hi = {0};
 	bool lp_scanning = longpoll_scan && !have_longpoll;
 
