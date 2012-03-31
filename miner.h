@@ -112,7 +112,7 @@ static inline void le32enc(void *pp, uint32_t x)
 void sha256_init(uint32_t *state);
 void sha256_transform(uint32_t *state, const uint32_t *block, int swap);
 
-#if defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__)
 #define HAVE_SHA256_4WAY 1
 int sha256_use_4way();
 void sha256_init_4way(uint32_t *state);
