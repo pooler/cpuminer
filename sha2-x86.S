@@ -115,25 +115,23 @@ sha256d_4preext2_30:
 	.globl _sha256_init_4way
 sha256_init_4way:
 _sha256_init_4way:
-	pushl	%edi
-	movl	8(%esp), %edi
+	movl	8(%esp), %edx
 	movdqa	sha256_4h+0, %xmm0
 	movdqa	sha256_4h+16, %xmm1
 	movdqa	sha256_4h+32, %xmm2
 	movdqa	sha256_4h+48, %xmm3
-	movdqu	%xmm0, 0(%edi)
-	movdqu	%xmm1, 16(%edi)
-	movdqu	%xmm2, 32(%edi)
-	movdqu	%xmm3, 48(%edi)
+	movdqu	%xmm0, 0(%edx)
+	movdqu	%xmm1, 16(%edx)
+	movdqu	%xmm2, 32(%edx)
+	movdqu	%xmm3, 48(%edx)
 	movdqa	sha256_4h+64, %xmm0
 	movdqa	sha256_4h+80, %xmm1
 	movdqa	sha256_4h+96, %xmm2
 	movdqa	sha256_4h+112, %xmm3
-	movdqu	%xmm0, 64(%edi)
-	movdqu	%xmm1, 80(%edi)
-	movdqu	%xmm2, 96(%edi)
-	movdqu	%xmm3, 112(%edi)
-	popl	%edi
+	movdqu	%xmm0, 64(%edx)
+	movdqu	%xmm1, 80(%edx)
+	movdqu	%xmm2, 96(%edx)
+	movdqu	%xmm3, 112(%edx)
 	ret
 
 
