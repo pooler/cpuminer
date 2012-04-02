@@ -550,7 +550,7 @@ static void *miner_thread(void *userdata)
 		      - time(NULL);
 		max64 *= thr_hashrates[thr_id];
 		if (max64 <= 0)
-			max64 = opt_algo == ALGO_SCRYPT ? 0xfffLL : 0xfffffLL;
+			max64 = opt_algo == ALGO_SCRYPT ? 0xfffLL : 0x1fffffLL;
 		if (work.data[19] + max64 > end_nonce)
 			max_nonce = end_nonce;
 		else

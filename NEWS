@@ -1,3 +1,10 @@
+Version 2.2 - Apr 2, 2012
+
+- Add an optimized SHA-256d algorithm, with specialized code
+  for x86 and x86-64 and support for AVX and XOP instructions
+- Slight performance increase for scrypt on x86 and x86-64
+- The default timeout is now 270 seconds
+
 Version 2.1.5 - Mar 7, 2012
 
 - Add optimizations for AVX-capable x86-64 processors
