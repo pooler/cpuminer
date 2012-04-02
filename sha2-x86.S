@@ -115,7 +115,7 @@ sha256d_4preext2_30:
 	.globl _sha256_init_4way
 sha256_init_4way:
 _sha256_init_4way:
-	movl	8(%esp), %edx
+	movl	4(%esp), %edx
 	movdqa	sha256_4h+0, %xmm0
 	movdqa	sha256_4h+16, %xmm1
 	movdqa	sha256_4h+32, %xmm2
