@@ -1177,7 +1177,7 @@ sha256_use_4way:
 _sha256_use_4way:
 	pushl	%ebx
 	
-	# Check for SSE2 availability
+	/* Check for SSE2 availability */
 	movl	$1, %eax
 	cpuid
 	andl	$0x04000000, %edx

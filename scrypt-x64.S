@@ -221,14 +221,14 @@ scrypt_best_throughput_exit:
 	.text
 	.p2align 6
 salsa8_core_gen:
-	# 0: %rdx, %rdi, %rcx, %rsi
+	/* 0: %rdx, %rdi, %rcx, %rsi */
 	movq	8(%rsp), %rdi
 	movq	%rdi, %rdx
 	shrq	$32, %rdi
 	movq	16(%rsp), %rsi
 	movq	%rsi, %rcx
 	shrq	$32, %rsi
-	# 1: %r9, 72(%rsp), %rax, %r8
+	/* 1: %r9, 72(%rsp), %rax, %r8 */
 	movq	24(%rsp), %r8
 	movq	%r8, %r9
 	shrq	$32, %r8
@@ -236,15 +236,15 @@ salsa8_core_gen:
 	movq	32(%rsp), %r8
 	movq	%r8, %rax
 	shrq	$32, %r8
-	# 2: %r11, %r10, 48(%rsp), %r12
+	/* 2: %r11, %r10, 48(%rsp), %r12 */
 	movq	40(%rsp), %r10
 	movq	%r10, %r11
 	shrq	$32, %r10
 	movq	48(%rsp), %r12
-	#movq	%r12, %r13
-	#movq	%r13, 48(%rsp)
+	/* movq	%r12, %r13 */
+	/* movq	%r13, 48(%rsp) */
 	shrq	$32, %r12
-	# 3: %r14, %r13, %rbx, 88(%rsp)
+	/* 3: %r14, %r13, %rbx, 88(%rsp) */
 	movq	56(%rsp), %r13
 	movq	%r13, %r14
 	shrq	$32, %r13
@@ -305,14 +305,14 @@ salsa8_core_gen:
 	punpcklqdq	%xmm6, %xmm2
 	punpcklqdq	%xmm7, %xmm3
 	
-	#movq	%rdx, 8(%rsp)
-	#movq	%rcx, 16(%rsp)
-	#movq	%r9, 24(%rsp)
-	#movq	%rax, 32(%rsp)
-	#movq	%r11, 40(%rsp)
-	#movq	%r8, 48(%rsp)
-	#movq	%r14, 56(%rsp)
-	#movq	%rbx, 64(%rsp)
+	/* movq	%rdx, 8(%rsp) */
+	/* movq	%rcx, 16(%rsp) */
+	/* movq	%r9, 24(%rsp) */
+	/* movq	%rax, 32(%rsp) */
+	/* movq	%r11, 40(%rsp) */
+	/* movq	%r8, 48(%rsp) */
+	/* movq	%r14, 56(%rsp) */
+	/* movq	%rbx, 64(%rsp) */
 	
 	ret
 	
@@ -371,7 +371,7 @@ _scrypt_core:
 	popq	%rbx
 .endm
 	
-	# GenuineIntel processors have fast SIMD
+	/* GenuineIntel processors have fast SIMD */
 	xorl	%eax, %eax
 	cpuid
 	cmpl	$0x6c65746e, %ecx
@@ -594,7 +594,7 @@ scrypt_core_gen_loop2:
 	
 	.p2align 6
 scrypt_core_xmm:
-	# shuffle 1st block into %xmm8-%xmm11
+	/* shuffle 1st block into %xmm8-%xmm11 */
 	movl	60(%rdi), %edx
 	movl	44(%rdi), %ecx
 	movl	28(%rdi), %ebx
@@ -652,7 +652,7 @@ scrypt_core_xmm:
 	paddd	%xmm2, %xmm10
 	paddd	%xmm3, %xmm11
 	
-	# shuffle 2nd block into %xmm12-%xmm15
+	/* shuffle 2nd block into %xmm12-%xmm15 */
 	movl	124(%rdi), %edx
 	movl	108(%rdi), %ecx
 	movl	92(%rdi), %ebx
@@ -807,7 +807,7 @@ scrypt_core_xmm_loop2:
 	subq	$1, %rcx
 	ja scrypt_core_xmm_loop2
 	
-	# re-shuffle 1st block back
+	/* re-shuffle 1st block back */
 	movd	%xmm8, %eax
 	movd	%xmm9, %edx
 	movd	%xmm10, %ecx
@@ -853,7 +853,7 @@ scrypt_core_xmm_loop2:
 	movl	%ebx, 28(%rdi)
 	movl	%eax, 12(%rdi)
 	
-	# re-shuffle 2nd block back
+	/* re-shuffle 2nd block back */
 	movd	%xmm12, %eax
 	movd	%xmm13, %edx
 	movd	%xmm14, %ecx
@@ -1111,20 +1111,20 @@ _scrypt_core_3way:
 #if !defined(USE_AVX)
 	jmp scrypt_core_3way_xmm
 #else
-	# Check for AVX and OSXSAVE support
+	/* Check for AVX and OSXSAVE support */
 	movl	$1, %eax
 	cpuid
 	andl	$0x18000000, %ecx
 	cmpl	$0x18000000, %ecx
 	jne scrypt_core_3way_xmm
-	# Check for XMM and YMM state support
+	/* Check for XMM and YMM state support */
 	xorl	%ecx, %ecx
 	xgetbv
 	andl	$0x00000006, %eax
 	cmpl	$0x00000006, %eax
 	jne scrypt_core_3way_xmm
 #if defined(USE_XOP)
-	# Check for XOP support
+	/* Check for XOP support */
 	movl	$0x80000001, %eax
 	cpuid
 	andl	$0x00000800, %ecx

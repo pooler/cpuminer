@@ -2561,20 +2561,20 @@ _sha256_use_4way:
 	pushq	%rdx
 	
 #if defined(USE_AVX)
-	# Check for AVX and OSXSAVE support
+	/* Check for AVX and OSXSAVE support */
 	movl	$1, %eax
 	cpuid
 	andl	$0x18000000, %ecx
 	cmpl	$0x18000000, %ecx
 	jne sha256_use_4way_base
-	# Check for XMM and YMM state support
+	/* Check for XMM and YMM state support */
 	xorl	%ecx, %ecx
 	xgetbv
 	andl	$0x00000006, %eax
 	cmpl	$0x00000006, %eax
 	jne sha256_use_4way_base
 #if defined(USE_XOP)
-	# Check for XOP support
+	/* Check for XOP support */
 	movl	$0x80000001, %eax
 	cpuid
 	andl	$0x00000800, %ecx

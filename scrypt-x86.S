@@ -406,7 +406,7 @@ _scrypt_core:
 	pushl	%edi
 	pushl	%esi
 	
-	# Check for SSE2 availability
+	/* Check for SSE2 availability */
 	movl	$1, %eax
 	cpuid
 	andl	$0x04000000, %edx
