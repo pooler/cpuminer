@@ -18,13 +18,17 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <time.h>
-#if defined(WIN32)
+#ifdef WIN32
 #include <windows.h>
-#elif defined(sun) || defined(__sun)
-#include <sys/resource.h>
 #else
 #include <sys/resource.h>
+#if HAVE_SYS_SYSCTL_H
+#include <sys/types.h>
+#if HAVE_SYS_PARAM_H
+#include <sys/param.h>
+#endif
 #include <sys/sysctl.h>
+#endif
 #endif
 #include <getopt.h>
 #include <jansson.h>
