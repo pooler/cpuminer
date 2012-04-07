@@ -77,13 +77,29 @@ static inline uint32_t swab32(uint32_t v)
 #endif
 }
 
+#ifdef HAVE_SYS_ENDIAN_H
+#include <sys/endian.h>
+#endif
+
+#if !HAVE_DECL_BE32DEC
 static inline uint32_t be32dec(const void *pp)
 {
 	const uint8_t *p = (uint8_t const *)pp;
 	return ((uint32_t)(p[3]) + ((uint32_t)(p[2]) << 8) +
 	    ((uint32_t)(p[1]) << 16) + ((uint32_t)(p[0]) << 24));
 }
+#endif
 
+#if !HAVE_DECL_LE32DEC
+static inline uint32_t le32dec(const void *pp)
+{
+	const uint8_t *p = (uint8_t const *)pp;
+	return ((uint32_t)(p[0]) + ((uint32_t)(p[1]) << 8) +
+	    ((uint32_t)(p[2]) << 16) + ((uint32_t)(p[3]) << 24));
+}
+#endif
+
+#if !HAVE_DECL_BE32ENC
 static inline void be32enc(void *pp, uint32_t x)
 {
 	uint8_t *p = (uint8_t *)pp;
@@ -92,14 +108,9 @@ static inline void be32enc(void *pp, uint32_t x)
 	p[1] = (x >> 16) & 0xff;
 	p[0] = (x >> 24) & 0xff;
 }
+#endif
 
-static inline uint32_t le32dec(const void *pp)
-{
-	const uint8_t *p = (uint8_t const *)pp;
-	return ((uint32_t)(p[0]) + ((uint32_t)(p[1]) << 8) +
-	    ((uint32_t)(p[2]) << 16) + ((uint32_t)(p[3]) << 24));
-}
-
+#if !HAVE_DECL_LE32ENC
 static inline void le32enc(void *pp, uint32_t x)
 {
 	uint8_t *p = (uint8_t *)pp;
@@ -108,6 +119,7 @@ static inline void le32enc(void *pp, uint32_t x)
 	p[2] = (x >> 16) & 0xff;
 	p[3] = (x >> 24) & 0xff;
 }
+#endif
 
 void sha256_init(uint32_t *state);
 void sha256_transform(uint32_t *state, const uint32_t *block, int swap);

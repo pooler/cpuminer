@@ -16,15 +16,22 @@ AM_PROG_CC_C_O
 AM_PROG_AS
 AC_PROG_RANLIB
 
-dnl Checks for header files.
+dnl Checks for header files
 AC_HEADER_STDC
-AC_CHECK_HEADERS([sys/param.h syslog.h])
+AC_CHECK_HEADERS([sys/endian.h sys/param.h syslog.h])
 # sys/sysctl.h requires sys/types.h on FreeBSD
 # sys/sysctl.h requires sys/param.h on OpenBSD
 AC_CHECK_HEADERS([sys/sysctl.h], [], [],
 [#include <sys/types.h>
-#if HAVE_SYS_PARAM_H
+#ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>
+#endif
+])
+
+AC_CHECK_DECLS([be32dec, le32dec, be32enc, le32enc], [], [],
+[AC_INCLUDES_DEFAULT
+#ifdef HAVE_SYS_ENDIAN_H
+#include <sys/endian.h>
 #endif
 ])
 
