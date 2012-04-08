@@ -30,7 +30,6 @@
 #include <sys/sysctl.h>
 #endif
 #endif
-#include <getopt.h>
 #include <jansson.h>
 #include <curl/curl.h>
 #include "compat.h"
@@ -127,6 +126,17 @@ pthread_mutex_t stats_lock;
 static unsigned long accepted_count = 0L;
 static unsigned long rejected_count = 0L;
 double *thr_hashrates;
+
+#ifdef HAVE_GETOPT_LONG
+#include <getopt.h>
+#else
+struct option {
+	const char *name;
+	int has_arg;
+	int *flag;
+	int val;
+};
+#endif
 
 static char const usage[] = "\
 Usage: " PROGRAM_NAME " [OPTIONS]\n\
@@ -895,7 +905,11 @@ static void parse_cmdline(int argc, char *argv[])
 	int key;
 
 	while (1) {
+#if HAVE_GETOPT_LONG
 		key = getopt_long(argc, argv, short_options, options, NULL);
+#else
+		key = getopt(argc, argv, short_options);
+#endif
 		if (key < 0)
 			break;
 

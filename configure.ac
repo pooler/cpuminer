@@ -36,6 +36,7 @@ AC_CHECK_DECLS([be32dec, le32dec, be32enc, le32enc], [], [],
 ])
 
 AC_FUNC_ALLOCA
+AC_CHECK_FUNCS([getopt_long])
 
 case $target in
   i*86-*-*)
