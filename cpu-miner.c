@@ -120,7 +120,7 @@ struct thr_info *thr_info;
 static int work_thr_id;
 int longpoll_thr_id;
 struct work_restart *work_restart = NULL;
-pthread_mutex_t time_lock;
+pthread_mutex_t applog_lock;
 pthread_mutex_t stats_lock;
 
 static unsigned long accepted_count = 0L;
@@ -934,7 +934,7 @@ int main(int argc, char *argv[])
 	/* parse command line */
 	parse_cmdline(argc, argv);
 
-	pthread_mutex_init(&time_lock, NULL);
+	pthread_mutex_init(&applog_lock, NULL);
 	pthread_mutex_init(&stats_lock, NULL);
 	pthread_mutex_init(&g_work_lock, NULL);
 

@@ -91,10 +91,10 @@ void applog(int prio, const char *fmt, ...)
 
 		time(&now);
 
-		pthread_mutex_lock(&time_lock);
+		pthread_mutex_lock(&applog_lock);
 		tm_p = localtime(&now);
 		memcpy(&tm, tm_p, sizeof(tm));
-		pthread_mutex_unlock(&time_lock);
+		pthread_mutex_unlock(&applog_lock);
 
 		len = 40 + strlen(fmt) + 2;
 		f = alloca(len);
@@ -106,9 +106,9 @@ void applog(int prio, const char *fmt, ...)
 			tm.tm_min,
 			tm.tm_sec,
 			fmt);
-		pthread_mutex_lock(&time_lock);
+		pthread_mutex_lock(&applog_lock);
 		vfprintf(stderr, f, ap);	/* atomic write to stderr */
-		pthread_mutex_unlock(&time_lock);
+		pthread_mutex_unlock(&applog_lock);
 	}
 	va_end(ap);
 }

@@ -158,7 +158,7 @@ extern bool have_longpoll;
 extern char *opt_proxy;
 extern long opt_proxy_type;
 extern bool use_syslog;
-extern pthread_mutex_t time_lock;
+extern pthread_mutex_t applog_lock;
 extern struct thr_info *thr_info;
 extern int longpoll_thr_id;
 extern struct work_restart *work_restart;
