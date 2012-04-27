@@ -270,6 +270,10 @@ void scrypt_core_3way(uint32_t *X, uint32_t *V);
 #define scrypt_best_throughput() 1
 void scrypt_core(uint32_t *X, uint32_t *V);
 
+#elif defined(__arm__) && defined(__APCS_32__)
+
+void scrypt_core(uint32_t *X, uint32_t *V);
+
 #else
 
 static inline void xor_salsa8(uint32_t B[16], const uint32_t Bx[16])
