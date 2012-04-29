@@ -11,134 +11,205 @@
 
 #if defined(__arm__) && defined(__APCS_32__)
 
-.macro salsa8_core_doubleround
-	add	r8, r8, r12
-	add	lr, lr, r0
-	eor	r3, r3, r8, ror #25
-	eor	r4, r4, lr, ror #25
-	add	r8, r5, r1
-	add	lr, r11, r6
-	eor	r9, r9, r8, ror #25
-	eor	r10, r10, lr, ror #25
-	str	r9, [sp, #9*4]
-	str	r10, [sp, #14*4]
-	
+.macro salsa8_core_doubleround_body
 	ldr	r8, [sp, #8*4]
-	ldr	lr, [sp, #13*4]
 	add	r11, r11, r10
+	ldr	lr, [sp, #13*4]
 	add	r12, r12, r3
 	eor	r2, r2, r11, ror #23
-	eor	r7, r7, r12, ror #23
 	add	r11, r4, r0
+	eor	r7, r7, r12, ror #23
 	add	r12, r9, r5
+	str	r9, [sp, #9*4]
 	eor	r8, r8, r11, ror #23
+	str	r10, [sp, #14*4]
 	eor	lr, lr, r12, ror #23
-	str	r8, [sp, #8*4]
-	str	lr, [sp, #13*4]
 	
 	ldr	r11, [sp, #11*4]
-	ldr	r12, [sp, #12*4]
 	add	r9, lr, r9
+	ldr	r12, [sp, #12*4]
 	add	r10, r2, r10
 	eor	r1, r1, r9, ror #19
-	eor	r6, r6, r10, ror #19
 	add	r9, r7, r3
+	eor	r6, r6, r10, ror #19
 	add	r10, r8, r4
+	str	r8, [sp, #8*4]
 	eor	r11, r11, r9, ror #19
+	str	lr, [sp, #13*4]
 	eor	r12, r12, r10, ror #19
 	
 	ldr	r9, [sp, #10*4]
-	ldr	r10, [sp, #15*4]
 	add	r8, r12, r8
+	ldr	r10, [sp, #15*4]
 	add	lr, r1, lr
 	eor	r0, r0, r8, ror #14
-	eor	r5, r5, lr, ror #14
 	add	r8, r6, r2
+	eor	r5, r5, lr, ror #14
 	add	lr, r11, r7
 	eor	r9, r9, r8, ror #14
-	eor	r10, r10, lr, ror #14
-	
 	ldr	r8, [sp, #9*4]
+	eor	r10, r10, lr, ror #14
 	ldr	lr, [sp, #14*4]
 	
-	str	r9, [sp, #10*4]
-	str	r10, [sp, #15*4]
 	
 	add	r8, r9, r8
+	str	r9, [sp, #10*4]
 	add	lr, r10, lr
+	str	r10, [sp, #15*4]
 	eor	r11, r11, r8, ror #25
-	eor	r12, r12, lr, ror #25
 	add	r8, r0, r3
+	eor	r12, r12, lr, ror #25
 	add	lr, r5, r4
 	eor	r1, r1, r8, ror #25
-	eor	r6, r6, lr, ror #25
-	str	r11, [sp, #11*4]
-	str	r12, [sp, #12*4]
-	
 	ldr	r8, [sp, #8*4]
-	ldr	lr, [sp, #13*4]
+	eor	r6, r6, lr, ror #25
+	
 	add	r9, r11, r9
+	ldr	lr, [sp, #13*4]
 	add	r10, r12, r10
 	eor	r8, r8, r9, ror #23
-	eor	lr, lr, r10, ror #23
 	add	r9, r1, r0
+	eor	lr, lr, r10, ror #23
 	add	r10, r6, r5
+	str	r11, [sp, #11*4]
 	eor	r2, r2, r9, ror #23
+	str	r12, [sp, #12*4]
 	eor	r7, r7, r10, ror #23
-	str	r8, [sp, #8*4]
-	str	lr, [sp, #13*4]
 	
 	ldr	r9, [sp, #9*4]
-	ldr	r10, [sp, #14*4]
 	add	r11, r8, r11
+	ldr	r10, [sp, #14*4]
 	add	r12, lr, r12
 	eor	r9, r9, r11, ror #19
-	eor	r10, r10, r12, ror #19
 	add	r11, r2, r1
+	eor	r10, r10, r12, ror #19
 	add	r12, r7, r6
+	str	r8, [sp, #8*4]
 	eor	r3, r3, r11, ror #19
+	str	lr, [sp, #13*4]
 	eor	r4, r4, r12, ror #19
-	str	r9, [sp, #9*4]
-	str	r10, [sp, #14*4]
-	
-	ldr	r11, [sp, #10*4]
-	ldr	r12, [sp, #15*4]
-	add	r8, r9, r8
-	add	lr, r10, lr
-	eor	r11, r11, r8, ror #14
-	eor	r12, r12, lr, ror #14
-	add	r8, r3, r2
-	add	lr, r4, r7
-	eor	r0, r0, r8, ror #14
-	eor	r5, r5, lr, ror #14
 .endm
 
 .macro salsa8_core
 	ldmia	sp, {r0-r7}
-	ldr	r9,  [sp, #9*4]
-	ldr	r10, [sp, #14*4]
-	ldr	r8, [sp, #11*4]
-	ldr	lr, [sp, #12*4]
-	ldr	r11, [sp, #10*4]
+	
 	ldr	r12, [sp, #15*4]
-	salsa8_core_doubleround
 	ldr	r8, [sp, #11*4]
 	ldr	lr, [sp, #12*4]
-	str	r11, [sp, #10*4]
-	str	r12, [sp, #15*4]
-	salsa8_core_doubleround
+	
+	ldr	r9, [sp, #9*4]
+	add	r8, r8, r12
+	ldr	r11, [sp, #10*4]
+	add	lr, lr, r0
+	eor	r3, r3, r8, ror #25
+	add	r8, r5, r1
+	ldr	r10, [sp, #14*4]
+	eor	r4, r4, lr, ror #25
+	add	lr, r11, r6
+	eor	r9, r9, r8, ror #25
+	eor	r10, r10, lr, ror #25
+	
+	salsa8_core_doubleround_body
+	
+	ldr	r11, [sp, #10*4]
+	add	r8, r9, r8
+	ldr	r12, [sp, #15*4]
+	add	lr, r10, lr
+	eor	r11, r11, r8, ror #14
+	str	r9, [sp, #9*4]
+	eor	r12, r12, lr, ror #14
+	add	r8, r3, r2
+	add	lr, r4, r7
+	str	r10, [sp, #14*4]
+	eor	r0, r0, r8, ror #14
 	ldr	r8, [sp, #11*4]
+	eor	r5, r5, lr, ror #14
 	ldr	lr, [sp, #12*4]
+	
+	add	r8, r8, r12
 	str	r11, [sp, #10*4]
+	add	lr, lr, r0
 	str	r12, [sp, #15*4]
-	salsa8_core_doubleround
+	eor	r3, r3, r8, ror #25
+	add	r8, r5, r1
+	eor	r4, r4, lr, ror #25
+	add	lr, r11, r6
+	eor	r9, r9, r8, ror #25
+	eor	r10, r10, lr, ror #25
+	
+	salsa8_core_doubleround_body
+	
+	ldr	r11, [sp, #10*4]
+	add	r8, r9, r8
+	ldr	r12, [sp, #15*4]
+	add	lr, r10, lr
+	eor	r11, r11, r8, ror #14
+	str	r9, [sp, #9*4]
+	eor	r12, r12, lr, ror #14
+	add	r8, r3, r2
+	add	lr, r4, r7
+	str	r10, [sp, #14*4]
+	eor	r0, r0, r8, ror #14
 	ldr	r8, [sp, #11*4]
+	eor	r5, r5, lr, ror #14
 	ldr	lr, [sp, #12*4]
+	
+	add	r8, r8, r12
 	str	r11, [sp, #10*4]
+	add	lr, lr, r0
 	str	r12, [sp, #15*4]
-	salsa8_core_doubleround
+	eor	r3, r3, r8, ror #25
+	add	r8, r5, r1
+	eor	r4, r4, lr, ror #25
+	add	lr, r11, r6
+	eor	r9, r9, r8, ror #25
+	eor	r10, r10, lr, ror #25
+	
+	salsa8_core_doubleround_body
+	
+	ldr	r11, [sp, #10*4]
+	add	r8, r9, r8
+	ldr	r12, [sp, #15*4]
+	add	lr, r10, lr
+	eor	r11, r11, r8, ror #14
+	str	r9, [sp, #9*4]
+	eor	r12, r12, lr, ror #14
+	add	r8, r3, r2
+	add	lr, r4, r7
+	str	r10, [sp, #14*4]
+	eor	r0, r0, r8, ror #14
+	ldr	r8, [sp, #11*4]
+	eor	r5, r5, lr, ror #14
+	ldr	lr, [sp, #12*4]
+	
+	add	r8, r8, r12
 	str	r11, [sp, #10*4]
+	add	lr, lr, r0
 	str	r12, [sp, #15*4]
+	eor	r3, r3, r8, ror #25
+	add	r8, r5, r1
+	eor	r4, r4, lr, ror #25
+	add	lr, r11, r6
+	eor	r9, r9, r8, ror #25
+	eor	r10, r10, lr, ror #25
+	
+	salsa8_core_doubleround_body
+	
+	ldr	r11, [sp, #10*4]
+	add	r8, r9, r8
+	ldr	r12, [sp, #15*4]
+	add	lr, r10, lr
+	str	r9, [sp, #9*4]
+	eor	r11, r11, r8, ror #14
+	eor	r12, r12, lr, ror #14
+	add	r8, r3, r2
+	str	r10, [sp, #14*4]
+	add	lr, r4, r7
+	str	r11, [sp, #10*4]
+	eor	r0, r0, r8, ror #14
+	str	r12, [sp, #15*4]
+	eor	r5, r5, lr, ror #14
+	
 	stmia	sp, {r0-r7}
 .endm
 
@@ -311,7 +382,7 @@ scrypt_core_loop2:
 	bne	scrypt_core_loop2
 	
 	add	sp, sp, #20*4
-#ifdef __THUMB_INTERWORK__
+#ifdef __thumb__
 	ldmfd	sp!, {r4-r11, lr}
 	bx	lr
 #else
