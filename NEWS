@@ -1,3 +1,9 @@
+Version 2.2.1 - May 2, 2012
+
+- Add optimized code for ARM processors
+- Support for building on NetBSD and OpenBSD
+- Various compatibility fixes for AIX (pontius)
+
 Version 2.2 - Apr 2, 2012
 
 - Add an optimized SHA-256d algorithm, with specialized code

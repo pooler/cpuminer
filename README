@@ -17,6 +17,11 @@ Basic *nix build instructions:
 	./configure CFLAGS="-O3"
 	make
 
+Notes for AIX users:
+	* To build a 64-bit binary, export OBJECT_MODE=64
+	* GNU-style long options are not supported, but are accessible
+	  via configuration file
+
 Basic Windows build instructions, using MinGW:
 	Install MinGW and the MSYS Developer Tool Kit (http://www.mingw.org/)
 		* Make sure you have mstcpip.h in MinGW\include
