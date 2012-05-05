@@ -21,6 +21,8 @@
 #ifdef WIN32
 #include <windows.h>
 #else
+#include <errno.h>
+#include <signal.h>
 #include <sys/resource.h>
 #if HAVE_SYS_SYSCTL_H
 #include <sys/types.h>
@@ -101,6 +103,7 @@ bool want_longpoll = true;
 bool have_longpoll = false;
 static bool submit_old = false;
 bool use_syslog = false;
+static bool opt_background = false;
 static bool opt_quiet = false;
 static int opt_retries = -1;
 static int opt_fail_pause = 30;
@@ -154,15 +157,19 @@ Options:\n\
                           (default: retry indefinitely)\n\
   -R, --retry-pause=N   time to pause between retries, in seconds (default: 30)\n\
   -T, --timeout=N       network timeout, in seconds (default: 270)\n\
-  -s, --scantime=N      upper bound on time spent scanning current work,\n\
-                          in seconds (default: 5)\n\
+  -s, --scantime=N      upper bound on time spent scanning current work when\n\
+                          long polling is unavailable, in seconds (default: 5)\n\
       --no-longpoll     disable X-Long-Polling support\n\
   -q, --quiet           disable per-thread hashmeter output\n\
   -D, --debug           enable debug output\n\
   -P, --protocol-dump   verbose dump of protocol-level activities\n"
 #ifdef HAVE_SYSLOG_H
 "\
-      --syslog          use system log for output messages\n"
+  -S, --syslog          use system log for output messages\n"
+#endif
+#ifndef WIN32
+"\
+  -B, --background      run the miner in the background\n"
 #endif
 "\
   -c, --config=FILE     load a JSON-format configuration file\n\
@@ -170,10 +177,20 @@ Options:\n\
   -h, --help            display this help text and exit\n\
 ";
 
-static char const short_options[] = "a:c:Dhp:Px:qr:R:s:t:T:o:u:O:V";
+static char const short_options[] =
+#ifndef WIN32
+	"B"
+#endif
+#ifdef HAVE_SYSLOG_H
+	"S"
+#endif
+	"a:c:Dhp:Px:qr:R:s:t:T:o:u:O:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
+#ifndef WIN32
+	{ "background", 0, NULL, 'B' },
+#endif
 	{ "config", 1, NULL, 'c' },
 	{ "debug", 0, NULL, 'D' },
 	{ "help", 0, NULL, 'h' },
@@ -186,7 +203,7 @@ static struct option const options[] = {
 	{ "retry-pause", 1, NULL, 'R' },
 	{ "scantime", 1, NULL, 's' },
 #ifdef HAVE_SYSLOG_H
-	{ "syslog", 0, NULL, 1004 },
+	{ "syslog", 0, NULL, 'S' },
 #endif
 	{ "threads", 1, NULL, 't' },
 	{ "timeout", 1, NULL, 'T' },
@@ -744,6 +761,9 @@ static void parse_arg (int key, char *arg)
 		if (i == ARRAY_SIZE(algo_names))
 			show_usage_and_exit(1);
 		break;
+	case 'B':
+		opt_background = true;
+		break;
 	case 'c': {
 		json_error_t err;
 		if (opt_config)
@@ -856,7 +876,7 @@ static void parse_arg (int key, char *arg)
 	case 1003:
 		want_longpoll = false;
 		break;
-	case 1004:
+	case 'S':
 		use_syslog = true;
 		break;
 	case 'V':
@@ -924,6 +944,25 @@ static void parse_cmdline(int argc, char *argv[])
 	parse_config();
 }
 
+#ifndef WIN32
+void signal_handler(int sig)
+{
+	switch (sig) {
+	case SIGHUP:
+		applog(LOG_INFO, "SIGHUP received");
+		break;
+	case SIGINT:
+		applog(LOG_INFO, "SIGINT received, exiting");
+		exit(0);
+		break;
+	case SIGTERM:
+		applog(LOG_INFO, "SIGTERM received, exiting");
+		exit(0);
+		break;
+	}
+}
+#endif
+
 int main(int argc, char *argv[])
 {
 	struct thr_info *thr;
@@ -933,6 +972,23 @@ int main(int argc, char *argv[])
 
 	/* parse command line */
 	parse_cmdline(argc, argv);
+
+#ifndef WIN32
+	if (opt_background) {
+		i = fork();
+		if (i < 0) exit(1);
+		if (i > 0) exit(0);
+		i = setsid();
+		if (i < 0)
+			applog(LOG_ERR, "setsid() failed (errno = %d)", errno);
+		i = chdir("/");
+		if (i < 0)
+			applog(LOG_ERR, "chdir() failed (errno = %d)", errno);
+		signal(SIGHUP, signal_handler);
+		signal(SIGINT, signal_handler);
+		signal(SIGTERM, signal_handler);
+	}
+#endif
 
 	pthread_mutex_init(&applog_lock, NULL);
 	pthread_mutex_init(&stats_lock, NULL);
