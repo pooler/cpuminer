@@ -39,20 +39,47 @@
 scrypt_best_throughput:
 _scrypt_best_throughput:
 	pushq	%rbx
+	/* Check for AuthenticAMD */
 	xorq	%rax, %rax
 	cpuid
 	movl	$3, %eax
 	cmpl	$0x444d4163, %ecx
-	jne scrypt_best_throughput_exit
+	jne scrypt_best_throughput_not_amd
 	cmpl	$0x69746e65, %edx
-	jne scrypt_best_throughput_exit
+	jne scrypt_best_throughput_not_amd
 	cmpl	$0x68747541, %ebx
-	jne scrypt_best_throughput_exit
+	jne scrypt_best_throughput_not_amd
+	/* Check for AMD K8 */
 	movl	$1, %eax
 	cpuid
 	andl	$0x0ff00000, %eax
+	jz scrypt_best_throughput_one
+	movl	$3, %eax
+	jmp scrypt_best_throughput_exit
+scrypt_best_throughput_not_amd:
+	/* Check for GenuineIntel */
+	cmpl	$0x6c65746e, %ecx
+	jne scrypt_best_throughput_exit
+	cmpl	$0x49656e69, %edx
+	jne scrypt_best_throughput_exit
+	cmpl	$0x756e6547, %ebx
+	jne scrypt_best_throughput_exit
+	/* Check for Intel Atom */
+	movl	$1, %eax
+	cpuid
+	movl	%eax, %edx
+	andl	$0x0ff00f00, %eax
+	cmpl	$0x00000600, %eax
 	movl	$3, %eax
 	jnz scrypt_best_throughput_exit
+	andl	$0x000f00f0, %edx
+	cmpl	$0x000100c0, %edx
+	je scrypt_best_throughput_one
+	cmpl	$0x00020060, %edx
+	je scrypt_best_throughput_one
+	cmpl	$0x00030060, %edx
+	jne scrypt_best_throughput_exit
+scrypt_best_throughput_one:
 	movl	$1, %eax
 scrypt_best_throughput_exit:
 	popq	%rbx
