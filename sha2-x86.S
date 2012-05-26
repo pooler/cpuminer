@@ -230,12 +230,11 @@ _sha256_init_4way:
 
 .macro sha256_sse2_main_round i
 	movdqa	16*(\i)(%eax), %xmm6
-	paddd	16*(\i)+sha256_4k, %xmm6
-	paddd	32(%esp), %xmm6
 
 	movdqa	%xmm0, %xmm1
 	movdqa	16(%esp), %xmm2
 	pandn	%xmm2, %xmm1
+	paddd	32(%esp), %xmm6
 
 	movdqa	%xmm2, 32(%esp)
 	movdqa	0(%esp), %xmm2
@@ -249,6 +248,7 @@ _sha256_init_4way:
 
 	movdqa	%xmm0, %xmm1
 	psrld	$6, %xmm0
+	paddd	16*(\i)+sha256_4k, %xmm6
 	movdqa	%xmm0, %xmm2
 	pslld	$7, %xmm1
 	psrld	$5, %xmm2
@@ -257,20 +257,19 @@ _sha256_init_4way:
 	pslld	$14, %xmm1
 	psrld	$14, %xmm2
 	pxor	%xmm1, %xmm0
-	pxor	%xmm2, %xmm0
 	pslld	$5, %xmm1
+	pxor	%xmm2, %xmm0
 	pxor	%xmm1, %xmm0
+	movdqa	%xmm5, %xmm1
 	paddd	%xmm0, %xmm6
 
 	movdqa	%xmm3, %xmm0
-	paddd	%xmm6, %xmm0
-
-	movdqa	%xmm5, %xmm1
 	movdqa	%xmm4, %xmm3
 	movdqa	%xmm4, %xmm2
+	paddd	%xmm6, %xmm0
 	pand	%xmm5, %xmm2
-	pand	%xmm7, %xmm4
 	pand	%xmm7, %xmm1
+	pand	%xmm7, %xmm4
 	pxor	%xmm4, %xmm1
 	movdqa	%xmm5, %xmm4
 	movdqa	%xmm7, %xmm5
@@ -283,12 +282,12 @@ _sha256_init_4way:
 	pslld	$10, %xmm2
 	psrld	$11, %xmm1
 	pxor	%xmm2, %xmm7
-	pxor	%xmm1, %xmm7
 	pslld	$9, %xmm2
+	pxor	%xmm1, %xmm7
 	psrld	$9, %xmm1
 	pxor	%xmm2, %xmm7
-	pxor	%xmm1, %xmm7
 	pslld	$11, %xmm2
+	pxor	%xmm1, %xmm7
 	pxor	%xmm2, %xmm7
 	paddd	%xmm6, %xmm7
 .endm

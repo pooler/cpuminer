@@ -607,8 +607,8 @@ scrypt_core_gen_loop2:
 	pslld	$7, %xmm4
 	psrld	$25, %xmm5
 	pxor	%xmm4, %xmm3
-	pxor	%xmm5, %xmm3
 	movdqa	%xmm0, %xmm4
+	pxor	%xmm5, %xmm3
 	
 	paddd	%xmm3, %xmm4
 	movdqa	%xmm4, %xmm5
@@ -616,8 +616,8 @@ scrypt_core_gen_loop2:
 	psrld	$23, %xmm5
 	pxor	%xmm4, %xmm2
 	movdqa	%xmm3, %xmm4
-	pshufd	$0x93, %xmm3, %xmm3
 	pxor	%xmm5, %xmm2
+	pshufd	$0x93, %xmm3, %xmm3
 	
 	paddd	%xmm2, %xmm4
 	movdqa	%xmm4, %xmm5
@@ -625,25 +625,25 @@ scrypt_core_gen_loop2:
 	psrld	$19, %xmm5
 	pxor	%xmm4, %xmm1
 	movdqa	%xmm2, %xmm4
-	pshufd	$0x4e, %xmm2, %xmm2
 	pxor	%xmm5, %xmm1
+	pshufd	$0x4e, %xmm2, %xmm2
 	
 	paddd	%xmm1, %xmm4
 	movdqa	%xmm4, %xmm5
 	pslld	$18, %xmm4
 	psrld	$14, %xmm5
 	pxor	%xmm4, %xmm0
-	pshufd	$0x39, %xmm1, %xmm1
-	pxor	%xmm5, %xmm0
 	movdqa	%xmm3, %xmm4
+	pxor	%xmm5, %xmm0
+	pshufd	$0x39, %xmm1, %xmm1
 	
 	paddd	%xmm0, %xmm4
 	movdqa	%xmm4, %xmm5
 	pslld	$7, %xmm4
 	psrld	$25, %xmm5
 	pxor	%xmm4, %xmm1
-	pxor	%xmm5, %xmm1
 	movdqa	%xmm0, %xmm4
+	pxor	%xmm5, %xmm1
 	
 	paddd	%xmm1, %xmm4
 	movdqa	%xmm4, %xmm5
@@ -651,8 +651,8 @@ scrypt_core_gen_loop2:
 	psrld	$23, %xmm5
 	pxor	%xmm4, %xmm2
 	movdqa	%xmm1, %xmm4
-	pshufd	$0x93, %xmm1, %xmm1
 	pxor	%xmm5, %xmm2
+	pshufd	$0x93, %xmm1, %xmm1
 	
 	paddd	%xmm2, %xmm4
 	movdqa	%xmm4, %xmm5
@@ -660,8 +660,8 @@ scrypt_core_gen_loop2:
 	psrld	$19, %xmm5
 	pxor	%xmm4, %xmm3
 	movdqa	%xmm2, %xmm4
-	pshufd	$0x4e, %xmm2, %xmm2
 	pxor	%xmm5, %xmm3
+	pshufd	$0x4e, %xmm2, %xmm2
 	
 	paddd	%xmm3, %xmm4
 	movdqa	%xmm4, %xmm5
@@ -704,10 +704,10 @@ scrypt_core_sse2_loop1:
 	movdqa	80(%esp), %xmm5
 	pxor	%xmm4, %xmm0
 	pxor	%xmm5, %xmm1
-	pxor	%xmm6, %xmm2
-	pxor	%xmm7, %xmm3
 	movdqa	%xmm0, 0(%edx)
 	movdqa	%xmm1, 16(%edx)
+	pxor	%xmm6, %xmm2
+	pxor	%xmm7, %xmm3
 	movdqa	%xmm2, 32(%edx)
 	movdqa	%xmm3, 48(%edx)
 	movdqa	%xmm4, 64(%edx)
@@ -750,11 +750,11 @@ scrypt_core_sse2_loop1:
 	
 	movl	$1024, %ecx
 scrypt_core_sse2_loop2:
+	movd	%xmm4, %edx
 	movdqa	0(%esp), %xmm0
 	movdqa	16(%esp), %xmm1
 	movdqa	32(%esp), %xmm2
 	movdqa	48(%esp), %xmm3
-	movd	%xmm4, %edx
 	andl	$1023, %edx
 	shll	$7, %edx
 	pxor	0(%esi, %edx), %xmm0
@@ -764,10 +764,10 @@ scrypt_core_sse2_loop2:
 	
 	pxor	%xmm4, %xmm0
 	pxor	%xmm5, %xmm1
-	pxor	%xmm6, %xmm2
-	pxor	%xmm7, %xmm3
 	movdqa	%xmm0, 0(%esp)
 	movdqa	%xmm1, 16(%esp)
+	pxor	%xmm6, %xmm2
+	pxor	%xmm7, %xmm3
 	movdqa	%xmm2, 32(%esp)
 	movdqa	%xmm3, 48(%esp)
 	salsa8_core_sse2

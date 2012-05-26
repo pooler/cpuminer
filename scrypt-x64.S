@@ -520,8 +520,8 @@ scrypt_core_gen_loop2:
 	pslld	$7, %xmm4
 	psrld	$25, %xmm5
 	pxor	%xmm4, %xmm3
-	pxor	%xmm5, %xmm3
 	movdqa	%xmm0, %xmm4
+	pxor	%xmm5, %xmm3
 	
 	paddd	%xmm3, %xmm4
 	movdqa	%xmm4, %xmm5
@@ -529,8 +529,8 @@ scrypt_core_gen_loop2:
 	psrld	$23, %xmm5
 	pxor	%xmm4, %xmm2
 	movdqa	%xmm3, %xmm4
-	pshufd	$0x93, %xmm3, %xmm3
 	pxor	%xmm5, %xmm2
+	pshufd	$0x93, %xmm3, %xmm3
 	
 	paddd	%xmm2, %xmm4
 	movdqa	%xmm4, %xmm5
@@ -538,25 +538,25 @@ scrypt_core_gen_loop2:
 	psrld	$19, %xmm5
 	pxor	%xmm4, %xmm1
 	movdqa	%xmm2, %xmm4
-	pshufd	$0x4e, %xmm2, %xmm2
 	pxor	%xmm5, %xmm1
+	pshufd	$0x4e, %xmm2, %xmm2
 	
 	paddd	%xmm1, %xmm4
 	movdqa	%xmm4, %xmm5
 	pslld	$18, %xmm4
 	psrld	$14, %xmm5
 	pxor	%xmm4, %xmm0
-	pshufd	$0x39, %xmm1, %xmm1
-	pxor	%xmm5, %xmm0
 	movdqa	%xmm3, %xmm4
+	pxor	%xmm5, %xmm0
+	pshufd	$0x39, %xmm1, %xmm1
 	
 	paddd	%xmm0, %xmm4
 	movdqa	%xmm4, %xmm5
 	pslld	$7, %xmm4
 	psrld	$25, %xmm5
 	pxor	%xmm4, %xmm1
-	pxor	%xmm5, %xmm1
 	movdqa	%xmm0, %xmm4
+	pxor	%xmm5, %xmm1
 	
 	paddd	%xmm1, %xmm4
 	movdqa	%xmm4, %xmm5
@@ -564,8 +564,8 @@ scrypt_core_gen_loop2:
 	psrld	$23, %xmm5
 	pxor	%xmm4, %xmm2
 	movdqa	%xmm1, %xmm4
-	pshufd	$0x93, %xmm1, %xmm1
 	pxor	%xmm5, %xmm2
+	pshufd	$0x93, %xmm1, %xmm1
 	
 	paddd	%xmm2, %xmm4
 	movdqa	%xmm4, %xmm5
@@ -573,8 +573,8 @@ scrypt_core_gen_loop2:
 	psrld	$19, %xmm5
 	pxor	%xmm4, %xmm3
 	movdqa	%xmm2, %xmm4
-	pshufd	$0x4e, %xmm2, %xmm2
 	pxor	%xmm5, %xmm3
+	pshufd	$0x4e, %xmm2, %xmm2
 	
 	paddd	%xmm3, %xmm4
 	movdqa	%xmm4, %xmm5
@@ -594,121 +594,60 @@ scrypt_core_gen_loop2:
 	
 	.p2align 6
 scrypt_core_xmm:
-	/* shuffle 1st block into %xmm8-%xmm11 */
-	movl	60(%rdi), %edx
-	movl	44(%rdi), %ecx
-	movl	28(%rdi), %ebx
-	movl	12(%rdi), %eax
-	movd	%edx, %xmm0
-	movd	%ecx, %xmm1
-	movd	%ebx, %xmm2
-	movd	%eax, %xmm3
-	movl	40(%rdi), %ecx
-	movl	24(%rdi), %ebx
-	movl	8(%rdi), %eax
-	movl	56(%rdi), %edx
-	pshufd	$0x93, %xmm0, %xmm0
-	pshufd	$0x93, %xmm1, %xmm1
-	pshufd	$0x93, %xmm2, %xmm2
-	pshufd	$0x93, %xmm3, %xmm3
-	movd	%ecx, %xmm4
-	movd	%ebx, %xmm5
-	movd	%eax, %xmm6
-	movd	%edx, %xmm7
-	paddd	%xmm4, %xmm0
-	paddd	%xmm5, %xmm1
-	paddd	%xmm6, %xmm2
-	paddd	%xmm7, %xmm3
-	movl	20(%rdi), %ebx
-	movl	4(%rdi), %eax
-	movl	52(%rdi), %edx
-	movl	36(%rdi), %ecx
-	pshufd	$0x93, %xmm0, %xmm0
-	pshufd	$0x93, %xmm1, %xmm1
-	pshufd	$0x93, %xmm2, %xmm2
-	pshufd	$0x93, %xmm3, %xmm3
-	movd	%ebx, %xmm4
-	movd	%eax, %xmm5
-	movd	%edx, %xmm6
-	movd	%ecx, %xmm7
-	paddd	%xmm4, %xmm0
-	paddd	%xmm5, %xmm1
-	paddd	%xmm6, %xmm2
-	paddd	%xmm7, %xmm3
-	movl	0(%rdi), %eax
-	movl	48(%rdi), %edx
-	movl	32(%rdi), %ecx
-	movl	16(%rdi), %ebx
-	pshufd	$0x93, %xmm0, %xmm0
-	pshufd	$0x93, %xmm1, %xmm1
-	pshufd	$0x93, %xmm2, %xmm2
-	pshufd	$0x93, %xmm3, %xmm3
-	movd	%eax, %xmm8
-	movd	%edx, %xmm9
-	movd	%ecx, %xmm10
-	movd	%ebx, %xmm11
-	paddd	%xmm0, %xmm8
-	paddd	%xmm1, %xmm9
-	paddd	%xmm2, %xmm10
-	paddd	%xmm3, %xmm11
+	pcmpeqw	%xmm1, %xmm1
+	psrlq	$32, %xmm1
 	
-	/* shuffle 2nd block into %xmm12-%xmm15 */
-	movl	124(%rdi), %edx
-	movl	108(%rdi), %ecx
-	movl	92(%rdi), %ebx
-	movl	76(%rdi), %eax
-	movd	%edx, %xmm0
-	movd	%ecx, %xmm1
-	movd	%ebx, %xmm2
-	movd	%eax, %xmm3
-	movl	104(%rdi), %ecx
-	movl	88(%rdi), %ebx
-	movl	72(%rdi), %eax
-	movl	120(%rdi), %edx
-	pshufd	$0x93, %xmm0, %xmm0
-	pshufd	$0x93, %xmm1, %xmm1
-	pshufd	$0x93, %xmm2, %xmm2
-	pshufd	$0x93, %xmm3, %xmm3
-	movd	%ecx, %xmm4
-	movd	%ebx, %xmm5
-	movd	%eax, %xmm6
-	movd	%edx, %xmm7
-	paddd	%xmm4, %xmm0
-	paddd	%xmm5, %xmm1
-	paddd	%xmm6, %xmm2
-	paddd	%xmm7, %xmm3
-	movl	84(%rdi), %ebx
-	movl	68(%rdi), %eax
-	movl	116(%rdi), %edx
-	movl	100(%rdi), %ecx
-	pshufd	$0x93, %xmm0, %xmm0
-	pshufd	$0x93, %xmm1, %xmm1
-	pshufd	$0x93, %xmm2, %xmm2
-	pshufd	$0x93, %xmm3, %xmm3
-	movd	%ebx, %xmm4
-	movd	%eax, %xmm5
-	movd	%edx, %xmm6
-	movd	%ecx, %xmm7
-	paddd	%xmm4, %xmm0
-	paddd	%xmm5, %xmm1
-	paddd	%xmm6, %xmm2
-	paddd	%xmm7, %xmm3
-	movl	64(%rdi), %eax
-	movl	112(%rdi), %edx
-	movl	96(%rdi), %ecx
-	movl	80(%rdi), %ebx
-	pshufd	$0x93, %xmm0, %xmm0
-	pshufd	$0x93, %xmm1, %xmm1
-	pshufd	$0x93, %xmm2, %xmm2
-	pshufd	$0x93, %xmm3, %xmm3
-	movd	%eax, %xmm12
-	movd	%edx, %xmm13
-	movd	%ecx, %xmm14
-	movd	%ebx, %xmm15
-	paddd	%xmm0, %xmm12
-	paddd	%xmm1, %xmm13
-	paddd	%xmm2, %xmm14
-	paddd	%xmm3, %xmm15
+	movdqa	0(%rdi), %xmm8
+	movdqa	16(%rdi), %xmm11
+	movdqa	32(%rdi), %xmm10
+	movdqa	48(%rdi), %xmm9
+	movdqa	%xmm8, %xmm0
+	pxor	%xmm11, %xmm8
+	pand	%xmm1, %xmm8
+	pxor	%xmm11, %xmm8
+	pxor	%xmm10, %xmm11
+	pand	%xmm1, %xmm11
+	pxor	%xmm10, %xmm11
+	pxor	%xmm9, %xmm10
+	pand	%xmm1, %xmm10
+	pxor	%xmm9, %xmm10
+	pxor	%xmm0, %xmm9
+	pand	%xmm1, %xmm9
+	pxor	%xmm0, %xmm9
+	movdqa	%xmm8, %xmm0
+	pshufd	$0x4e, %xmm10, %xmm10
+	punpcklqdq	%xmm10, %xmm8
+	punpckhqdq	%xmm0, %xmm10
+	movdqa	%xmm11, %xmm0
+	pshufd	$0x4e, %xmm9, %xmm9
+	punpcklqdq	%xmm9, %xmm11
+	punpckhqdq	%xmm0, %xmm9
+	
+	movdqa	64(%rdi), %xmm12
+	movdqa	80(%rdi), %xmm15
+	movdqa	96(%rdi), %xmm14
+	movdqa	112(%rdi), %xmm13
+	movdqa	%xmm12, %xmm0
+	pxor	%xmm15, %xmm12
+	pand	%xmm1, %xmm12
+	pxor	%xmm15, %xmm12
+	pxor	%xmm14, %xmm15
+	pand	%xmm1, %xmm15
+	pxor	%xmm14, %xmm15
+	pxor	%xmm13, %xmm14
+	pand	%xmm1, %xmm14
+	pxor	%xmm13, %xmm14
+	pxor	%xmm0, %xmm13
+	pand	%xmm1, %xmm13
+	pxor	%xmm0, %xmm13
+	movdqa	%xmm12, %xmm0
+	pshufd	$0x4e, %xmm14, %xmm14
+	punpcklqdq	%xmm14, %xmm12
+	punpckhqdq	%xmm0, %xmm14
+	movdqa	%xmm15, %xmm0
+	pshufd	$0x4e, %xmm13, %xmm13
+	punpcklqdq	%xmm13, %xmm15
+	punpckhqdq	%xmm0, %xmm13
 	
 	movq	%rsi, %rdx
 	leaq	131072(%rsi), %rcx
@@ -807,97 +746,60 @@ scrypt_core_xmm_loop2:
 	subq	$1, %rcx
 	ja scrypt_core_xmm_loop2
 	
-	/* re-shuffle 1st block back */
-	movd	%xmm8, %eax
-	movd	%xmm9, %edx
-	movd	%xmm10, %ecx
-	movd	%xmm11, %ebx
-	pshufd	$0x39, %xmm8, %xmm8
-	pshufd	$0x39, %xmm9, %xmm9
-	pshufd	$0x39, %xmm10, %xmm10
-	pshufd	$0x39, %xmm11, %xmm11
-	movl	%eax, 0(%rdi)
-	movl	%edx, 48(%rdi)
-	movl	%ecx, 32(%rdi)
-	movl	%ebx, 16(%rdi)
-	movd	%xmm8, %ebx
-	movd	%xmm9, %eax
-	movd	%xmm10, %edx
-	movd	%xmm11, %ecx
-	pshufd	$0x39, %xmm8, %xmm8
-	pshufd	$0x39, %xmm9, %xmm9
-	pshufd	$0x39, %xmm10, %xmm10
-	pshufd	$0x39, %xmm11, %xmm11
-	movl	%ebx, 20(%rdi)
-	movl	%eax, 4(%rdi)
-	movl	%edx, 52(%rdi)
-	movl	%ecx, 36(%rdi)
-	movd	%xmm8, %ecx
-	movd	%xmm9, %ebx
-	movd	%xmm10, %eax
-	movd	%xmm11, %edx
-	pshufd	$0x39, %xmm8, %xmm8
-	pshufd	$0x39, %xmm9, %xmm9
-	pshufd	$0x39, %xmm10, %xmm10
-	pshufd	$0x39, %xmm11, %xmm11
-	movl	%ecx, 40(%rdi)
-	movl	%ebx, 24(%rdi)
-	movl	%eax, 8(%rdi)
-	movl	%edx, 56(%rdi)
-	movd	%xmm8, %edx
-	movd	%xmm9, %ecx
-	movd	%xmm10, %ebx
-	movd	%xmm11, %eax
-	movl	%edx, 60(%rdi)
-	movl	%ecx, 44(%rdi)
-	movl	%ebx, 28(%rdi)
-	movl	%eax, 12(%rdi)
+	pcmpeqw	%xmm1, %xmm1
+	psrlq	$32, %xmm1
 	
-	/* re-shuffle 2nd block back */
-	movd	%xmm12, %eax
-	movd	%xmm13, %edx
-	movd	%xmm14, %ecx
-	movd	%xmm15, %ebx
-	pshufd	$0x39, %xmm12, %xmm12
-	pshufd	$0x39, %xmm13, %xmm13
-	pshufd	$0x39, %xmm14, %xmm14
-	pshufd	$0x39, %xmm15, %xmm15
-	movl	%eax, 64(%rdi)
-	movl	%edx, 112(%rdi)
-	movl	%ecx, 96(%rdi)
-	movl	%ebx, 80(%rdi)
-	movd	%xmm12, %ebx
-	movd	%xmm13, %eax
-	movd	%xmm14, %edx
-	movd	%xmm15, %ecx
-	pshufd	$0x39, %xmm12, %xmm12
-	pshufd	$0x39, %xmm13, %xmm13
-	pshufd	$0x39, %xmm14, %xmm14
-	pshufd	$0x39, %xmm15, %xmm15
-	movl	%ebx, 84(%rdi)
-	movl	%eax, 68(%rdi)
-	movl	%edx, 116(%rdi)
-	movl	%ecx, 100(%rdi)
-	movd	%xmm12, %ecx
-	movd	%xmm13, %ebx
-	movd	%xmm14, %eax
-	movd	%xmm15, %edx
-	pshufd	$0x39, %xmm12, %xmm12
-	pshufd	$0x39, %xmm13, %xmm13
-	pshufd	$0x39, %xmm14, %xmm14
-	pshufd	$0x39, %xmm15, %xmm15
-	movl	%ecx, 104(%rdi)
-	movl	%ebx, 88(%rdi)
-	movl	%eax, 72(%rdi)
-	movl	%edx, 120(%rdi)
-	movd	%xmm12, %edx
-	movd	%xmm13, %ecx
-	movd	%xmm14, %ebx
-	movd	%xmm15, %eax
-	movl	%edx, 124(%rdi)
-	movl	%ecx, 108(%rdi)
-	movl	%ebx, 92(%rdi)
-	movl	%eax, 76(%rdi)
+	movdqa	%xmm8, %xmm0
+	pxor	%xmm9, %xmm8
+	pand	%xmm1, %xmm8
+	pxor	%xmm9, %xmm8
+	pxor	%xmm10, %xmm9
+	pand	%xmm1, %xmm9
+	pxor	%xmm10, %xmm9
+	pxor	%xmm11, %xmm10
+	pand	%xmm1, %xmm10
+	pxor	%xmm11, %xmm10
+	pxor	%xmm0, %xmm11
+	pand	%xmm1, %xmm11
+	pxor	%xmm0, %xmm11
+	movdqa	%xmm8, %xmm0
+	pshufd	$0x4e, %xmm10, %xmm10
+	punpcklqdq	%xmm10, %xmm8
+	punpckhqdq	%xmm0, %xmm10
+	movdqa	%xmm9, %xmm0
+	pshufd	$0x4e, %xmm11, %xmm11
+	punpcklqdq	%xmm11, %xmm9
+	punpckhqdq	%xmm0, %xmm11
+	movdqa	%xmm8, 0(%rdi)
+	movdqa	%xmm11, 16(%rdi)
+	movdqa	%xmm10, 32(%rdi)
+	movdqa	%xmm9, 48(%rdi)
+	
+	movdqa	%xmm12, %xmm0
+	pxor	%xmm13, %xmm12
+	pand	%xmm1, %xmm12
+	pxor	%xmm13, %xmm12
+	pxor	%xmm14, %xmm13
+	pand	%xmm1, %xmm13
+	pxor	%xmm14, %xmm13
+	pxor	%xmm15, %xmm14
+	pand	%xmm1, %xmm14
+	pxor	%xmm15, %xmm14
+	pxor	%xmm0, %xmm15
+	pand	%xmm1, %xmm15
+	pxor	%xmm0, %xmm15
+	movdqa	%xmm12, %xmm0
+	pshufd	$0x4e, %xmm14, %xmm14
+	punpcklqdq	%xmm14, %xmm12
+	punpckhqdq	%xmm0, %xmm14
+	movdqa	%xmm13, %xmm0
+	pshufd	$0x4e, %xmm15, %xmm15
+	punpcklqdq	%xmm15, %xmm13
+	punpckhqdq	%xmm0, %xmm15
+	movdqa	%xmm12, 64(%rdi)
+	movdqa	%xmm15, 80(%rdi)
+	movdqa	%xmm14, 96(%rdi)
+	movdqa	%xmm13, 112(%rdi)
 	
 	scrypt_core_cleanup
 	ret
@@ -1915,8 +1817,8 @@ scrypt_core_3way_xop_loop2:
 	psrld	$23, %xmm5
 	pxor	%xmm7, %xmm14
 	movdqa	%xmm15, %xmm7
-	pshufd	$0x93, %xmm15, %xmm15
 	pxor	%xmm5, %xmm14
+	pshufd	$0x93, %xmm15, %xmm15
 	
 	paddd	%xmm2, %xmm4
 	paddd	%xmm10, %xmm6
@@ -1964,9 +1866,9 @@ scrypt_core_3way_xop_loop2:
 	pslld	$18, %xmm7
 	psrld	$14, %xmm5
 	pxor	%xmm7, %xmm12
-	pshufd	$0x39, %xmm13, %xmm13
-	pxor	%xmm5, %xmm12
 	movdqa	%xmm15, %xmm7
+	pxor	%xmm5, %xmm12
+	pshufd	$0x39, %xmm13, %xmm13
 	
 	paddd	%xmm0, %xmm4
 	paddd	%xmm8, %xmm6
