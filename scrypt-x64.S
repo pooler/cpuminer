@@ -127,120 +127,122 @@ scrypt_best_throughput_exit:
 	
 	leaq	(%r14, %rdx), %rbp
 	roll	$7, %ebp
-	xorq	%rbp, %r9
+	xorl	%ebp, %r9d
 	leaq	(%rdi, %r15), %rbp
 	roll	$7, %ebp
-	xorq	%rbp, %r10
+	xorl	%ebp, %r10d
 	leaq	(%rdx, %r9), %rbp
 	roll	$9, %ebp
-	xorq	%rbp, %r11
+	xorl	%ebp, %r11d
 	leaq	(%r15, %r10), %rbp
 	roll	$9, %ebp
-	xorq	%rbp, %r13
+	xorl	%ebp, %r13d
+	
 	leaq	(%r9, %r11), %rbp
 	roll	$13, %ebp
-	xorq	%rbp, %r14
+	xorl	%ebp, %r14d
 	leaq	(%r10, %r13), %rbp
 	roll	$13, %ebp
-	xorq	%rbp, %rdi
+	xorl	%ebp, %edi
 	leaq	(%r11, %r14), %rbp
 	roll	$18, %ebp
-	xorq	%rbp, %rdx
+	xorl	%ebp, %edx
 	leaq	(%r13, %rdi), %rbp
 	roll	$18, %ebp
-	xorq	%rbp, %r15
+	xorl	%ebp, %r15d
 	
 	movq	48(%rsp), %rbp
 	movq	%r15, 72(%rsp)
 	
 	leaq	(%rax, %rbp), %r15
 	roll	$7, %r15d
-	xorq	%r15, %rbx
+	xorl	%r15d, %ebx
 	leaq	(%rbp, %rbx), %r15
 	roll	$9, %r15d
-	xorq	%r15, %rcx
+	xorl	%r15d, %ecx
 	leaq	(%rbx, %rcx), %r15
 	roll	$13, %r15d
-	xorq	%r15, %rax
+	xorl	%r15d, %eax
 	leaq	(%rcx, %rax), %r15
 	roll	$18, %r15d
-	xorq	%r15, %rbp
+	xorl	%r15d, %ebp
 	
 	movq	88(%rsp), %r15
 	movq	%rbp, 48(%rsp)
 	
 	leaq	(%r12, %r15), %rbp
 	roll	$7, %ebp
-	xorq	%rbp, %rsi
+	xorl	%ebp, %esi
 	leaq	(%r15, %rsi), %rbp
 	roll	$9, %ebp
-	xorq	%rbp, %r8
+	xorl	%ebp, %r8d
 	leaq	(%rsi, %r8), %rbp
 	roll	$13, %ebp
-	xorq	%rbp, %r12
+	xorl	%ebp, %r12d
 	leaq	(%r8, %r12), %rbp
 	roll	$18, %ebp
-	xorq	%rbp, %r15
+	xorl	%ebp, %r15d
 	
 	movq	%r15, 88(%rsp)
 	movq	72(%rsp), %r15
 	
 	leaq	(%rsi, %rdx), %rbp
 	roll	$7, %ebp
-	xorq	%rbp, %rdi
+	xorl	%ebp, %edi
 	leaq	(%r9, %r15), %rbp
 	roll	$7, %ebp
-	xorq	%rbp, %rax
+	xorl	%ebp, %eax
 	leaq	(%rdx, %rdi), %rbp
 	roll	$9, %ebp
-	xorq	%rbp, %rcx
+	xorl	%ebp, %ecx
 	leaq	(%r15, %rax), %rbp
 	roll	$9, %ebp
-	xorq	%rbp, %r8
+	xorl	%ebp, %r8d
+	
 	leaq	(%rdi, %rcx), %rbp
 	roll	$13, %ebp
-	xorq	%rbp, %rsi
+	xorl	%ebp, %esi
 	leaq	(%rax, %r8), %rbp
 	roll	$13, %ebp
-	xorq	%rbp, %r9
+	xorl	%ebp, %r9d
 	leaq	(%rcx, %rsi), %rbp
 	roll	$18, %ebp
-	xorq	%rbp, %rdx
+	xorl	%ebp, %edx
 	leaq	(%r8, %r9), %rbp
 	roll	$18, %ebp
-	xorq	%rbp, %r15
+	xorl	%ebp, %r15d
 	
 	movq	48(%rsp), %rbp
 	movq	%r15, 72(%rsp)
 	
 	leaq	(%r10, %rbp), %r15
 	roll	$7, %r15d
-	xorq	%r15, %r12
+	xorl	%r15d, %r12d
 	leaq	(%rbp, %r12), %r15
 	roll	$9, %r15d
-	xorq	%r15, %r11
+	xorl	%r15d, %r11d
 	leaq	(%r12, %r11), %r15
 	roll	$13, %r15d
-	xorq	%r15, %r10
+	xorl	%r15d, %r10d
 	leaq	(%r11, %r10), %r15
 	roll	$18, %r15d
-	xorq	%r15, %rbp
+	xorl	%r15d, %ebp
 	
 	movq	88(%rsp), %r15
 	movq	%rbp, 48(%rsp)
 	
 	leaq	(%rbx, %r15), %rbp
 	roll	$7, %ebp
-	xorq	%rbp, %r14
+	xorl	%ebp, %r14d
 	leaq	(%r15, %r14), %rbp
 	roll	$9, %ebp
-	xorq	%rbp, %r13
+	xorl	%ebp, %r13d
 	leaq	(%r14, %r13), %rbp
 	roll	$13, %ebp
-	xorq	%rbp, %rbx
+	xorl	%ebp, %ebx
 	leaq	(%r13, %rbx), %rbp
 	roll	$18, %ebp
-	xorq	%rbp, %r15
+	xorl	%ebp, %r15d
 	
 	movq	%r15, 88(%rsp)
 .endm
@@ -285,61 +287,45 @@ salsa8_core_gen:
 	salsa8_core_gen_doubleround
 	salsa8_core_gen_doubleround
 	
-	movl	%edx, %edx
 	shlq	$32, %rdi
-	addq	%rdi, %rdx
-	movd	%rdx, %xmm0
+	xorq	%rdi, %rdx
+	movq	%rdx, 24(%rsp)
 	
-	movl	%ecx, %ecx
 	shlq	$32, %rsi
-	addq	%rsi, %rcx
-	movd	%rcx, %xmm4
+	xorq	%rsi, %rcx
+	movq	%rcx, 32(%rsp)
 	
-	movq	72(%rsp), %rdi
-	movl	%r9d, %r9d
+	movl	72(%rsp), %edi
 	shlq	$32, %rdi
-	addq	%rdi, %r9
-	movd	%r9, %xmm1
+	xorq	%rdi, %r9
+	movq	%r9, 40(%rsp)
 	
-	movl	%eax, %eax
+	movl	48(%rsp), %ebp
 	shlq	$32, %r8
-	addq	%r8, %rax
-	movd	%rax, %xmm5
+	xorq	%r8, %rax
+	movq	%rax, 48(%rsp)
 	
-	movl	%r11d, %r11d
 	shlq	$32, %r10
-	addq	%r10, %r11
-	movd	%r11, %xmm2
+	xorq	%r10, %r11
+	movq	%r11, 56(%rsp)
 	
-	movl	48(%rsp), %r8d
 	shlq	$32, %r12
-	addq	%r12, %r8
-	movd	%r8, %xmm6
+	xorq	%r12, %rbp
+	movq	%rbp, 64(%rsp)
 	
-	movl	%r14d, %r14d
 	shlq	$32, %r13
-	addq	%r13, %r14
-	movd	%r14, %xmm3
+	xorq	%r13, %r14
+	movq	%r14, 72(%rsp)
 	
-	movq	88(%rsp), %rdi
-	movl	%ebx, %ebx
-	shlq	$32, %rdi
-	addq	%rdi, %rbx
-	movd	%rbx, %xmm7
+	movdqa	24(%rsp), %xmm0
 	
-	punpcklqdq	%xmm4, %xmm0
-	punpcklqdq	%xmm5, %xmm1
-	punpcklqdq	%xmm6, %xmm2
-	punpcklqdq	%xmm7, %xmm3
+	shlq	$32, %r15
+	xorq	%r15, %rbx
+	movq	%rbx, 80(%rsp)
 	
-	/* movq	%rdx, 8(%rsp) */
-	/* movq	%rcx, 16(%rsp) */
-	/* movq	%r9, 24(%rsp) */
-	/* movq	%rax, 32(%rsp) */
-	/* movq	%r11, 40(%rsp) */
-	/* movq	%r8, 48(%rsp) */
-	/* movq	%r14, 56(%rsp) */
-	/* movq	%rbx, 64(%rsp) */
+	movdqa	40(%rsp), %xmm1
+	movdqa	56(%rsp), %xmm2
+	movdqa	72(%rsp), %xmm3
 	
 	ret
 	
@@ -470,19 +456,20 @@ scrypt_core_gen_loop1:
 	jne scrypt_core_gen_loop1
 	
 	movq	$1024, %rcx
+	movd	%xmm12, %edx
 scrypt_core_gen_loop2:
 	movq	112(%rsp), %rsi
-	movd	%xmm12, %edx
 	andl	$1023, %edx
 	shll	$7, %edx
-	movdqa	0(%rsi, %rdx), %xmm0
-	movdqa	16(%rsi, %rdx), %xmm1
-	movdqa	32(%rsi, %rdx), %xmm2
-	movdqa	48(%rsi, %rdx), %xmm3
-	movdqa	64(%rsi, %rdx), %xmm4
-	movdqa	80(%rsi, %rdx), %xmm5
-	movdqa	96(%rsi, %rdx), %xmm6
-	movdqa	112(%rsi, %rdx), %xmm7
+	addq	%rsi, %rdx
+	movdqa	0(%rdx), %xmm0
+	movdqa	16(%rdx), %xmm1
+	movdqa	32(%rdx), %xmm2
+	movdqa	48(%rdx), %xmm3
+	movdqa	64(%rdx), %xmm4
+	movdqa	80(%rdx), %xmm5
+	movdqa	96(%rdx), %xmm6
+	movdqa	112(%rdx), %xmm7
 	pxor	%xmm0, %xmm8
 	pxor	%xmm1, %xmm9
 	pxor	%xmm2, %xmm10
@@ -517,6 +504,7 @@ scrypt_core_gen_loop2:
 	movdqa	%xmm15, 48(%rsp)
 	call salsa8_core_gen
 	movq	128(%rsp), %rcx
+	addl	0(%rsp), %edx
 	paddd	%xmm0, %xmm12
 	paddd	%xmm1, %xmm13
 	paddd	%xmm2, %xmm14
@@ -679,6 +667,10 @@ scrypt_core_xmm:
 	movq	%rsi, %rdx
 	leaq	131072(%rsi), %rcx
 scrypt_core_xmm_loop1:
+	pxor	%xmm12, %xmm8
+	pxor	%xmm13, %xmm9
+	pxor	%xmm14, %xmm10
+	pxor	%xmm15, %xmm11
 	movdqa	%xmm8, 0(%rdx)
 	movdqa	%xmm9, 16(%rdx)
 	movdqa	%xmm10, 32(%rdx)
@@ -688,10 +680,6 @@ scrypt_core_xmm_loop1:
 	movdqa	%xmm14, 96(%rdx)
 	movdqa	%xmm15, 112(%rdx)
 	
-	pxor	%xmm12, %xmm8
-	pxor	%xmm13, %xmm9
-	pxor	%xmm14, %xmm10
-	pxor	%xmm15, %xmm11
 	movdqa	%xmm8, %xmm0
 	movdqa	%xmm9, %xmm1
 	movdqa	%xmm10, %xmm2
@@ -725,22 +713,10 @@ scrypt_core_xmm_loop2:
 	movd	%xmm12, %edx
 	andl	$1023, %edx
 	shll	$7, %edx
-	movdqa	0(%rsi, %rdx), %xmm0
-	movdqa	16(%rsi, %rdx), %xmm1
-	movdqa	32(%rsi, %rdx), %xmm2
-	movdqa	48(%rsi, %rdx), %xmm3
-	movdqa	64(%rsi, %rdx), %xmm4
-	movdqa	80(%rsi, %rdx), %xmm5
-	movdqa	96(%rsi, %rdx), %xmm6
-	movdqa	112(%rsi, %rdx), %xmm7
-	pxor	%xmm0, %xmm8
-	pxor	%xmm1, %xmm9
-	pxor	%xmm2, %xmm10
-	pxor	%xmm3, %xmm11
-	pxor	%xmm4, %xmm12
-	pxor	%xmm5, %xmm13
-	pxor	%xmm6, %xmm14
-	pxor	%xmm7, %xmm15
+	pxor	0(%rsi, %rdx), %xmm8
+	pxor	16(%rsi, %rdx), %xmm9
+	pxor	32(%rsi, %rdx), %xmm10
+	pxor	48(%rsi, %rdx), %xmm11
 	
 	pxor	%xmm12, %xmm8
 	pxor	%xmm13, %xmm9
@@ -756,6 +732,10 @@ scrypt_core_xmm_loop2:
 	paddd	%xmm2, %xmm10
 	paddd	%xmm3, %xmm11
 	
+	pxor	64(%rsi, %rdx), %xmm12
+	pxor	80(%rsi, %rdx), %xmm13
+	pxor	96(%rsi, %rdx), %xmm14
+	pxor	112(%rsi, %rdx), %xmm15
 	pxor	%xmm8, %xmm12
 	pxor	%xmm9, %xmm13
 	pxor	%xmm10, %xmm14
