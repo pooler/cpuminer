@@ -110,6 +110,9 @@
 	.align 2
 	.globl sha256_transform
 	.globl _sha256_transform
+#ifdef __ELF__
+	.type sha256_transform, %function
+#endif
 sha256_transform:
 _sha256_transform:
 	stmfd	sp!, {r4-r11, lr}
@@ -232,6 +235,9 @@ sha256_transform_k_over:
 	.align 2
 	.globl sha256d_ms
 	.globl _sha256d_ms
+#ifdef __ELF__
+	.type sha256d_ms, %function
+#endif
 sha256d_ms:
 _sha256d_ms:
 	stmfd	sp!, {r4-r11, lr}

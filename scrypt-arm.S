@@ -294,6 +294,9 @@
 	.align 2
 	.globl scrypt_core
 	.globl _scrypt_core
+#ifdef __ELF__
+	.type scrypt_core, %function
+#endif
 scrypt_core:
 _scrypt_core:
 	stmfd	sp!, {r4-r11, lr}
