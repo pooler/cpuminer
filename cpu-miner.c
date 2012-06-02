@@ -540,7 +540,7 @@ static void *miner_thread(void *userdata)
 
 	/* Cpu affinity only makes sense if the number of threads is a multiple
 	 * of the number of CPUs */
-	if (!(opt_n_threads % num_processors))
+	if (num_processors > 1 && opt_n_threads % num_processors == 0)
 		affine_to_cpu(mythr->id, mythr->id % num_processors);
 	
 	if (opt_algo == ALGO_SCRYPT)
