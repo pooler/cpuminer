@@ -49,11 +49,13 @@ _scrypt_best_throughput:
 	jne scrypt_best_throughput_not_amd
 	cmpl	$0x68747541, %ebx
 	jne scrypt_best_throughput_not_amd
-	/* Check for AMD K8 */
+	/* Check for AMD K8 or Bobcat */
 	movl	$1, %eax
 	cpuid
 	andl	$0x0ff00000, %eax
 	jz scrypt_best_throughput_one
+	cmpl	$0x00500000, %eax
+	je scrypt_best_throughput_one
 	movl	$3, %eax
 	jmp scrypt_best_throughput_exit
 scrypt_best_throughput_not_amd:
