@@ -1048,62 +1048,58 @@ scrypt_core_3way_avx:
 	scrypt_shuffle %rdi, 256, %rsp, 256
 	scrypt_shuffle %rdi, 320, %rsp, 320
 	
+	movdqa	64(%rsp), %xmm0
+	movdqa	80(%rsp), %xmm1
+	movdqa	96(%rsp), %xmm2
+	movdqa	112(%rsp), %xmm3
 	movdqa	128+64(%rsp), %xmm8
 	movdqa	128+80(%rsp), %xmm9
 	movdqa	128+96(%rsp), %xmm10
 	movdqa	128+112(%rsp), %xmm11
+	movdqa	256+64(%rsp), %xmm12
+	movdqa	256+80(%rsp), %xmm13
+	movdqa	256+96(%rsp), %xmm14
+	movdqa	256+112(%rsp), %xmm15
 	
 	movq	%rsi, %rbx
 	leaq	3*131072(%rsi), %rax
 scrypt_core_3way_avx_loop1:
-	movdqa	%xmm8, %xmm12
-	movdqa	%xmm9, %xmm13
-	movdqa	%xmm10, %xmm14
-	movdqa	%xmm11, %xmm15
-	movdqa	64(%rsp), %xmm4
-	movdqa	80(%rsp), %xmm5
-	movdqa	96(%rsp), %xmm6
-	movdqa	112(%rsp), %xmm7
-	vpxor	0(%rsp), %xmm4, %xmm0
-	vpxor	16(%rsp), %xmm5, %xmm1
-	vpxor	32(%rsp), %xmm6, %xmm2
-	vpxor	48(%rsp), %xmm7, %xmm3
-	vpxor	128+0(%rsp), %xmm12, %xmm8
-	vpxor	128+16(%rsp), %xmm13, %xmm9
-	vpxor	128+32(%rsp), %xmm14, %xmm10
-	vpxor	128+48(%rsp), %xmm15, %xmm11
+	movdqa	%xmm0, 64(%rbx)
+	movdqa	%xmm1, 80(%rbx)
+	movdqa	%xmm2, 96(%rbx)
+	movdqa	%xmm3, 112(%rbx)
+	pxor	0(%rsp), %xmm0
+	pxor	16(%rsp), %xmm1
+	pxor	32(%rsp), %xmm2
+	pxor	48(%rsp), %xmm3
+	movdqa	%xmm8, 128+64(%rbx)
+	movdqa	%xmm9, 128+80(%rbx)
+	movdqa	%xmm10, 128+96(%rbx)
+	movdqa	%xmm11, 128+112(%rbx)
+	pxor	128+0(%rsp), %xmm8
+	pxor	128+16(%rsp), %xmm9
+	pxor	128+32(%rsp), %xmm10
+	pxor	128+48(%rsp), %xmm11
+	movdqa	%xmm12, 256+64(%rbx)
+	movdqa	%xmm13, 256+80(%rbx)
+	movdqa	%xmm14, 256+96(%rbx)
+	movdqa	%xmm15, 256+112(%rbx)
+	pxor	256+0(%rsp), %xmm12
+	pxor	256+16(%rsp), %xmm13
+	pxor	256+32(%rsp), %xmm14
+	pxor	256+48(%rsp), %xmm15
 	movdqa	%xmm0, 0(%rbx)
 	movdqa	%xmm1, 16(%rbx)
 	movdqa	%xmm2, 32(%rbx)
 	movdqa	%xmm3, 48(%rbx)
-	movdqa	%xmm4, 64(%rbx)
-	movdqa	%xmm5, 80(%rbx)
-	movdqa	%xmm6, 96(%rbx)
-	movdqa	%xmm7, 112(%rbx)
 	movdqa	%xmm8, 128+0(%rbx)
 	movdqa	%xmm9, 128+16(%rbx)
 	movdqa	%xmm10, 128+32(%rbx)
 	movdqa	%xmm11, 128+48(%rbx)
-	movdqa	%xmm12, 128+64(%rbx)
-	movdqa	%xmm13, 128+80(%rbx)
-	movdqa	%xmm14, 128+96(%rbx)
-	movdqa	%xmm15, 128+112(%rbx)
-	movdqa	256+64(%rsp), %xmm4
-	movdqa	256+80(%rsp), %xmm5
-	movdqa	256+96(%rsp), %xmm6
-	movdqa	256+112(%rsp), %xmm7
-	vpxor	256+0(%rsp), %xmm4, %xmm12
-	vpxor	256+16(%rsp), %xmm5, %xmm13
-	vpxor	256+32(%rsp), %xmm6, %xmm14
-	vpxor	256+48(%rsp), %xmm7, %xmm15
 	movdqa	%xmm12, 256+0(%rbx)
 	movdqa	%xmm13, 256+16(%rbx)
 	movdqa	%xmm14, 256+32(%rbx)
 	movdqa	%xmm15, 256+48(%rbx)
-	movdqa	%xmm4, 256+64(%rbx)
-	movdqa	%xmm5, 256+80(%rbx)
-	movdqa	%xmm6, 256+96(%rbx)
-	movdqa	%xmm7, 256+112(%rbx)
 	
 	salsa8_core_3way_avx
 	paddd	0(%rbx), %xmm0
@@ -1131,18 +1127,18 @@ scrypt_core_3way_avx_loop1:
 	movdqa	%xmm14, 256+32(%rsp)
 	movdqa	%xmm15, 256+48(%rsp)
 	
-	pxor	64(%rsp), %xmm0
-	pxor	80(%rsp), %xmm1
-	pxor	96(%rsp), %xmm2
-	pxor	112(%rsp), %xmm3
-	pxor	128+64(%rsp), %xmm8
-	pxor	128+80(%rsp), %xmm9
-	pxor	128+96(%rsp), %xmm10
-	pxor	128+112(%rsp), %xmm11
-	pxor	256+64(%rsp), %xmm12
-	pxor	256+80(%rsp), %xmm13
-	pxor	256+96(%rsp), %xmm14
-	pxor	256+112(%rsp), %xmm15
+	pxor	64(%rbx), %xmm0
+	pxor	80(%rbx), %xmm1
+	pxor	96(%rbx), %xmm2
+	pxor	112(%rbx), %xmm3
+	pxor	128+64(%rbx), %xmm8
+	pxor	128+80(%rbx), %xmm9
+	pxor	128+96(%rbx), %xmm10
+	pxor	128+112(%rbx), %xmm11
+	pxor	256+64(%rbx), %xmm12
+	pxor	256+80(%rbx), %xmm13
+	pxor	256+96(%rbx), %xmm14
+	pxor	256+112(%rbx), %xmm15
 	movdqa	%xmm0, 64(%rsp)
 	movdqa	%xmm1, 80(%rsp)
 	movdqa	%xmm2, 96(%rsp)
@@ -1168,6 +1164,11 @@ scrypt_core_3way_avx_loop1:
 	paddd	256+80(%rsp), %xmm13
 	paddd	256+96(%rsp), %xmm14
 	paddd	256+112(%rsp), %xmm15
+	
+	addq	$3*128, %rbx
+	cmpq	%rax, %rbx
+	jne scrypt_core_3way_avx_loop1
+	
 	movdqa	%xmm0, 64(%rsp)
 	movdqa	%xmm1, 80(%rsp)
 	movdqa	%xmm2, 96(%rsp)
@@ -1181,39 +1182,32 @@ scrypt_core_3way_avx_loop1:
 	movdqa	%xmm14, 256+96(%rsp)
 	movdqa	%xmm15, 256+112(%rsp)
 	
-	addq	$3*128, %rbx
-	cmpq	%rax, %rbx
-	jne scrypt_core_3way_avx_loop1
-	
 	movq	$1024, %rcx
-	.p2align 4
 scrypt_core_3way_avx_loop2:
-	movl	64(%rsp), %ebp
+	movd	%xmm0, %ebp
+	movd	%xmm8, %ebx
+	movd	%xmm12, %eax
+	pxor	0(%rsp), %xmm0
+	pxor	16(%rsp), %xmm1
+	pxor	32(%rsp), %xmm2
+	pxor	48(%rsp), %xmm3
+	pxor	128+0(%rsp), %xmm8
+	pxor	128+16(%rsp), %xmm9
+	pxor	128+32(%rsp), %xmm10
+	pxor	128+48(%rsp), %xmm11
+	pxor	256+0(%rsp), %xmm12
+	pxor	256+16(%rsp), %xmm13
+	pxor	256+32(%rsp), %xmm14
+	pxor	256+48(%rsp), %xmm15
 	andl	$1023, %ebp
 	leaq	(%rbp, %rbp, 2), %rbp
-	movl	128+64(%rsp), %ebx
 	shll	$7, %ebp
-	movl	256+64(%rsp), %eax
 	andl	$1023, %ebx
-	leaq	(%rbx, %rbx, 2), %rbx
+	leaq	1(%rbx, %rbx, 2), %rbx
 	shll	$7, %ebx
+	andl	$1023, %eax
+	leaq	2(%rax, %rax, 2), %rax
 	shll	$7, %eax
-	addl	$128, %ebx
-	andl	$131071, %eax
-	leaq	(%rax, %rax, 2), %rax
-	addl	$256, %eax
-	movdqa	0(%rsp), %xmm0
-	movdqa	16(%rsp), %xmm1
-	movdqa	32(%rsp), %xmm2
-	movdqa	48(%rsp), %xmm3
-	movdqa	128+0(%rsp), %xmm8
-	movdqa	128+16(%rsp), %xmm9
-	movdqa	128+32(%rsp), %xmm10
-	movdqa	128+48(%rsp), %xmm11
-	movdqa	256+0(%rsp), %xmm12
-	movdqa	256+16(%rsp), %xmm13
-	movdqa	256+32(%rsp), %xmm14
-	movdqa	256+48(%rsp), %xmm15
 	pxor	0(%rsi, %rbp), %xmm0
 	pxor	16(%rsi, %rbp), %xmm1
 	pxor	32(%rsi, %rbp), %xmm2
@@ -1227,18 +1221,6 @@ scrypt_core_3way_avx_loop2:
 	pxor	32(%rsi, %rax), %xmm14
 	pxor	48(%rsi, %rax), %xmm15
 	
-	pxor	64(%rsp), %xmm0
-	pxor	80(%rsp), %xmm1
-	pxor	96(%rsp), %xmm2
-	pxor	112(%rsp), %xmm3
-	pxor	128+64(%rsp), %xmm8
-	pxor	128+80(%rsp), %xmm9
-	pxor	128+96(%rsp), %xmm10
-	pxor	128+112(%rsp), %xmm11
-	pxor	256+64(%rsp), %xmm12
-	pxor	256+80(%rsp), %xmm13
-	pxor	256+96(%rsp), %xmm14
-	pxor	256+112(%rsp), %xmm15
 	movdqa	%xmm0, 0(%rsp)
 	movdqa	%xmm1, 16(%rsp)
 	movdqa	%xmm2, 32(%rsp)
@@ -1469,63 +1451,58 @@ scrypt_core_3way_xop:
 	scrypt_shuffle %rdi, 256, %rsp, 256
 	scrypt_shuffle %rdi, 320, %rsp, 320
 	
+	movdqa	64(%rsp), %xmm0
+	movdqa	80(%rsp), %xmm1
+	movdqa	96(%rsp), %xmm2
+	movdqa	112(%rsp), %xmm3
 	movdqa	128+64(%rsp), %xmm8
 	movdqa	128+80(%rsp), %xmm9
 	movdqa	128+96(%rsp), %xmm10
 	movdqa	128+112(%rsp), %xmm11
+	movdqa	256+64(%rsp), %xmm12
+	movdqa	256+80(%rsp), %xmm13
+	movdqa	256+96(%rsp), %xmm14
+	movdqa	256+112(%rsp), %xmm15
 	
 	movq	%rsi, %rbx
 	leaq	3*131072(%rsi), %rax
-	.p2align 4
 scrypt_core_3way_xop_loop1:
-	movdqa	%xmm8, %xmm12
-	movdqa	%xmm9, %xmm13
-	movdqa	%xmm10, %xmm14
-	movdqa	%xmm11, %xmm15
-	movdqa	64(%rsp), %xmm4
-	movdqa	80(%rsp), %xmm5
-	movdqa	96(%rsp), %xmm6
-	movdqa	112(%rsp), %xmm7
-	vpxor	0(%rsp), %xmm4, %xmm0
-	vpxor	16(%rsp), %xmm5, %xmm1
-	vpxor	32(%rsp), %xmm6, %xmm2
-	vpxor	48(%rsp), %xmm7, %xmm3
-	vpxor	128+0(%rsp), %xmm12, %xmm8
-	vpxor	128+16(%rsp), %xmm13, %xmm9
-	vpxor	128+32(%rsp), %xmm14, %xmm10
-	vpxor	128+48(%rsp), %xmm15, %xmm11
+	movdqa	%xmm0, 64(%rbx)
+	movdqa	%xmm1, 80(%rbx)
+	movdqa	%xmm2, 96(%rbx)
+	movdqa	%xmm3, 112(%rbx)
+	pxor	0(%rsp), %xmm0
+	pxor	16(%rsp), %xmm1
+	pxor	32(%rsp), %xmm2
+	pxor	48(%rsp), %xmm3
+	movdqa	%xmm8, 128+64(%rbx)
+	movdqa	%xmm9, 128+80(%rbx)
+	movdqa	%xmm10, 128+96(%rbx)
+	movdqa	%xmm11, 128+112(%rbx)
+	pxor	128+0(%rsp), %xmm8
+	pxor	128+16(%rsp), %xmm9
+	pxor	128+32(%rsp), %xmm10
+	pxor	128+48(%rsp), %xmm11
+	movdqa	%xmm12, 256+64(%rbx)
+	movdqa	%xmm13, 256+80(%rbx)
+	movdqa	%xmm14, 256+96(%rbx)
+	movdqa	%xmm15, 256+112(%rbx)
+	pxor	256+0(%rsp), %xmm12
+	pxor	256+16(%rsp), %xmm13
+	pxor	256+32(%rsp), %xmm14
+	pxor	256+48(%rsp), %xmm15
 	movdqa	%xmm0, 0(%rbx)
 	movdqa	%xmm1, 16(%rbx)
 	movdqa	%xmm2, 32(%rbx)
 	movdqa	%xmm3, 48(%rbx)
-	movdqa	%xmm4, 64(%rbx)
-	movdqa	%xmm5, 80(%rbx)
-	movdqa	%xmm6, 96(%rbx)
-	movdqa	%xmm7, 112(%rbx)
 	movdqa	%xmm8, 128+0(%rbx)
 	movdqa	%xmm9, 128+16(%rbx)
 	movdqa	%xmm10, 128+32(%rbx)
 	movdqa	%xmm11, 128+48(%rbx)
-	movdqa	%xmm12, 128+64(%rbx)
-	movdqa	%xmm13, 128+80(%rbx)
-	movdqa	%xmm14, 128+96(%rbx)
-	movdqa	%xmm15, 128+112(%rbx)
-	movdqa	256+64(%rsp), %xmm4
-	movdqa	256+80(%rsp), %xmm5
-	movdqa	256+96(%rsp), %xmm6
-	movdqa	256+112(%rsp), %xmm7
-	vpxor	256+0(%rsp), %xmm4, %xmm12
-	vpxor	256+16(%rsp), %xmm5, %xmm13
-	vpxor	256+32(%rsp), %xmm6, %xmm14
-	vpxor	256+48(%rsp), %xmm7, %xmm15
 	movdqa	%xmm12, 256+0(%rbx)
 	movdqa	%xmm13, 256+16(%rbx)
 	movdqa	%xmm14, 256+32(%rbx)
 	movdqa	%xmm15, 256+48(%rbx)
-	movdqa	%xmm4, 256+64(%rbx)
-	movdqa	%xmm5, 256+80(%rbx)
-	movdqa	%xmm6, 256+96(%rbx)
-	movdqa	%xmm7, 256+112(%rbx)
 	
 	salsa8_core_3way_xop
 	paddd	0(%rbx), %xmm0
@@ -1553,18 +1530,18 @@ scrypt_core_3way_xop_loop1:
 	movdqa	%xmm14, 256+32(%rsp)
 	movdqa	%xmm15, 256+48(%rsp)
 	
-	pxor	64(%rsp), %xmm0
-	pxor	80(%rsp), %xmm1
-	pxor	96(%rsp), %xmm2
-	pxor	112(%rsp), %xmm3
-	pxor	128+64(%rsp), %xmm8
-	pxor	128+80(%rsp), %xmm9
-	pxor	128+96(%rsp), %xmm10
-	pxor	128+112(%rsp), %xmm11
-	pxor	256+64(%rsp), %xmm12
-	pxor	256+80(%rsp), %xmm13
-	pxor	256+96(%rsp), %xmm14
-	pxor	256+112(%rsp), %xmm15
+	pxor	64(%rbx), %xmm0
+	pxor	80(%rbx), %xmm1
+	pxor	96(%rbx), %xmm2
+	pxor	112(%rbx), %xmm3
+	pxor	128+64(%rbx), %xmm8
+	pxor	128+80(%rbx), %xmm9
+	pxor	128+96(%rbx), %xmm10
+	pxor	128+112(%rbx), %xmm11
+	pxor	256+64(%rbx), %xmm12
+	pxor	256+80(%rbx), %xmm13
+	pxor	256+96(%rbx), %xmm14
+	pxor	256+112(%rbx), %xmm15
 	movdqa	%xmm0, 64(%rsp)
 	movdqa	%xmm1, 80(%rsp)
 	movdqa	%xmm2, 96(%rsp)
@@ -1590,6 +1567,11 @@ scrypt_core_3way_xop_loop1:
 	paddd	256+80(%rsp), %xmm13
 	paddd	256+96(%rsp), %xmm14
 	paddd	256+112(%rsp), %xmm15
+	
+	addq	$3*128, %rbx
+	cmpq	%rax, %rbx
+	jne scrypt_core_3way_xop_loop1
+	
 	movdqa	%xmm0, 64(%rsp)
 	movdqa	%xmm1, 80(%rsp)
 	movdqa	%xmm2, 96(%rsp)
@@ -1603,39 +1585,32 @@ scrypt_core_3way_xop_loop1:
 	movdqa	%xmm14, 256+96(%rsp)
 	movdqa	%xmm15, 256+112(%rsp)
 	
-	addq	$3*128, %rbx
-	cmpq	%rax, %rbx
-	jne scrypt_core_3way_xop_loop1
-	
 	movq	$1024, %rcx
-	.p2align 4
 scrypt_core_3way_xop_loop2:
-	movl	64(%rsp), %ebp
+	movd	%xmm0, %ebp
+	movd	%xmm8, %ebx
+	movd	%xmm12, %eax
+	pxor	0(%rsp), %xmm0
+	pxor	16(%rsp), %xmm1
+	pxor	32(%rsp), %xmm2
+	pxor	48(%rsp), %xmm3
+	pxor	128+0(%rsp), %xmm8
+	pxor	128+16(%rsp), %xmm9
+	pxor	128+32(%rsp), %xmm10
+	pxor	128+48(%rsp), %xmm11
+	pxor	256+0(%rsp), %xmm12
+	pxor	256+16(%rsp), %xmm13
+	pxor	256+32(%rsp), %xmm14
+	pxor	256+48(%rsp), %xmm15
 	andl	$1023, %ebp
 	leaq	(%rbp, %rbp, 2), %rbp
-	movl	128+64(%rsp), %ebx
 	shll	$7, %ebp
-	movl	256+64(%rsp), %eax
 	andl	$1023, %ebx
-	leaq	(%rbx, %rbx, 2), %rbx
+	leaq	1(%rbx, %rbx, 2), %rbx
 	shll	$7, %ebx
+	andl	$1023, %eax
+	leaq	2(%rax, %rax, 2), %rax
 	shll	$7, %eax
-	addl	$128, %ebx
-	andl	$131071, %eax
-	leaq	(%rax, %rax, 2), %rax
-	addl	$256, %eax
-	movdqa	0(%rsp), %xmm0
-	movdqa	16(%rsp), %xmm1
-	movdqa	32(%rsp), %xmm2
-	movdqa	48(%rsp), %xmm3
-	movdqa	128+0(%rsp), %xmm8
-	movdqa	128+16(%rsp), %xmm9
-	movdqa	128+32(%rsp), %xmm10
-	movdqa	128+48(%rsp), %xmm11
-	movdqa	256+0(%rsp), %xmm12
-	movdqa	256+16(%rsp), %xmm13
-	movdqa	256+32(%rsp), %xmm14
-	movdqa	256+48(%rsp), %xmm15
 	pxor	0(%rsi, %rbp), %xmm0
 	pxor	16(%rsi, %rbp), %xmm1
 	pxor	32(%rsi, %rbp), %xmm2
@@ -1649,18 +1624,6 @@ scrypt_core_3way_xop_loop2:
 	pxor	32(%rsi, %rax), %xmm14
 	pxor	48(%rsi, %rax), %xmm15
 	
-	pxor	64(%rsp), %xmm0
-	pxor	80(%rsp), %xmm1
-	pxor	96(%rsp), %xmm2
-	pxor	112(%rsp), %xmm3
-	pxor	128+64(%rsp), %xmm8
-	pxor	128+80(%rsp), %xmm9
-	pxor	128+96(%rsp), %xmm10
-	pxor	128+112(%rsp), %xmm11
-	pxor	256+64(%rsp), %xmm12
-	pxor	256+80(%rsp), %xmm13
-	pxor	256+96(%rsp), %xmm14
-	pxor	256+112(%rsp), %xmm15
 	movdqa	%xmm0, 0(%rsp)
 	movdqa	%xmm1, 16(%rsp)
 	movdqa	%xmm2, 32(%rsp)
@@ -1988,74 +1951,58 @@ scrypt_core_3way_xmm:
 	scrypt_shuffle %rdi, 256, %rsp, 256
 	scrypt_shuffle %rdi, 320, %rsp, 320
 	
+	movdqa	64(%rsp), %xmm0
+	movdqa	80(%rsp), %xmm1
+	movdqa	96(%rsp), %xmm2
+	movdqa	112(%rsp), %xmm3
 	movdqa	128+64(%rsp), %xmm8
 	movdqa	128+80(%rsp), %xmm9
 	movdqa	128+96(%rsp), %xmm10
 	movdqa	128+112(%rsp), %xmm11
+	movdqa	256+64(%rsp), %xmm12
+	movdqa	256+80(%rsp), %xmm13
+	movdqa	256+96(%rsp), %xmm14
+	movdqa	256+112(%rsp), %xmm15
 	
 	movq	%rsi, %rbx
 	leaq	3*131072(%rsi), %rax
 scrypt_core_3way_xmm_loop1:
-	movdqa	%xmm8, %xmm12
-	movdqa	%xmm9, %xmm13
-	movdqa	%xmm10, %xmm14
-	movdqa	%xmm11, %xmm15
-	movdqa	0(%rsp), %xmm0
-	movdqa	16(%rsp), %xmm1
-	movdqa	32(%rsp), %xmm2
-	movdqa	48(%rsp), %xmm3
-	movdqa	64(%rsp), %xmm4
-	movdqa	80(%rsp), %xmm5
-	movdqa	96(%rsp), %xmm6
-	movdqa	112(%rsp), %xmm7
-	movdqa	128+0(%rsp), %xmm8
-	movdqa	128+16(%rsp), %xmm9
-	movdqa	128+32(%rsp), %xmm10
-	movdqa	128+48(%rsp), %xmm11
-	pxor	%xmm4, %xmm0
-	pxor	%xmm5, %xmm1
-	pxor	%xmm6, %xmm2
-	pxor	%xmm7, %xmm3
+	movdqa	%xmm0, 64(%rbx)
+	movdqa	%xmm1, 80(%rbx)
+	movdqa	%xmm2, 96(%rbx)
+	movdqa	%xmm3, 112(%rbx)
+	pxor	0(%rsp), %xmm0
+	pxor	16(%rsp), %xmm1
+	pxor	32(%rsp), %xmm2
+	pxor	48(%rsp), %xmm3
+	movdqa	%xmm8, 128+64(%rbx)
+	movdqa	%xmm9, 128+80(%rbx)
+	movdqa	%xmm10, 128+96(%rbx)
+	movdqa	%xmm11, 128+112(%rbx)
+	pxor	128+0(%rsp), %xmm8
+	pxor	128+16(%rsp), %xmm9
+	pxor	128+32(%rsp), %xmm10
+	pxor	128+48(%rsp), %xmm11
+	movdqa	%xmm12, 256+64(%rbx)
+	movdqa	%xmm13, 256+80(%rbx)
+	movdqa	%xmm14, 256+96(%rbx)
+	movdqa	%xmm15, 256+112(%rbx)
+	pxor	256+0(%rsp), %xmm12
+	pxor	256+16(%rsp), %xmm13
+	pxor	256+32(%rsp), %xmm14
+	pxor	256+48(%rsp), %xmm15
 	movdqa	%xmm0, 0(%rbx)
 	movdqa	%xmm1, 16(%rbx)
 	movdqa	%xmm2, 32(%rbx)
 	movdqa	%xmm3, 48(%rbx)
-	movdqa	%xmm4, 64(%rbx)
-	movdqa	%xmm5, 80(%rbx)
-	movdqa	%xmm6, 96(%rbx)
-	movdqa	%xmm7, 112(%rbx)
-	pxor	%xmm12, %xmm8
-	pxor	%xmm13, %xmm9
-	pxor	%xmm14, %xmm10
-	pxor	%xmm15, %xmm11
 	movdqa	%xmm8, 128+0(%rbx)
 	movdqa	%xmm9, 128+16(%rbx)
 	movdqa	%xmm10, 128+32(%rbx)
 	movdqa	%xmm11, 128+48(%rbx)
-	movdqa	%xmm12, 128+64(%rbx)
-	movdqa	%xmm13, 128+80(%rbx)
-	movdqa	%xmm14, 128+96(%rbx)
-	movdqa	%xmm15, 128+112(%rbx)
-	movdqa	256+0(%rsp), %xmm12
-	movdqa	256+16(%rsp), %xmm13
-	movdqa	256+32(%rsp), %xmm14
-	movdqa	256+48(%rsp), %xmm15
-	movdqa	256+64(%rsp), %xmm4
-	movdqa	256+80(%rsp), %xmm5
-	movdqa	256+96(%rsp), %xmm6
-	movdqa	256+112(%rsp), %xmm7
-	pxor	%xmm4, %xmm12
-	pxor	%xmm5, %xmm13
-	pxor	%xmm6, %xmm14
-	pxor	%xmm7, %xmm15
 	movdqa	%xmm12, 256+0(%rbx)
 	movdqa	%xmm13, 256+16(%rbx)
 	movdqa	%xmm14, 256+32(%rbx)
 	movdqa	%xmm15, 256+48(%rbx)
-	movdqa	%xmm4, 256+64(%rbx)
-	movdqa	%xmm5, 256+80(%rbx)
-	movdqa	%xmm6, 256+96(%rbx)
-	movdqa	%xmm7, 256+112(%rbx)
 	
 	salsa8_core_3way_xmm
 	paddd	0(%rbx), %xmm0
@@ -2083,18 +2030,18 @@ scrypt_core_3way_xmm_loop1:
 	movdqa	%xmm14, 256+32(%rsp)
 	movdqa	%xmm15, 256+48(%rsp)
 	
-	pxor	64(%rsp), %xmm0
-	pxor	80(%rsp), %xmm1
-	pxor	96(%rsp), %xmm2
-	pxor	112(%rsp), %xmm3
-	pxor	128+64(%rsp), %xmm8
-	pxor	128+80(%rsp), %xmm9
-	pxor	128+96(%rsp), %xmm10
-	pxor	128+112(%rsp), %xmm11
-	pxor	256+64(%rsp), %xmm12
-	pxor	256+80(%rsp), %xmm13
-	pxor	256+96(%rsp), %xmm14
-	pxor	256+112(%rsp), %xmm15
+	pxor	64(%rbx), %xmm0
+	pxor	80(%rbx), %xmm1
+	pxor	96(%rbx), %xmm2
+	pxor	112(%rbx), %xmm3
+	pxor	128+64(%rbx), %xmm8
+	pxor	128+80(%rbx), %xmm9
+	pxor	128+96(%rbx), %xmm10
+	pxor	128+112(%rbx), %xmm11
+	pxor	256+64(%rbx), %xmm12
+	pxor	256+80(%rbx), %xmm13
+	pxor	256+96(%rbx), %xmm14
+	pxor	256+112(%rbx), %xmm15
 	movdqa	%xmm0, 64(%rsp)
 	movdqa	%xmm1, 80(%rsp)
 	movdqa	%xmm2, 96(%rsp)
@@ -2120,6 +2067,11 @@ scrypt_core_3way_xmm_loop1:
 	paddd	256+80(%rsp), %xmm13
 	paddd	256+96(%rsp), %xmm14
 	paddd	256+112(%rsp), %xmm15
+	
+	addq	$3*128, %rbx
+	cmpq	%rax, %rbx
+	jne scrypt_core_3way_xmm_loop1
+	
 	movdqa	%xmm0, 64(%rsp)
 	movdqa	%xmm1, 80(%rsp)
 	movdqa	%xmm2, 96(%rsp)
@@ -2133,39 +2085,32 @@ scrypt_core_3way_xmm_loop1:
 	movdqa	%xmm14, 256+96(%rsp)
 	movdqa	%xmm15, 256+112(%rsp)
 	
-	addq	$3*128, %rbx
-	cmpq	%rax, %rbx
-	jne scrypt_core_3way_xmm_loop1
-	
 	movq	$1024, %rcx
-	.p2align 4
 scrypt_core_3way_xmm_loop2:
-	movl	64(%rsp), %ebp
+	movd	%xmm0, %ebp
+	movd	%xmm8, %ebx
+	movd	%xmm12, %eax
+	pxor	0(%rsp), %xmm0
+	pxor	16(%rsp), %xmm1
+	pxor	32(%rsp), %xmm2
+	pxor	48(%rsp), %xmm3
+	pxor	128+0(%rsp), %xmm8
+	pxor	128+16(%rsp), %xmm9
+	pxor	128+32(%rsp), %xmm10
+	pxor	128+48(%rsp), %xmm11
+	pxor	256+0(%rsp), %xmm12
+	pxor	256+16(%rsp), %xmm13
+	pxor	256+32(%rsp), %xmm14
+	pxor	256+48(%rsp), %xmm15
 	andl	$1023, %ebp
 	leaq	(%rbp, %rbp, 2), %rbp
-	movl	128+64(%rsp), %ebx
 	shll	$7, %ebp
-	movl	256+64(%rsp), %eax
 	andl	$1023, %ebx
-	leaq	(%rbx, %rbx, 2), %rbx
+	leaq	1(%rbx, %rbx, 2), %rbx
 	shll	$7, %ebx
+	andl	$1023, %eax
+	leaq	2(%rax, %rax, 2), %rax
 	shll	$7, %eax
-	addl	$128, %ebx
-	andl	$131071, %eax
-	leaq	(%rax, %rax, 2), %rax
-	addl	$256, %eax
-	movdqa	0(%rsp), %xmm0
-	movdqa	16(%rsp), %xmm1
-	movdqa	32(%rsp), %xmm2
-	movdqa	48(%rsp), %xmm3
-	movdqa	128+0(%rsp), %xmm8
-	movdqa	128+16(%rsp), %xmm9
-	movdqa	128+32(%rsp), %xmm10
-	movdqa	128+48(%rsp), %xmm11
-	movdqa	256+0(%rsp), %xmm12
-	movdqa	256+16(%rsp), %xmm13
-	movdqa	256+32(%rsp), %xmm14
-	movdqa	256+48(%rsp), %xmm15
 	pxor	0(%rsi, %rbp), %xmm0
 	pxor	16(%rsi, %rbp), %xmm1
 	pxor	32(%rsi, %rbp), %xmm2
@@ -2179,18 +2124,6 @@ scrypt_core_3way_xmm_loop2:
 	pxor	32(%rsi, %rax), %xmm14
 	pxor	48(%rsi, %rax), %xmm15
 	
-	pxor	64(%rsp), %xmm0
-	pxor	80(%rsp), %xmm1
-	pxor	96(%rsp), %xmm2
-	pxor	112(%rsp), %xmm3
-	pxor	128+64(%rsp), %xmm8
-	pxor	128+80(%rsp), %xmm9
-	pxor	128+96(%rsp), %xmm10
-	pxor	128+112(%rsp), %xmm11
-	pxor	256+64(%rsp), %xmm12
-	pxor	256+80(%rsp), %xmm13
-	pxor	256+96(%rsp), %xmm14
-	pxor	256+112(%rsp), %xmm15
 	movdqa	%xmm0, 0(%rsp)
 	movdqa	%xmm1, 16(%rsp)
 	movdqa	%xmm2, 32(%rsp)
