@@ -5,7 +5,7 @@ else
 JANSSON_INCLUDES=
 endif
 
-EXTRA_DIST	= example-cfg.json
+EXTRA_DIST	= example-cfg.json nomacro.pl
 
 SUBDIRS		= compat
 

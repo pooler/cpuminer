@@ -1,3 +1,10 @@
+Version 2.2.2 - Jun 7, 2012
+
+- Various performance improvements for x86 and x86-64
+- Optimize scrypt for ARMv5E and later processors
+- Set the priority of miner threads to idle on Windows
+- Add an option to start minerd as a daemon on POSIX systems
+
 Version 2.2.1 - May 2, 2012
 
 - Add optimized code for ARM processors
