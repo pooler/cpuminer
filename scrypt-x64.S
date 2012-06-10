@@ -821,32 +821,32 @@ scrypt_core_xmm_loop2:
 	vpaddd	%xmm12, %xmm13, %xmm7
 	vpslld	$7, %xmm4, %xmm5
 	vpsrld	$25, %xmm4, %xmm4
-	vpxor	%xmm4, %xmm3, %xmm3
 	vpxor	%xmm5, %xmm3, %xmm3
+	vpxor	%xmm4, %xmm3, %xmm3
 	vpslld	$7, %xmm6, %xmm5
 	vpsrld	$25, %xmm6, %xmm6
-	vpxor	%xmm6, %xmm11, %xmm11
 	vpxor	%xmm5, %xmm11, %xmm11
+	vpxor	%xmm6, %xmm11, %xmm11
 	vpslld	$7, %xmm7, %xmm5
 	vpsrld	$25, %xmm7, %xmm7
-	vpxor	%xmm7, %xmm15, %xmm15
 	vpxor	%xmm5, %xmm15, %xmm15
+	vpxor	%xmm7, %xmm15, %xmm15
 	
 	vpaddd	%xmm3, %xmm0, %xmm4
 	vpaddd	%xmm11, %xmm8, %xmm6
 	vpaddd	%xmm15, %xmm12, %xmm7
 	vpslld	$9, %xmm4, %xmm5
 	vpsrld	$23, %xmm4, %xmm4
-	vpxor	%xmm4, %xmm2, %xmm2
 	vpxor	%xmm5, %xmm2, %xmm2
+	vpxor	%xmm4, %xmm2, %xmm2
 	vpslld	$9, %xmm6, %xmm5
 	vpsrld	$23, %xmm6, %xmm6
-	vpxor	%xmm6, %xmm10, %xmm10
 	vpxor	%xmm5, %xmm10, %xmm10
+	vpxor	%xmm6, %xmm10, %xmm10
 	vpslld	$9, %xmm7, %xmm5
 	vpsrld	$23, %xmm7, %xmm7
-	vpxor	%xmm7, %xmm14, %xmm14
 	vpxor	%xmm5, %xmm14, %xmm14
+	vpxor	%xmm7, %xmm14, %xmm14
 	
 	vpaddd	%xmm2, %xmm3, %xmm4
 	vpaddd	%xmm10, %xmm11, %xmm6
@@ -856,16 +856,16 @@ scrypt_core_xmm_loop2:
 	vpshufd	$0x93, %xmm3, %xmm3
 	vpshufd	$0x93, %xmm11, %xmm11
 	vpshufd	$0x93, %xmm15, %xmm15
-	vpxor	%xmm4, %xmm1, %xmm1
 	vpxor	%xmm5, %xmm1, %xmm1
+	vpxor	%xmm4, %xmm1, %xmm1
 	vpslld	$13, %xmm6, %xmm5
 	vpsrld	$19, %xmm6, %xmm6
-	vpxor	%xmm6, %xmm9, %xmm9
 	vpxor	%xmm5, %xmm9, %xmm9
+	vpxor	%xmm6, %xmm9, %xmm9
 	vpslld	$13, %xmm7, %xmm5
 	vpsrld	$19, %xmm7, %xmm7
-	vpxor	%xmm7, %xmm13, %xmm13
 	vpxor	%xmm5, %xmm13, %xmm13
+	vpxor	%xmm7, %xmm13, %xmm13
 	
 	vpaddd	%xmm1, %xmm2, %xmm4
 	vpaddd	%xmm9, %xmm10, %xmm6
@@ -875,16 +875,16 @@ scrypt_core_xmm_loop2:
 	vpshufd	$0x4e, %xmm2, %xmm2
 	vpshufd	$0x4e, %xmm10, %xmm10
 	vpshufd	$0x4e, %xmm14, %xmm14
-	vpxor	%xmm4, %xmm0, %xmm0
 	vpxor	%xmm5, %xmm0, %xmm0
+	vpxor	%xmm4, %xmm0, %xmm0
 	vpslld	$18, %xmm6, %xmm5
 	vpsrld	$14, %xmm6, %xmm6
-	vpxor	%xmm6, %xmm8, %xmm8
 	vpxor	%xmm5, %xmm8, %xmm8
+	vpxor	%xmm6, %xmm8, %xmm8
 	vpslld	$18, %xmm7, %xmm5
 	vpsrld	$14, %xmm7, %xmm7
-	vpxor	%xmm7, %xmm12, %xmm12
 	vpxor	%xmm5, %xmm12, %xmm12
+	vpxor	%xmm7, %xmm12, %xmm12
 	
 	vpaddd	%xmm0, %xmm3, %xmm4
 	vpaddd	%xmm8, %xmm11, %xmm6
@@ -892,34 +892,34 @@ scrypt_core_xmm_loop2:
 	vpslld	$7, %xmm4, %xmm5
 	vpsrld	$25, %xmm4, %xmm4
 	vpshufd	$0x39, %xmm1, %xmm1
-	vpshufd	$0x39, %xmm9, %xmm9
-	vpshufd	$0x39, %xmm13, %xmm13
-	vpxor	%xmm4, %xmm1, %xmm1
 	vpxor	%xmm5, %xmm1, %xmm1
+	vpxor	%xmm4, %xmm1, %xmm1
 	vpslld	$7, %xmm6, %xmm5
 	vpsrld	$25, %xmm6, %xmm6
-	vpxor	%xmm6, %xmm9, %xmm9
+	vpshufd	$0x39, %xmm9, %xmm9
 	vpxor	%xmm5, %xmm9, %xmm9
+	vpxor	%xmm6, %xmm9, %xmm9
 	vpslld	$7, %xmm7, %xmm5
 	vpsrld	$25, %xmm7, %xmm7
-	vpxor	%xmm7, %xmm13, %xmm13
+	vpshufd	$0x39, %xmm13, %xmm13
 	vpxor	%xmm5, %xmm13, %xmm13
+	vpxor	%xmm7, %xmm13, %xmm13
 	
 	vpaddd	%xmm1, %xmm0, %xmm4
 	vpaddd	%xmm9, %xmm8, %xmm6
 	vpaddd	%xmm13, %xmm12, %xmm7
 	vpslld	$9, %xmm4, %xmm5
 	vpsrld	$23, %xmm4, %xmm4
-	vpxor	%xmm4, %xmm2, %xmm2
 	vpxor	%xmm5, %xmm2, %xmm2
+	vpxor	%xmm4, %xmm2, %xmm2
 	vpslld	$9, %xmm6, %xmm5
 	vpsrld	$23, %xmm6, %xmm6
-	vpxor	%xmm6, %xmm10, %xmm10
 	vpxor	%xmm5, %xmm10, %xmm10
+	vpxor	%xmm6, %xmm10, %xmm10
 	vpslld	$9, %xmm7, %xmm5
 	vpsrld	$23, %xmm7, %xmm7
-	vpxor	%xmm7, %xmm14, %xmm14
 	vpxor	%xmm5, %xmm14, %xmm14
+	vpxor	%xmm7, %xmm14, %xmm14
 	
 	vpaddd	%xmm2, %xmm1, %xmm4
 	vpaddd	%xmm10, %xmm9, %xmm6
@@ -929,16 +929,16 @@ scrypt_core_xmm_loop2:
 	vpshufd	$0x93, %xmm1, %xmm1
 	vpshufd	$0x93, %xmm9, %xmm9
 	vpshufd	$0x93, %xmm13, %xmm13
-	vpxor	%xmm4, %xmm3, %xmm3
 	vpxor	%xmm5, %xmm3, %xmm3
+	vpxor	%xmm4, %xmm3, %xmm3
 	vpslld	$13, %xmm6, %xmm5
 	vpsrld	$19, %xmm6, %xmm6
-	vpxor	%xmm6, %xmm11, %xmm11
 	vpxor	%xmm5, %xmm11, %xmm11
+	vpxor	%xmm6, %xmm11, %xmm11
 	vpslld	$13, %xmm7, %xmm5
 	vpsrld	$19, %xmm7, %xmm7
-	vpxor	%xmm7, %xmm15, %xmm15
 	vpxor	%xmm5, %xmm15, %xmm15
+	vpxor	%xmm7, %xmm15, %xmm15
 	
 	vpaddd	%xmm3, %xmm2, %xmm4
 	vpaddd	%xmm11, %xmm10, %xmm6
@@ -947,20 +947,20 @@ scrypt_core_xmm_loop2:
 	vpsrld	$14, %xmm4, %xmm4
 	vpshufd	$0x4e, %xmm2, %xmm2
 	vpshufd	$0x4e, %xmm10, %xmm10
-	vpshufd	$0x4e, %xmm14, %xmm14
-	vpxor	%xmm4, %xmm0, %xmm0
 	vpxor	%xmm5, %xmm0, %xmm0
+	vpxor	%xmm4, %xmm0, %xmm0
 	vpslld	$18, %xmm6, %xmm5
 	vpsrld	$14, %xmm6, %xmm6
-	vpxor	%xmm6, %xmm8, %xmm8
+	vpshufd	$0x4e, %xmm14, %xmm14
+	vpshufd	$0x39, %xmm11, %xmm11
 	vpxor	%xmm5, %xmm8, %xmm8
+	vpxor	%xmm6, %xmm8, %xmm8
 	vpslld	$18, %xmm7, %xmm5
 	vpsrld	$14, %xmm7, %xmm7
 	vpshufd	$0x39, %xmm3, %xmm3
-	vpshufd	$0x39, %xmm11, %xmm11
 	vpshufd	$0x39, %xmm15, %xmm15
-	vpxor	%xmm7, %xmm12, %xmm12
 	vpxor	%xmm5, %xmm12, %xmm12
+	vpxor	%xmm7, %xmm12, %xmm12
 .endm
 
 .macro salsa8_core_3way_avx
