@@ -46,6 +46,7 @@ struct upload_buffer {
 
 struct header_info {
 	char		*lp_path;
+	char		*reason;
 };
 
 struct tq_ent {
@@ -224,11 +225,13 @@ static size_t resp_hdr_cb(void *ptr, size_t size, size_t nmemb, void *user_data)
 	if (!*val)			/* skip blank value */
 		goto out;
 
-	if (opt_protocol)
-		applog(LOG_DEBUG, "HTTP hdr(%s): %s", key, val);
-
 	if (!strcasecmp("X-Long-Polling", key)) {
 		hi->lp_path = val;	/* steal memory reference */
+		val = NULL;
+	}
+
+	if (!strcasecmp("X-Reject-Reason", key)) {
+		hi->reason = val;	/* steal memory reference */
 		val = NULL;
 	}
 
@@ -318,10 +321,8 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curl_err_str);
 	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
-	if (lp_scanning) {
-		curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, resp_hdr_cb);
-		curl_easy_setopt(curl, CURLOPT_HEADERDATA, &hi);
-	}
+	curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, resp_hdr_cb);
+	curl_easy_setopt(curl, CURLOPT_HEADERDATA, &hi);
 	if (opt_proxy) {
 		curl_easy_setopt(curl, CURLOPT_PROXY, opt_proxy);
 		curl_easy_setopt(curl, CURLOPT_PROXYTYPE, opt_proxy_type);
@@ -366,7 +367,7 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	}
 
 	/* If X-Long-Polling was found, activate long polling */
-	if (hi.lp_path) {
+	if (lp_scanning && hi.lp_path) {
 		have_longpoll = true;
 		tq_push(thr_info[longpoll_thr_id].q, hi.lp_path);
 	} else
@@ -414,6 +415,9 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 
 		goto err_out;
 	}
+
+	if (hi.reason)
+		json_object_set_new(val, "reject-reason", json_string(hi.reason));
 
 	databuf_free(&all_data);
 	curl_slist_free_all(headers);

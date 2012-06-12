@@ -323,6 +323,14 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 	       s,
 	       json_is_true(res) ? "(yay!!!)" : "(booooo)");
 
+	if (opt_debug) {
+		json_t *tmp;
+		const char *reason;
+		tmp = json_object_get(val, "reject-reason");
+		if (tmp && (reason = json_string_value(tmp)))
+			applog(LOG_DEBUG, "DEBUG: reject reason: %s", reason);
+	}
+
 	json_decref(val);
 
 	rc = true;
