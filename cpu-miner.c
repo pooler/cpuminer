@@ -347,13 +347,23 @@ static bool get_upstream_work(CURL *curl, struct work *work)
 {
 	json_t *val;
 	bool rc;
+	struct timeval tv_start, tv_end, diff;
 
+	gettimeofday(&tv_start, NULL);
 	val = json_rpc_call(curl, rpc_url, rpc_userpass, rpc_req,
 			    want_longpoll, false, NULL);
+	gettimeofday(&tv_end, NULL);
+
 	if (!val)
 		return false;
 
 	rc = work_decode(json_object_get(val, "result"), work);
+
+	if (opt_debug && rc) {
+		timeval_subtract(&diff, &tv_end, &tv_start);
+		applog(LOG_DEBUG, "DEBUG: got new work in %d ms",
+		       diff.tv_sec * 1000 + diff.tv_usec / 1000);
+	}
 
 	json_decref(val);
 
@@ -573,8 +583,6 @@ static void *miner_thread(void *userdata)
 				goto out;
 			}
 			time(&g_work_time);
-			if (opt_debug)
-				applog(LOG_DEBUG, "DEBUG: got new work");
 		}
 		if (memcmp(work.data, g_work.data, 76)) {
 			memcpy(&work, &g_work, sizeof(struct work));
