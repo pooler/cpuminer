@@ -273,6 +273,13 @@ void scrypt_core(uint32_t *X, uint32_t *V);
 #elif defined(__arm__) && defined(__APCS_32__)
 
 void scrypt_core(uint32_t *X, uint32_t *V);
+#if defined(__ARM_NEON__)
+#undef HAVE_SHA256_4WAY
+#define SCRYPT_MAX_WAYS 3
+#define HAVE_SCRYPT_3WAY 1
+#define scrypt_best_throughput() 3
+void scrypt_core_3way(uint32_t *X, uint32_t *V);
+#endif
 
 #else
 
@@ -448,6 +455,34 @@ static void scrypt_1024_1_1_256_4way(const uint32_t *input,
 #endif /* HAVE_SHA256_4WAY */
 
 #ifdef HAVE_SCRYPT_3WAY
+
+static void scrypt_1024_1_1_256_3way(const uint32_t *input,
+	uint32_t *output, uint32_t *midstate, unsigned char *scratchpad)
+{
+	uint32_t tstate[3 * 8], ostate[3 * 8];
+	uint32_t X[3 * 32] __attribute__((aligned(64)));
+	uint32_t *V;
+	
+	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
+
+	memcpy(tstate +  0, midstate, 32);
+	memcpy(tstate +  8, midstate, 32);
+	memcpy(tstate + 16, midstate, 32);
+	HMAC_SHA256_80_init(input +  0, tstate +  0, ostate +  0);
+	HMAC_SHA256_80_init(input + 20, tstate +  8, ostate +  8);
+	HMAC_SHA256_80_init(input + 40, tstate + 16, ostate + 16);
+	PBKDF2_SHA256_80_128(tstate +  0, ostate +  0, input +  0, X +  0);
+	PBKDF2_SHA256_80_128(tstate +  8, ostate +  8, input + 20, X + 32);
+	PBKDF2_SHA256_80_128(tstate + 16, ostate + 16, input + 40, X + 64);
+
+	scrypt_core_3way(X, V);
+
+	PBKDF2_SHA256_128_32(tstate +  0, ostate +  0, X +  0, output +  0);
+	PBKDF2_SHA256_128_32(tstate +  8, ostate +  8, X + 32, output +  8);
+	PBKDF2_SHA256_128_32(tstate + 16, ostate + 16, X + 64, output + 16);
+}
+
+#ifdef HAVE_SHA256_4WAY
 static void scrypt_1024_1_1_256_12way(const uint32_t *input,
 	uint32_t *output, uint32_t *midstate, unsigned char *scratchpad)
 {
@@ -514,6 +549,8 @@ static void scrypt_1024_1_1_256_12way(const uint32_t *input,
 		}
 	}
 }
+#endif /* HAVE_SHA256_4WAY */
+
 #endif /* HAVE_SCRYPT_3WAY */
 
 int scanhash_scrypt(int thr_id, uint32_t *pdata,
@@ -542,14 +579,19 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 		for (i = 0; i < throughput; i++)
 			data[i * 20 + 19] = ++n;
 		
-#ifdef HAVE_SHA256_4WAY
+#if defined(HAVE_SHA256_4WAY)
 		if (throughput == 4)
 			scrypt_1024_1_1_256_4way(data, hash, midstate, scratchbuf);
 		else
 #endif
-#ifdef HAVE_SCRYPT_3WAY
+#if defined(HAVE_SCRYPT_3WAY) && defined(HAVE_SHA256_4WAY)
 		if (throughput == 12)
 			scrypt_1024_1_1_256_12way(data, hash, midstate, scratchbuf);
+		else
+#endif
+#if defined(HAVE_SCRYPT_3WAY)
+		if (throughput == 3)
+			scrypt_1024_1_1_256_3way(data, hash, midstate, scratchbuf);
 		else
 #endif
 		scrypt_1024_1_1_256(data, hash, midstate, scratchbuf);
