@@ -34,6 +34,24 @@ Basic Windows build instructions, using MinGW:
 		LIBCURL="-lcurldll" ./configure CFLAGS="-O3"
 		make
 
+Architecture-specific notes:
+	ARM:	No runtime CPU detection. The miner can take advantage
+		of some instructions specific to ARMv5E and later processors,
+		but the decision whether to use them is made at compile time,
+		based on compiler-defined macros.
+		To use NEON instructions, add "-mfpu=neon" to CFLAGS.
+	x86:	The miner checks for SSE2 instructions support at runtime,
+		and uses them if they are available.
+	x86-64:	The miner can take advantage of AVX and XOP instructions,
+		but only if both the CPU and the operating system support them.
+		    * Linux supports AVX starting from kernel version 2.6.30.
+		    * Mac OS X added AVX support in the 10.6.8 update.
+		    * Windows supports AVX starting from Windows 7 SP1 and
+		      Windows Server 2008 SP1.
+		The configure script outputs a warning if the assembler
+		cannot compile AVX or XOP instructions. In that case, the miner
+		can still be built, but unavailable optimizations are left off.
+
 Usage instructions:  Run "minerd --help" to see options.
 
 Connecting through a proxy:  Use the --proxy option.

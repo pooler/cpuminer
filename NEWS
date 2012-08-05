@@ -1,3 +1,9 @@
+Version 2.2.3 - Aug 5, 2012
+
+- Add optimized ARM NEON code for scrypt and SHA-256d
+- Add a --benchmark option that allows offline testing
+- Support for the X-Reject-Reason extension
+
 Version 2.2.2 - Jun 7, 2012
 
 - Various performance improvements for x86 and x86-64
