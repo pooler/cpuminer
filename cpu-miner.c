@@ -99,6 +99,7 @@ static const char *algo_names[] = {
 
 bool opt_debug = false;
 bool opt_protocol = false;
+static bool opt_benchmark = false;
 bool want_longpoll = true;
 bool have_longpoll = false;
 static bool submit_old = false;
@@ -172,6 +173,7 @@ Options:\n\
   -B, --background      run the miner in the background\n"
 #endif
 "\
+      --benchmark       run in offline benchmark mode\n\
   -c, --config=FILE     load a JSON-format configuration file\n\
   -V, --version         display version information and exit\n\
   -h, --help            display this help text and exit\n\
@@ -191,6 +193,7 @@ static struct option const options[] = {
 #ifndef WIN32
 	{ "background", 0, NULL, 'B' },
 #endif
+	{ "benchmark", 0, NULL, 1005 },
 	{ "config", 1, NULL, 'c' },
 	{ "debug", 0, NULL, 'D' },
 	{ "help", 0, NULL, 'h' },
@@ -487,6 +490,12 @@ static bool get_work(struct thr_info *thr, struct work *work)
 	struct workio_cmd *wc;
 	struct work *work_heap;
 
+	if (opt_benchmark) {
+		memset(work->data, 0x55, sizeof(work->data));
+		memset(work->target, 0x00, sizeof(work->target));
+		return true;
+	}
+
 	/* fill out work request message */
 	wc = calloc(1, sizeof(*wc));
 	if (!wc)
@@ -517,6 +526,9 @@ static bool submit_work(struct thr_info *thr, const struct work *work_in)
 {
 	struct workio_cmd *wc;
 
+	if (opt_benchmark)
+		return true;
+	
 	/* fill out work request message */
 	wc = calloc(1, sizeof(*wc));
 	if (!wc)
@@ -549,12 +561,16 @@ static void *miner_thread(void *userdata)
 	uint32_t max_nonce;
 	uint32_t end_nonce = 0xffffffffU / opt_n_threads * (thr_id + 1) - 0x10;
 	unsigned char *scratchbuf = NULL;
+	char s[16];
+	int i;
 
 	/* Set worker threads to nice 19 and then preferentially to SCHED_IDLE
 	 * and if that fails, then SCHED_BATCH. No need for this to be an
 	 * error if it fails */
-	setpriority(PRIO_PROCESS, 0, 19);
-	drop_policy();
+	if (!opt_benchmark) {
+		setpriority(PRIO_PROCESS, 0, 19);
+		drop_policy();
+	}
 
 	/* Cpu affinity only makes sense if the number of threads is a multiple
 	 * of the number of CPUs */
@@ -633,11 +649,19 @@ static void *miner_thread(void *userdata)
 			pthread_mutex_unlock(&stats_lock);
 		}
 		if (!opt_quiet) {
-			char s[16];
 			sprintf(s, thr_hashrates[thr_id] >= 1e6 ? "%.0f" : "%.2f",
 				1e-3 * thr_hashrates[thr_id]);
 			applog(LOG_INFO, "thread %d: %lu hashes, %s khash/s",
 				thr_id, hashes_done, s);
+		}
+		if (opt_benchmark && thr_id == opt_n_threads - 1) {
+			double hashrate = 0.;
+			for (i = 0; i < opt_n_threads && thr_hashrates[i]; i++)
+				hashrate += thr_hashrates[i];
+			if (i == opt_n_threads) {
+				sprintf(s, hashrate >= 1e6 ? "%.0f" : "%.2f", 1e-3 * hashrate);
+				applog(LOG_INFO, "Total: %s khash/s", s);
+			}
 		}
 
 		/* if nonce found, submit work */
@@ -889,6 +913,8 @@ static void parse_arg (int key, char *arg)
 		free(opt_proxy);
 		opt_proxy = strdup(arg);
 		break;
+	case 1005:
+		opt_benchmark = true;
 	case 1003:
 		want_longpoll = false;
 		break;
