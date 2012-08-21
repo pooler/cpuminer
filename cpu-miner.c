@@ -880,14 +880,17 @@ static void parse_arg (int key, char *arg)
 			rpc_url = malloc((strlen(arg) + 8) * sizeof(char));
 			sprintf(rpc_url, "http://%s", arg);
 		}
-		p = strchr(rpc_url, '@');
+		p = strrchr(rpc_url, '@');
 		if (p) {
 			char *ap = strstr(rpc_url, "://") + 3;
 			*p = '\0';
-			if (!strchr(ap, ':'))
-				show_usage_and_exit(1);
-			free(rpc_userpass);
-			rpc_userpass = strdup(ap);
+			if (strchr(ap, ':')) {
+				free(rpc_userpass);
+				rpc_userpass = strdup(ap);
+			} else {
+				free(rpc_user);
+				rpc_user = strdup(ap);
+			}
 			memmove(ap, p + 1, (strlen(p + 1) + 1) * sizeof(char));
 		}
 		break;
