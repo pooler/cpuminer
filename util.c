@@ -349,7 +349,8 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	headers = curl_slist_append(headers,
 		"Content-Type: application/json");
 	headers = curl_slist_append(headers, len_hdr);
-	headers = curl_slist_append(headers, "User-Agent: " PACKAGE_STRING);
+	headers = curl_slist_append(headers,
+		"User-Agent: " PACKAGE_NAME "/" PACKAGE_VERSION);
 	headers = curl_slist_append(headers,
 		"X-Mining-Extensions: midstate");
 	headers = curl_slist_append(headers, "Accept:"); /* disable Accept hdr*/
