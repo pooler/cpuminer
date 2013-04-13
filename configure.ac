@@ -46,6 +46,10 @@ case $target in
     have_x86=true
     have_x86_64=true
     ;;
+  amd64-*-*)
+    have_x86=true
+    have_x86_64=true
+    ;;
 esac
 
 PTHREAD_FLAGS="-pthread"
