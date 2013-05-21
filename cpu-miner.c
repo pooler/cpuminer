@@ -64,6 +64,20 @@ static inline void affine_to_cpu(int id, int cpu)
 	sched_setaffinity(0, sizeof(&set), &set);
 	applog(LOG_INFO, "Binding thread %d to cpu %d", id, cpu);
 }
+#elif defined(__FreeBSD__) /* FreeBSD specific policy and affinity management */
+#include <sys/cpuset.h>
+static inline void drop_policy(void)
+{
+}
+
+static inline void affine_to_cpu(int id, int cpu)
+{
+	cpuset_t set;
+	CPU_ZERO(&set);
+	CPU_SET(cpu, &set);
+	cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_CPUSET, -1, sizeof(cpuset_t), &set);
+	applog(LOG_INFO, "Binding thread %d to cpu %d", id, cpu);
+}
 #else
 static inline void drop_policy(void)
 {
