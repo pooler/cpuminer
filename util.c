@@ -1,5 +1,6 @@
 /*
- * Copyright 2010 Jeff Garzik, 2012 pooler
+ * Copyright 2010 Jeff Garzik
+ * Copyright 2012-2013 pooler
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -25,6 +26,7 @@
 #include <winsock2.h>
 #include <mstcpip.h>
 #else
+#include <errno.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -47,6 +49,7 @@ struct upload_buffer {
 struct header_info {
 	char		*lp_path;
 	char		*reason;
+	char		*stratum_url;
 };
 
 struct tq_ent {
@@ -235,6 +238,11 @@ static size_t resp_hdr_cb(void *ptr, size_t size, size_t nmemb, void *user_data)
 		val = NULL;
 	}
 
+	if (!strcasecmp("X-Stratum", key)) {
+		hi->stratum_url = val;	/* steal memory reference */
+		val = NULL;
+	}
+
 out:
 	free(key);
 	free(val);
@@ -242,7 +250,7 @@ out:
 }
 
 #if LIBCURL_VERSION_NUM >= 0x070f06
-static int json_rpc_call_lp_cb(void *userdata, curl_socket_t fd,
+static int sockopt_keepalive_cb(void *userdata, curl_socket_t fd,
 	curlsocktype purpose)
 {
 	int keepalive = 1;
@@ -333,7 +341,7 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	}
 #if LIBCURL_VERSION_NUM >= 0x070f06
 	if (longpoll)
-		curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, json_rpc_call_lp_cb);
+		curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_keepalive_cb);
 #endif
 	curl_easy_setopt(curl, CURLOPT_POST, 1);
 
@@ -346,13 +354,10 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	sprintf(len_hdr, "Content-Length: %lu",
 		(unsigned long) upload_data.len);
 
-	headers = curl_slist_append(headers,
-		"Content-Type: application/json");
+	headers = curl_slist_append(headers, "Content-Type: application/json");
 	headers = curl_slist_append(headers, len_hdr);
-	headers = curl_slist_append(headers,
-		"User-Agent: " PACKAGE_NAME "/" PACKAGE_VERSION);
-	headers = curl_slist_append(headers,
-		"X-Mining-Extensions: midstate");
+	headers = curl_slist_append(headers, "User-Agent: " USER_AGENT);
+	headers = curl_slist_append(headers, "X-Mining-Extensions: midstate");
 	headers = curl_slist_append(headers, "Accept:"); /* disable Accept hdr*/
 	headers = curl_slist_append(headers, "Expect:"); /* disable Expect hdr*/
 
@@ -367,24 +372,27 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 		goto err_out;
 	}
 
+	/* If X-Stratum was found, activate Stratum */
+	if (want_stratum && hi.stratum_url &&
+	    !strncasecmp(hi.stratum_url, "stratum+tcp://", 14)) {
+		have_stratum = true;
+		tq_push(thr_info[stratum_thr_id].q, hi.stratum_url);
+		hi.stratum_url = NULL;
+	}
+
 	/* If X-Long-Polling was found, activate long polling */
-	if (lp_scanning && hi.lp_path) {
+	if (lp_scanning && hi.lp_path && !have_stratum) {
 		have_longpoll = true;
 		tq_push(thr_info[longpoll_thr_id].q, hi.lp_path);
-	} else
-		free(hi.lp_path);
-	hi.lp_path = NULL;
+		hi.lp_path = NULL;
+	}
 
 	if (!all_data.buf) {
 		applog(LOG_ERR, "Empty data received in json_rpc_call.");
 		goto err_out;
 	}
 
-#if JANSSON_VERSION_HEX >= 0x020000
-	val = json_loads(all_data.buf, 0, &err);
-#else
-	val = json_loads(all_data.buf, &err);
-#endif
+	val = JSON_LOADS(all_data.buf, &err);
 	if (!val) {
 		applog(LOG_ERR, "JSON decode failed(%d): %s", err.line, err.text);
 		goto err_out;
@@ -426,6 +434,9 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	return val;
 
 err_out:
+	free(hi.lp_path);
+	free(hi.reason);
+	free(hi.stratum_url);
 	databuf_free(&all_data);
 	curl_slist_free_all(headers);
 	curl_easy_reset(curl);
@@ -540,6 +551,650 @@ bool fulltest(const uint32_t *hash, const uint32_t *target)
 	}
 
 	return rc;
+}
+
+void diff_to_target(uint32_t *target, double diff)
+{
+	uint64_t m;
+	int k;
+	
+	for (k = 6; k > 0 && diff > 1.0; k--)
+		diff /= 4294967296.0;
+	m = 4294901760.0 / diff;
+	if (m == 0 && k == 6)
+		memset(target, 0xff, 32);
+	else {
+		memset(target, 0, 32);
+		target[k] = (uint32_t)m;
+		target[k + 1] = (uint32_t)(m >> 32);
+	}
+}
+
+#ifdef WIN32
+#define socket_blocks() (WSAGetLastError() == WSAEWOULDBLOCK)
+#else
+#define socket_blocks() (errno == EAGAIN || errno == EWOULDBLOCK)
+#endif
+
+static bool send_line(curl_socket_t sock, char *s)
+{
+	ssize_t len, sent = 0;
+	
+	len = strlen(s);
+	s[len++] = '\n';
+
+	while (len > 0) {
+		struct timeval timeout = {0, 0};
+		ssize_t n;
+		fd_set wd;
+
+		FD_ZERO(&wd);
+		FD_SET(sock, &wd);
+		if (select(sock + 1, NULL, &wd, NULL, &timeout) < 1)
+			return false;
+		n = send(sock, s + sent, len, 0);
+		if (n < 0) {
+			if (!socket_blocks())
+				return false;
+			n = 0;
+		}
+		sent += n;
+		len -= n;
+	}
+
+	return true;
+}
+
+bool stratum_send_line(struct stratum_ctx *sctx, char *s)
+{
+	bool ret = false;
+
+	if (opt_protocol)
+		applog(LOG_DEBUG, "> %s", s);
+
+	pthread_mutex_lock(&sctx->sock_lock);
+	ret = send_line(sctx->sock, s);
+	pthread_mutex_unlock(&sctx->sock_lock);
+
+	return ret;
+}
+
+static bool socket_full(curl_socket_t sock, int timeout)
+{
+	struct timeval tv;
+	fd_set rd;
+
+	FD_ZERO(&rd);
+	FD_SET(sock, &rd);
+	tv.tv_sec = timeout;
+	tv.tv_usec = 0;
+	if (select(sock + 1, &rd, NULL, NULL, &tv) > 0)
+		return true;
+	return false;
+}
+
+bool stratum_socket_full(struct stratum_ctx *sctx, int timeout)
+{
+	return strlen(sctx->sockbuf) || socket_full(sctx->sock, timeout);
+}
+
+#define RBUFSIZE 2048
+#define RECVSIZE (RBUFSIZE - 4)
+
+static void stratum_buffer_append(struct stratum_ctx *sctx, const char *s)
+{
+	size_t old, new;
+
+	old = strlen(sctx->sockbuf);
+	new = old + strlen(s) + 1;
+	if (new >= sctx->sockbuf_size) {
+		sctx->sockbuf_size = new + (RBUFSIZE - (new % RBUFSIZE));
+		sctx->sockbuf = realloc(sctx->sockbuf, sctx->sockbuf_size);
+	}
+	strcpy(sctx->sockbuf + old, s);
+}
+
+char *stratum_recv_line(struct stratum_ctx *sctx)
+{
+	ssize_t len, buflen;
+	char *tok, *sret = NULL;
+
+	if (!strstr(sctx->sockbuf, "\n")) {
+		bool ret = true;
+		time_t rstart;
+
+		time(&rstart);
+		if (!socket_full(sctx->sock, 60)) {
+			applog(LOG_ERR, "stratum_recv_line timed out");
+			goto out;
+		}
+		do {
+			char s[RBUFSIZE];
+			ssize_t n;
+
+			memset(s, 0, RBUFSIZE);
+			n = recv(sctx->sock, s, RECVSIZE, 0);
+			if (!n) {
+				ret = false;
+				break;
+			}
+			if (n < 0) {
+				if (!socket_blocks() || !socket_full(sctx->sock, 1)) {
+					ret = false;
+					break;
+				}
+			} else
+				stratum_buffer_append(sctx, s);
+		} while (time(NULL) - rstart < 60 && !strstr(sctx->sockbuf, "\n"));
+
+		if (!ret) {
+			applog(LOG_ERR, "stratum_recv_line failed");
+			goto out;
+		}
+	}
+
+	buflen = strlen(sctx->sockbuf);
+	tok = strtok(sctx->sockbuf, "\n");
+	if (!tok) {
+		applog(LOG_ERR, "stratum_recv_line failed to parse a newline-terminated string");
+		goto out;
+	}
+	sret = strdup(tok);
+	len = strlen(sret);
+
+	if (buflen > len + 1)
+		memmove(sctx->sockbuf, sctx->sockbuf + len + 1, buflen - len + 1);
+	else
+		sctx->sockbuf[0] = '\0';
+
+out:
+	if (sret && opt_protocol)
+		applog(LOG_DEBUG, "< %s", sret);
+	return sret;
+}
+
+#if LIBCURL_VERSION_NUM >= 0x071101
+static curl_socket_t opensocket_grab_cb(void *clientp, curlsocktype purpose,
+	struct curl_sockaddr *addr)
+{
+	curl_socket_t *sock = clientp;
+	*sock = socket(addr->family, addr->socktype, addr->protocol);
+	return *sock;
+}
+#endif
+
+bool stratum_connect(struct stratum_ctx *sctx, const char *url)
+{
+	CURL *curl;
+	int rc;
+
+	pthread_mutex_lock(&sctx->sock_lock);
+	if (sctx->curl)
+		curl_easy_cleanup(sctx->curl);
+	sctx->curl = curl_easy_init();
+	if (!sctx->curl) {
+		applog(LOG_ERR, "CURL initialization failed");
+		pthread_mutex_unlock(&sctx->sock_lock);
+		return false;
+	}
+	curl = sctx->curl;
+	if (!sctx->sockbuf) {
+		sctx->sockbuf = calloc(RBUFSIZE, 1);
+		sctx->sockbuf_size = RBUFSIZE;
+	}
+	sctx->sockbuf[0] = '\0';
+	pthread_mutex_unlock(&sctx->sock_lock);
+
+	if (url != sctx->url) {
+		free(sctx->url);
+		sctx->url = strdup(url);
+	}
+	free(sctx->curl_url);
+	sctx->curl_url = malloc(strlen(url));
+	sprintf(sctx->curl_url, "http%s", strstr(url, "://"));
+
+	if (opt_protocol)
+		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
+	curl_easy_setopt(curl, CURLOPT_URL, sctx->curl_url);
+	curl_easy_setopt(curl, CURLOPT_FRESH_CONNECT, 1);
+	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 30);
+	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, sctx->curl_err_str);
+	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
+	curl_easy_setopt(curl, CURLOPT_TCP_NODELAY, 1);
+	if (opt_proxy && opt_proxy_type != CURLPROXY_HTTP) {
+		curl_easy_setopt(curl, CURLOPT_PROXY, opt_proxy);
+		curl_easy_setopt(curl, CURLOPT_PROXYTYPE, opt_proxy_type);
+	} else if (getenv("http_proxy")) {
+		if (getenv("all_proxy"))
+			curl_easy_setopt(curl, CURLOPT_PROXY, getenv("all_proxy"));
+		else if (getenv("ALL_PROXY"))
+			curl_easy_setopt(curl, CURLOPT_PROXY, getenv("ALL_PROXY"));
+		else
+			curl_easy_setopt(curl, CURLOPT_PROXY, "");
+	}
+#if LIBCURL_VERSION_NUM >= 0x070f06
+	curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_keepalive_cb);
+#endif
+#if LIBCURL_VERSION_NUM >= 0x071101
+	curl_easy_setopt(curl, CURLOPT_OPENSOCKETFUNCTION, opensocket_grab_cb);
+	curl_easy_setopt(curl, CURLOPT_OPENSOCKETDATA, &sctx->sock);
+#endif
+	curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 1);
+
+	rc = curl_easy_perform(curl);
+	if (rc) {
+		applog(LOG_ERR, "Stratum connection failed: %s", sctx->curl_err_str);
+		curl_easy_cleanup(curl);
+		sctx->curl = NULL;
+		return false;
+	}
+
+#if LIBCURL_VERSION_NUM < 0x071101
+	/* CURLINFO_LASTSOCKET is broken on Win64; only use it as a last resort */
+	curl_easy_getinfo(curl, CURLINFO_LASTSOCKET, (long *)&sctx->sock);
+#endif
+
+	return true;
+}
+
+void stratum_disconnect(struct stratum_ctx *sctx)
+{
+	pthread_mutex_lock(&sctx->sock_lock);
+	if (sctx->curl) {
+		curl_easy_cleanup(sctx->curl);
+		sctx->curl = NULL;
+		sctx->sockbuf[0] = '\0';
+	}
+	pthread_mutex_unlock(&sctx->sock_lock);
+}
+
+static const char *get_stratum_session_id(json_t *val)
+{
+	json_t *arr_val;
+	int i, n;
+
+	arr_val = json_array_get(val, 0);
+	if (!arr_val || !json_is_array(arr_val))
+		return NULL;
+	n = json_array_size(arr_val);
+	for (i = 0; i < n; i++) {
+		const char *notify;
+		json_t *arr = json_array_get(arr_val, i);
+
+		if (!arr || !json_is_array(arr))
+			break;
+		notify = json_string_value(json_array_get(arr, 0));
+		if (!notify)
+			continue;
+		if (!strcasecmp(notify, "mining.notify"))
+			return json_string_value(json_array_get(arr, 1));
+	}
+	return NULL;
+}
+
+bool stratum_subscribe(struct stratum_ctx *sctx)
+{
+	char *s, *sret = NULL;
+	const char *sid, *xnonce1;
+	int xn2_size;
+	json_t *val = NULL, *res_val, *err_val;
+	json_error_t err;
+	bool ret = false, retry = false;
+
+start:
+	s = malloc(128 + (sctx->session_id ? strlen(sctx->session_id) : 0));
+	if (retry)
+		sprintf(s, "{\"id\": 1, \"method\": \"mining.subscribe\", \"params\": []}");
+	else if (sctx->session_id)
+		sprintf(s, "{\"id\": 1, \"method\": \"mining.subscribe\", \"params\": [\"" USER_AGENT "\", \"%s\"]}", sctx->session_id);
+	else
+		sprintf(s, "{\"id\": 1, \"method\": \"mining.subscribe\", \"params\": [\"" USER_AGENT "\"]}");
+
+	if (!stratum_send_line(sctx, s))
+		goto out;
+
+	if (!socket_full(sctx->sock, 30)) {
+		applog(LOG_ERR, "stratum_subscribe timed out");
+		goto out;
+	}
+
+	sret = stratum_recv_line(sctx);
+	if (!sret)
+		goto out;
+
+	val = JSON_LOADS(sret, &err);
+	free(sret);
+	if (!val) {
+		applog(LOG_ERR, "JSON decode failed(%d): %s", err.line, err.text);
+		goto out;
+	}
+
+	res_val = json_object_get(val, "result");
+	err_val = json_object_get(val, "error");
+
+	if (!res_val || json_is_null(res_val) ||
+	    (err_val && !json_is_null(err_val))) {
+		if (opt_debug || retry) {
+			free(s);
+			if (err_val)
+				s = json_dumps(err_val, JSON_INDENT(3));
+			else
+				s = strdup("(unknown reason)");
+			applog(LOG_ERR, "JSON-RPC call failed: %s", s);
+		}
+		goto out;
+	}
+
+	sid = get_stratum_session_id(res_val);
+	if (opt_debug && !sid)
+		applog(LOG_DEBUG, "Failed to get Stratum session id");
+	xnonce1 = json_string_value(json_array_get(res_val, 1));
+	if (!xnonce1) {
+		applog(LOG_ERR, "Failed to get extranonce1");
+		goto out;
+	}
+	xn2_size = json_integer_value(json_array_get(res_val, 2));
+	if (!xn2_size) {
+		applog(LOG_ERR, "Failed to get extranonce2_size");
+		goto out;
+	}
+
+	pthread_mutex_lock(&sctx->work_lock);
+	free(sctx->session_id);
+	free(sctx->xnonce1);
+	sctx->session_id = sid ? strdup(sid) : NULL;
+	sctx->xnonce1_size = strlen(xnonce1) / 2;
+	sctx->xnonce1 = malloc(sctx->xnonce1_size);
+	hex2bin(sctx->xnonce1, xnonce1, sctx->xnonce1_size);
+	sctx->xnonce2_size = xn2_size;
+	sctx->next_diff = 1.0;
+	pthread_mutex_unlock(&sctx->work_lock);
+
+	if (opt_debug && sid)
+		applog(LOG_DEBUG, "Stratum session id: %s", sctx->session_id);
+
+	ret = true;
+
+out:
+	free(s);
+	if (val)
+		json_decref(val);
+
+	if (!ret) {
+		if (sret && !retry) {
+			retry = true;
+			goto start;
+		}
+	}
+
+	return ret;
+}
+
+bool stratum_authorize(struct stratum_ctx *sctx, const char *user, const char *pass)
+{
+	json_t *val = NULL, *res_val, *err_val;
+	char *s, *sret;
+	json_error_t err;
+	bool ret = false;
+
+	s = malloc(80 + strlen(user) + strlen(pass));
+	sprintf(s, "{\"id\": 2, \"method\": \"mining.authorize\", \"params\": [\"%s\", \"%s\"]}",
+	        user, pass);
+
+	if (!stratum_send_line(sctx, s))
+		goto out;
+
+	while (1) {
+		sret = stratum_recv_line(sctx);
+		if (!sret)
+			goto out;
+		if (!stratum_handle_method(sctx, sret))
+			break;
+		free(sret);
+	}
+
+	val = JSON_LOADS(sret, &err);
+	free(sret);
+	if (!val) {
+		applog(LOG_ERR, "JSON decode failed(%d): %s", err.line, err.text);
+		goto out;
+	}
+
+	res_val = json_object_get(val, "result");
+	err_val = json_object_get(val, "error");
+
+	if (!res_val || !json_is_true(res_val) ||
+	    (err_val && !json_is_null(err_val)))  {
+		applog(LOG_ERR, "Stratum authentication failed");
+		goto out;
+	}
+
+	ret = true;
+
+out:
+	free(s);
+	if (val)
+		json_decref(val);
+
+	return ret;
+}
+
+static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
+{
+	const char *job_id, *prevhash, *coinb1, *coinb2, *version, *nbits, *ntime;
+	size_t coinb1_size, coinb2_size;
+	bool clean, ret = false;
+	int merkle_count, i;
+	json_t *merkle_arr;
+	unsigned char **merkle;
+
+	job_id = json_string_value(json_array_get(params, 0));
+	prevhash = json_string_value(json_array_get(params, 1));
+	coinb1 = json_string_value(json_array_get(params, 2));
+	coinb2 = json_string_value(json_array_get(params, 3));
+	merkle_arr = json_array_get(params, 4);
+	if (!merkle_arr || !json_is_array(merkle_arr))
+		goto out;
+	merkle_count = json_array_size(merkle_arr);
+	version = json_string_value(json_array_get(params, 5));
+	nbits = json_string_value(json_array_get(params, 6));
+	ntime = json_string_value(json_array_get(params, 7));
+	clean = json_is_true(json_array_get(params, 8));
+
+	if (!job_id || !prevhash || !coinb1 || !coinb2 || !version || !nbits || !ntime ||
+	    strlen(prevhash) != 64 || strlen(version) != 8 ||
+	    strlen(nbits) != 8 || strlen(ntime) != 8) {
+		applog(LOG_ERR, "Stratum notify: invalid parameters");
+		goto out;
+	}
+	merkle = malloc(merkle_count * sizeof(char *));
+	for (i = 0; i < merkle_count; i++) {
+		const char *s = json_string_value(json_array_get(merkle_arr, i));
+		if (!s || strlen(s) != 64) {
+			while (i--)
+				free(merkle[i]);
+			free(merkle);
+			applog(LOG_ERR, "Stratum notify: invalid Merkle branch");
+			goto out;
+		}
+		merkle[i] = malloc(32);
+		hex2bin(merkle[i], s, 32);
+	}
+
+	pthread_mutex_lock(&sctx->work_lock);
+
+	coinb1_size = strlen(coinb1) / 2;
+	coinb2_size = strlen(coinb2) / 2;
+	sctx->job.coinbase_size = coinb1_size + sctx->xnonce1_size +
+	                          sctx->xnonce2_size + coinb2_size;
+	sctx->job.coinbase = realloc(sctx->job.coinbase, sctx->job.coinbase_size);
+	sctx->job.xnonce2 = sctx->job.coinbase + coinb1_size + sctx->xnonce1_size;
+	hex2bin(sctx->job.coinbase, coinb1, coinb1_size);
+	memcpy(sctx->job.coinbase + coinb1_size, sctx->xnonce1, sctx->xnonce1_size);
+	if (!sctx->job.job_id || strcmp(sctx->job.job_id, job_id))
+		memset(sctx->job.xnonce2, 0, sctx->xnonce2_size);
+	hex2bin(sctx->job.xnonce2 + sctx->xnonce2_size, coinb2, coinb2_size);
+
+	free(sctx->job.job_id);
+	sctx->job.job_id = strdup(job_id);
+	hex2bin(sctx->job.prevhash, prevhash, 32);
+
+	for (i = 0; i < sctx->job.merkle_count; i++)
+		free(sctx->job.merkle[i]);
+	free(sctx->job.merkle);
+	sctx->job.merkle = merkle;
+	sctx->job.merkle_count = merkle_count;
+
+	hex2bin(sctx->job.version, version, 4);
+	hex2bin(sctx->job.nbits, nbits, 4);
+	hex2bin(sctx->job.ntime, ntime, 4);
+	sctx->job.clean = clean;
+
+	sctx->job.diff = sctx->next_diff;
+
+	pthread_mutex_unlock(&sctx->work_lock);
+
+	ret = true;
+
+out:
+	return ret;
+}
+
+static bool stratum_set_difficulty(struct stratum_ctx *sctx, json_t *params)
+{
+	double diff;
+
+	diff = json_number_value(json_array_get(params, 0));
+	if (diff == 0)
+		return false;
+
+	pthread_mutex_lock(&sctx->work_lock);
+	sctx->next_diff = diff;
+	pthread_mutex_unlock(&sctx->work_lock);
+
+	if (opt_debug)
+		applog(LOG_DEBUG, "Stratum difficulty set to %g", diff);
+
+	return true;
+}
+
+static bool stratum_reconnect(struct stratum_ctx *sctx, json_t *params)
+{
+	json_t *port_val;
+	const char *host;
+	int port;
+
+	host = json_string_value(json_array_get(params, 0));
+	port_val = json_array_get(params, 1);
+	if (json_is_string(port_val))
+		port = atoi(json_string_value(port_val));
+	else
+		port = json_integer_value(port_val);
+	if (!host || !port)
+		return false;
+	
+	free(sctx->url);
+	sctx->url = malloc(32 + strlen(host));
+	sprintf(sctx->url, "stratum+tcp://%s:%d", host, port);
+
+	applog(LOG_NOTICE, "Server requested reconnection to %s", sctx->url);
+
+	stratum_disconnect(sctx);
+
+	return true;
+}
+
+static bool stratum_get_version(struct stratum_ctx *sctx, json_t *id)
+{
+	char *s;
+	json_t *val;
+	bool ret;
+	
+	if (!id || json_is_null(id))
+		return false;
+
+	val = json_object();
+	json_object_set(val, "id", id);
+	json_object_set_new(val, "error", json_null());
+	json_object_set_new(val, "result", json_string(USER_AGENT));
+	s = json_dumps(val, 0);
+	ret = stratum_send_line(sctx, s);
+	json_decref(val);
+	free(s);
+
+	return ret;
+}
+
+static bool stratum_show_message(struct stratum_ctx *sctx, json_t *id, json_t *params)
+{
+	char *s;
+	json_t *val;
+	bool ret;
+
+	val = json_array_get(params, 0);
+	if (val)
+		applog(LOG_NOTICE, "MESSAGE FROM SERVER: %s", json_string_value(val));
+	
+	if (!id || json_is_null(id))
+		return true;
+
+	val = json_object();
+	json_object_set(val, "id", id);
+	json_object_set_new(val, "error", json_null());
+	json_object_set_new(val, "result", json_true());
+	s = json_dumps(val, 0);
+	ret = stratum_send_line(sctx, s);
+	json_decref(val);
+	free(s);
+
+	return ret;
+}
+
+bool stratum_handle_method(struct stratum_ctx *sctx, const char *s)
+{
+	json_t *val, *id, *params;
+	json_error_t err;
+	const char *method;
+	bool ret = false;
+
+	val = JSON_LOADS(s, &err);
+	if (!val) {
+		applog(LOG_ERR, "JSON decode failed(%d): %s", err.line, err.text);
+		goto out;
+	}
+
+	method = json_string_value(json_object_get(val, "method"));
+	if (!method)
+		goto out;
+	id = json_object_get(val, "id");
+	params = json_object_get(val, "params");
+
+	if (!strcasecmp(method, "mining.notify")) {
+		ret = stratum_notify(sctx, params);
+		goto out;
+	}
+	if (!strcasecmp(method, "mining.set_difficulty")) {
+		ret = stratum_set_difficulty(sctx, params);
+		goto out;
+	}
+	if (!strcasecmp(method, "client.reconnect")) {
+		ret = stratum_reconnect(sctx, params);
+		goto out;
+	}
+	if (!strcasecmp(method, "client.get_version")) {
+		ret = stratum_get_version(sctx, id);
+		goto out;
+	}
+	if (!strcasecmp(method, "client.show_message")) {
+		ret = stratum_show_message(sctx, id, params);
+		goto out;
+	}
+
+out:
+	if (val)
+		json_decref(val);
+
+	return ret;
 }
 
 struct thread_q *tq_new(void)

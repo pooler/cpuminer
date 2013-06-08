@@ -42,6 +42,7 @@ void *alloca (size_t);
 enum {
 	LOG_ERR,
 	LOG_WARNING,
+	LOG_NOTICE,
 	LOG_INFO,
 	LOG_DEBUG,
 };
@@ -121,8 +122,17 @@ static inline void le32enc(void *pp, uint32_t x)
 }
 #endif
 
+#if JANSSON_MAJOR_VERSION >= 2
+#define JSON_LOADS(str, err_ptr) json_loads((str), 0, (err_ptr))
+#else
+#define JSON_LOADS(str, err_ptr) json_loads((str), (err_ptr))
+#endif
+
+#define USER_AGENT PACKAGE_NAME "/" PACKAGE_VERSION
+
 void sha256_init(uint32_t *state);
 void sha256_transform(uint32_t *state, const uint32_t *block, int swap);
+void sha256d(unsigned char *hash, const unsigned char *data, int len);
 
 #if defined(__ARM_NEON__) || defined(__i386__) || defined(__x86_64__)
 #define HAVE_SHA256_4WAY 1
@@ -155,12 +165,15 @@ extern bool opt_protocol;
 extern int opt_timeout;
 extern bool want_longpoll;
 extern bool have_longpoll;
+extern bool want_stratum;
+extern bool have_stratum;
 extern char *opt_proxy;
 extern long opt_proxy_type;
 extern bool use_syslog;
 extern pthread_mutex_t applog_lock;
 extern struct thr_info *thr_info;
 extern int longpoll_thr_id;
+extern int stratum_thr_id;
 extern struct work_restart *work_restart;
 
 extern void applog(int prio, const char *fmt, ...);
@@ -171,6 +184,52 @@ extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
 extern int timeval_subtract(struct timeval *result, struct timeval *x,
 	struct timeval *y);
 extern bool fulltest(const uint32_t *hash, const uint32_t *target);
+extern void diff_to_target(uint32_t *target, double diff);
+
+struct stratum_job {
+	char *job_id;
+	unsigned char prevhash[32];
+	size_t coinbase_size;
+	unsigned char *coinbase;
+	unsigned char *xnonce2;
+	int merkle_count;
+	unsigned char **merkle;
+	unsigned char version[4];
+	unsigned char nbits[4];
+	unsigned char ntime[4];
+	bool clean;
+	double diff;
+};
+
+struct stratum_ctx {
+	char *url;
+
+	CURL *curl;
+	char *curl_url;
+	char curl_err_str[CURL_ERROR_SIZE];
+	curl_socket_t sock;
+	size_t sockbuf_size;
+	char *sockbuf;
+	pthread_mutex_t sock_lock;
+
+	double next_diff;
+
+	char *session_id;
+	size_t xnonce1_size;
+	unsigned char *xnonce1;
+	size_t xnonce2_size;
+	struct stratum_job job;
+	pthread_mutex_t work_lock;
+};
+
+bool stratum_socket_full(struct stratum_ctx *sctx, int timeout);
+bool stratum_send_line(struct stratum_ctx *sctx, char *s);
+char *stratum_recv_line(struct stratum_ctx *sctx);
+bool stratum_connect(struct stratum_ctx *sctx, const char *url);
+void stratum_disconnect(struct stratum_ctx *sctx);
+bool stratum_subscribe(struct stratum_ctx *sctx);
+bool stratum_authorize(struct stratum_ctx *sctx, const char *user, const char *pass);
+bool stratum_handle_method(struct stratum_ctx *sctx, const char *s);
 
 struct thread_q;
 

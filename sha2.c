@@ -1,5 +1,6 @@
 /*
- * Copyright 2011 ArtForz, 2011-2012 pooler
+ * Copyright 2011 ArtForz
+ * Copyright 2011-2013 pooler
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -180,7 +181,7 @@ static const uint32_t sha256d_hash1[16] = {
 	0x00000000, 0x00000000, 0x00000000, 0x00000100
 };
 
-static void sha256d(uint32_t *hash, uint32_t *data)
+static void sha256d_80(uint32_t *hash, const uint32_t *data)
 {
 	uint32_t S[16];
 
@@ -190,6 +191,31 @@ static void sha256d(uint32_t *hash, uint32_t *data)
 	memcpy(S + 8, sha256d_hash1 + 8, 32);
 	sha256_init(hash);
 	sha256_transform(hash, S, 0);
+}
+
+void sha256d(unsigned char *hash, const unsigned char *data, int len)
+{
+	uint32_t S[16], T[16];
+	int i, r;
+
+	sha256_init(S);
+	for (r = len; r > -9; r -= 64) {
+		if (r < 64)
+			memset(T, 0, 64);
+		memcpy(T, data + len - r, r > 64 ? 64 : (r < 0 ? 0 : r));
+		if (r < 64)
+			((unsigned char *)T)[r] = 0x80;
+		for (i = 0; i < 16; i++)
+			T[i] = be32dec(T + i);
+		if (r < 56)
+			T[15] = 8 * len;
+		sha256_transform(S, T, 0);
+	}
+	memcpy(S + 8, sha256d_hash1 + 8, 32);
+	sha256_init(T);
+	sha256_transform(T, S, 0);
+	for (i = 0; i < 8; i++)
+		be32enc((uint32_t *)hash + i, T[i]);
 }
 
 static inline void sha256d_preextend(uint32_t *W)
@@ -477,7 +503,7 @@ static inline int scanhash_sha256d_4way(int thr_id, uint32_t *pdata,
 		for (i = 0; i < 4; i++) {
 			if (hash[4 * 7 + i] <= Htarg) {
 				pdata[19] = data[4 * 3 + i];
-				sha256d(hash, pdata);
+				sha256d_80(hash, pdata);
 				if (fulltest(hash, ptarget)) {
 					*hashes_done = n - first_nonce + 1;
 					return 1;
@@ -523,7 +549,7 @@ int scanhash_sha256d(int thr_id, uint32_t *pdata, const uint32_t *ptarget,
 		sha256d_ms(hash, data, midstate, prehash);
 		if (hash[7] <= Htarg) {
 			pdata[19] = data[3];
-			sha256d(hash, pdata);
+			sha256d_80(hash, pdata);
 			if (fulltest(hash, ptarget)) {
 				*hashes_done = n - first_nonce + 1;
 				return 1;
