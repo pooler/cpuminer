@@ -130,6 +130,7 @@ static enum sha256_algos opt_algo = ALGO_SCRYPT;
 static int opt_n_threads;
 static int num_processors;
 static char *rpc_url;
+static char *rpc_cert;
 static char *rpc_userpass;
 static char *rpc_user, *rpc_pass;
 char *opt_proxy;
@@ -163,6 +164,7 @@ Options:\n\
                           scrypt    scrypt(1024, 1, 1) (default)\n\
                           sha256d   SHA-256d\n\
   -o, --url=URL         URL of mining server (default: " DEF_RPC_URL ")\n\
+  -C, --cert=FILE       certificate for mining server using ssl\n\
   -O, --userpass=U:P    username:password pair for mining server\n\
   -u, --user=USERNAME   username for mining server\n\
   -p, --pass=PASSWORD   password for mining server\n\
@@ -200,7 +202,7 @@ static char const short_options[] =
 #ifdef HAVE_SYSLOG_H
 	"S"
 #endif
-	"a:c:Dhp:Px:qr:R:s:t:T:o:u:O:V";
+	"a:C:c:Dhp:Px:qr:R:s:t:T:o:u:O:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
@@ -208,6 +210,7 @@ static struct option const options[] = {
 	{ "background", 0, NULL, 'B' },
 #endif
 	{ "benchmark", 0, NULL, 1005 },
+	{ "cert", 1, NULL, 'C' },
 	{ "config", 1, NULL, 'c' },
 	{ "debug", 0, NULL, 'D' },
 	{ "help", 0, NULL, 'h' },
@@ -317,7 +320,7 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 		hexstr);
 
 	/* issue JSON-RPC request */
-	val = json_rpc_call(curl, rpc_url, rpc_userpass, s, false, false, NULL);
+	val = json_rpc_call(curl, rpc_url, rpc_cert, rpc_userpass, s, false, false, NULL);
 	if (unlikely(!val)) {
 		applog(LOG_ERR, "submit_upstream_work json_rpc_call failed");
 		goto out;
@@ -367,7 +370,7 @@ static bool get_upstream_work(CURL *curl, struct work *work)
 	struct timeval tv_start, tv_end, diff;
 
 	gettimeofday(&tv_start, NULL);
-	val = json_rpc_call(curl, rpc_url, rpc_userpass, rpc_req,
+	val = json_rpc_call(curl, rpc_url, rpc_cert, rpc_userpass, rpc_req,
 			    want_longpoll, false, NULL);
 	gettimeofday(&tv_end, NULL);
 
@@ -740,7 +743,7 @@ start:
 		json_t *val, *soval;
 		int err;
 
-		val = json_rpc_call(curl, lp_url, rpc_userpass, rpc_req,
+		val = json_rpc_call(curl, lp_url, rpc_cert, rpc_userpass, rpc_req,
 				    false, true, &err);
 		if (likely(val)) {
 			applog(LOG_INFO, "LONGPOLL detected new block");
@@ -818,6 +821,11 @@ static void parse_arg (int key, char *arg)
 	case 'B':
 		opt_background = true;
 		break;
+	case 'C':
+		free(rpc_cert);
+		rpc_cert = strdup(arg);
+		break;
+		
 	case 'c': {
 		json_error_t err;
 		if (opt_config)
