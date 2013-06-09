@@ -285,7 +285,7 @@ static int json_rpc_call_lp_cb(void *userdata, curl_socket_t fd,
 }
 #endif
 
-json_t *json_rpc_call(CURL *curl, const char *url,
+json_t *json_rpc_call(CURL *curl, const char *url, const char *cert,
 		      const char *userpass, const char *rpc_req,
 		      bool longpoll_scan, bool longpoll, int *curl_err)
 {
@@ -306,6 +306,8 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	if (opt_protocol)
 		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
 	curl_easy_setopt(curl, CURLOPT_URL, url);
+	if (cert != NULL)
+		curl_easy_setopt(curl, CURLOPT_CAINFO, cert);
 	curl_easy_setopt(curl, CURLOPT_ENCODING, "");
 	curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
 	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
