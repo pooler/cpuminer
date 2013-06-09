@@ -458,26 +458,23 @@ char *bin2hex(const unsigned char *p, size_t len)
 
 bool hex2bin(unsigned char *p, const char *hexstr, size_t len)
 {
-	while (*hexstr && len) {
-		char hex_byte[3];
-		unsigned int v;
+	char hex_byte[3];
+	char *ep;
 
+	hex_byte[2] = '\0';
+
+	while (*hexstr && len) {
 		if (!hexstr[1]) {
 			applog(LOG_ERR, "hex2bin str truncated");
 			return false;
 		}
-
 		hex_byte[0] = hexstr[0];
 		hex_byte[1] = hexstr[1];
-		hex_byte[2] = 0;
-
-		if (sscanf(hex_byte, "%x", &v) != 1) {
-			applog(LOG_ERR, "hex2bin sscanf '%s' failed", hex_byte);
+		*p = (unsigned char) strtol(hex_byte, &ep, 16);
+		if (*ep) {
+			applog(LOG_ERR, "hex2bin failed on '%s'", hex_byte);
 			return false;
 		}
-
-		*p = (unsigned char) v;
-
 		p++;
 		hexstr += 2;
 		len--;
