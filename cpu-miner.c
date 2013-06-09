@@ -1244,6 +1244,7 @@ void signal_handler(int sig)
 int main(int argc, char *argv[])
 {
 	struct thr_info *thr;
+	long flags;
 	int i;
 
 	rpc_url = strdup(DEF_RPC_URL);
@@ -1252,6 +1253,20 @@ int main(int argc, char *argv[])
 
 	/* parse command line */
 	parse_cmdline(argc, argv);
+
+	pthread_mutex_init(&applog_lock, NULL);
+	pthread_mutex_init(&stats_lock, NULL);
+	pthread_mutex_init(&g_work_lock, NULL);
+	pthread_mutex_init(&stratum.sock_lock, NULL);
+	pthread_mutex_init(&stratum.work_lock, NULL);
+
+	flags = strncmp(rpc_url, "https:", 6)
+	      ? (CURL_GLOBAL_ALL & ~CURL_GLOBAL_SSL)
+	      : CURL_GLOBAL_ALL;
+	if (curl_global_init(flags)) {
+		applog(LOG_ERR, "CURL initialization failed");
+		return 1;
+	}
 
 #ifndef WIN32
 	if (opt_background) {
@@ -1269,12 +1284,6 @@ int main(int argc, char *argv[])
 		signal(SIGTERM, signal_handler);
 	}
 #endif
-
-	pthread_mutex_init(&applog_lock, NULL);
-	pthread_mutex_init(&stats_lock, NULL);
-	pthread_mutex_init(&g_work_lock, NULL);
-	pthread_mutex_init(&stratum.sock_lock, NULL);
-	pthread_mutex_init(&stratum.work_lock, NULL);
 
 #if defined(WIN32)
 	SYSTEM_INFO sysinfo;
