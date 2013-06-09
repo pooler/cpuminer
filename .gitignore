@@ -11,6 +11,7 @@ Makefile.in
 INSTALL
 aclocal.m4
 configure
+configure.lineno
 depcomp
 missing
 install-sh
@@ -19,6 +20,7 @@ cpuminer-config.h*
 compile
 config.log
 config.status
+config.status.lineno
 config.guess
 config.sub
 
