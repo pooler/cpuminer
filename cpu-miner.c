@@ -1033,6 +1033,7 @@ void signal_handler(int sig)
 int main(int argc, char *argv[])
 {
 	struct thr_info *thr;
+	int curl;
 	int i;
 
 	rpc_url = strdup(DEF_RPC_URL);
@@ -1056,6 +1057,14 @@ int main(int argc, char *argv[])
 		signal(SIGTERM, signal_handler);
 	}
 #endif
+
+	curl = curl_global_init(strncmp(rpc_url, "https:", 6) == 0
+				? CURL_GLOBAL_ALL
+				: (CURL_GLOBAL_ALL & ~CURL_GLOBAL_SSL));
+	if (unlikely(curl)) {
+		applog(LOG_ERR, "CURL initialization failed");
+		exit(1);
+	}
 
 	pthread_mutex_init(&applog_lock, NULL);
 	pthread_mutex_init(&stats_lock, NULL);
