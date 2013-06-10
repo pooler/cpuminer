@@ -410,6 +410,12 @@ static bool get_upstream_work(CURL *curl, struct work *work)
 			    want_longpoll, false, NULL);
 	gettimeofday(&tv_end, NULL);
 
+	if (have_stratum) {
+		if (val)
+			json_decref(val);
+		return true;
+	}
+
 	if (!val)
 		return false;
 
