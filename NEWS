@@ -1,3 +1,11 @@
+Version 2.3 - Jun 12, 2013
+
+- Add support for the Stratum mining protocol
+- Automatically switch to Stratum if the mining server supports
+  the X-Stratum extension, unless --no-stratum is used
+- Set CPU affinity on FreeBSD (lye)
+- Fix a bug in libcurl initialization (martinwguy)
+
 Version 2.2.3 - Aug 5, 2012
 
 - Add optimized ARM NEON code for scrypt and SHA-256d
