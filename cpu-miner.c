@@ -960,7 +960,8 @@ static void *stratum_thread(void *userdata)
 			}
 		}
 
-		if (strcmp(stratum.job.job_id, g_work.job_id) || !g_work_time) {
+		if (stratum.job.job_id &&
+		    (strcmp(stratum.job.job_id, g_work.job_id) || !g_work_time)) {
 			pthread_mutex_lock(&g_work_lock);
 			stratum_gen_work(&stratum, &g_work);
 			time(&g_work_time);
