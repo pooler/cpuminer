@@ -962,7 +962,7 @@ bool stratum_authorize(struct stratum_ctx *sctx, const char *user, const char *p
 	res_val = json_object_get(val, "result");
 	err_val = json_object_get(val, "error");
 
-	if (!res_val || !json_is_true(res_val) ||
+	if (!res_val || json_is_false(res_val) ||
 	    (err_val && !json_is_null(err_val)))  {
 		applog(LOG_ERR, "Stratum authentication failed");
 		goto out;
