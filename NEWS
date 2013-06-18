@@ -1,3 +1,9 @@
+Version 2.3.1 - Jun 18, 2013
+
+- Add a --cert option for specifying an SSL certificate (martinwguy)
+- Fix a bug that only made SHA-256d mining work at difficulty 1
+- Fix a couple of compatibility issues with some Stratum servers
+
 Version 2.3 - Jun 12, 2013
 
 - Add support for the Stratum mining protocol
