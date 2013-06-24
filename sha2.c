@@ -206,7 +206,7 @@ void sha256d(unsigned char *hash, const unsigned char *data, int len)
 		if (r < 64)
 			memset(T, 0, 64);
 		memcpy(T, data + len - r, r > 64 ? 64 : (r < 0 ? 0 : r));
-		if (r < 64)
+		if (r >= 0 && r < 64)
 			((unsigned char *)T)[r] = 0x80;
 		for (i = 0; i < 16; i++)
 			T[i] = be32dec(T + i);
