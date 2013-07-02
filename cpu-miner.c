@@ -553,7 +553,11 @@ static bool get_work(struct thr_info *thr, struct work *work)
 	struct work *work_heap;
 
 	if (opt_benchmark) {
-		memset(work->data, 0x55, sizeof(work->data));
+		memset(work->data, 0x55, 76);
+		work->data[17] = swab32(time(NULL));
+		memset(work->data + 19, 0x00, 52);
+		work->data[20] = 0x80000000;
+		work->data[31] = 0x00000280;
 		memset(work->target, 0x00, sizeof(work->target));
 		return true;
 	}
