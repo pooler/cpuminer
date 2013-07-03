@@ -1129,7 +1129,7 @@ static void parse_arg (int key, char *arg)
 			}
 			memmove(ap, p + 1, strlen(p + 1) + 1);
 		}
-		have_stratum = !strncasecmp(rpc_url, "stratum", 7);
+		have_stratum = !opt_benchmark && !strncasecmp(rpc_url, "stratum", 7);
 		break;
 	case 'O':			/* --userpass */
 		p = strchr(arg, ':');
@@ -1167,6 +1167,7 @@ static void parse_arg (int key, char *arg)
 		opt_benchmark = true;
 		want_longpoll = false;
 		want_stratum = false;
+		have_stratum = false;
 		break;
 	case 1003:
 		want_longpoll = false;
