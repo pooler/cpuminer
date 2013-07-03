@@ -63,7 +63,6 @@ static inline void affine_to_cpu(int id, int cpu)
 	CPU_ZERO(&set);
 	CPU_SET(cpu, &set);
 	sched_setaffinity(0, sizeof(&set), &set);
-	applog(LOG_INFO, "Binding thread %d to cpu %d", id, cpu);
 }
 #elif defined(__FreeBSD__) /* FreeBSD specific policy and affinity management */
 #include <sys/cpuset.h>
@@ -77,7 +76,6 @@ static inline void affine_to_cpu(int id, int cpu)
 	CPU_ZERO(&set);
 	CPU_SET(cpu, &set);
 	cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_CPUSET, -1, sizeof(cpuset_t), &set);
-	applog(LOG_INFO, "Binding thread %d to cpu %d", id, cpu);
 }
 #else
 static inline void drop_policy(void)
@@ -685,8 +683,12 @@ static void *miner_thread(void *userdata)
 
 	/* Cpu affinity only makes sense if the number of threads is a multiple
 	 * of the number of CPUs */
-	if (num_processors > 1 && opt_n_threads % num_processors == 0)
-		affine_to_cpu(mythr->id, mythr->id % num_processors);
+	if (num_processors > 1 && opt_n_threads % num_processors == 0) {
+		if (!opt_quiet)
+			applog(LOG_INFO, "Binding thread %d to cpu %d",
+			       thr_id, thr_id % num_processors);
+		affine_to_cpu(thr_id, thr_id % num_processors);
+	}
 	
 	if (opt_algo == ALGO_SCRYPT)
 	{
