@@ -668,7 +668,7 @@ static void *miner_thread(void *userdata)
 	int thr_id = mythr->id;
 	struct work work;
 	uint32_t max_nonce;
-	uint32_t end_nonce = 0xffffffffU / opt_n_threads * (thr_id + 1) - 0x10;
+	uint32_t end_nonce = 0xffffffffU / opt_n_threads * (thr_id + 1) - 0x20;
 	unsigned char *scratchbuf = NULL;
 	char s[16];
 	int i;

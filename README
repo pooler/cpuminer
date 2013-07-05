@@ -42,7 +42,7 @@ Architecture-specific notes:
 		To use NEON instructions, add "-mfpu=neon" to CFLAGS.
 	x86:	The miner checks for SSE2 instructions support at runtime,
 		and uses them if they are available.
-	x86-64:	The miner can take advantage of AVX and XOP instructions,
+	x86-64:	The miner can take advantage of AVX, AVX2 and XOP instructions,
 		but only if both the CPU and the operating system support them.
 		    * Linux supports AVX starting from kernel version 2.6.30.
 		    * FreeBSD supports AVX starting with 9.1-RELEASE.
@@ -50,7 +50,7 @@ Architecture-specific notes:
 		    * Windows supports AVX starting from Windows 7 SP1 and
 		      Windows Server 2008 R2 SP1.
 		The configure script outputs a warning if the assembler
-		cannot compile AVX or XOP instructions. In that case, the miner
+		doesn't support some instruction sets. In that case, the miner
 		can still be built, but unavailable optimizations are left off.
 
 Usage instructions:  Run "minerd --help" to see options.

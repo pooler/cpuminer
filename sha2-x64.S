@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 pooler@litecoinpool.org
+ * Copyright 2012-2013 pooler@litecoinpool.org
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -107,6 +107,102 @@ sha256d_4preext2_30:
 	.long 0x00400022, 0x00400022, 0x00400022, 0x00400022
 
 
+#ifdef USE_AVX2
+
+	.data
+	.p2align 7
+sha256_8h:
+	.long 0x6a09e667, 0x6a09e667, 0x6a09e667, 0x6a09e667, 0x6a09e667, 0x6a09e667, 0x6a09e667, 0x6a09e667
+	.long 0xbb67ae85, 0xbb67ae85, 0xbb67ae85, 0xbb67ae85, 0xbb67ae85, 0xbb67ae85, 0xbb67ae85, 0xbb67ae85
+	.long 0x3c6ef372, 0x3c6ef372, 0x3c6ef372, 0x3c6ef372, 0x3c6ef372, 0x3c6ef372, 0x3c6ef372, 0x3c6ef372
+	.long 0xa54ff53a, 0xa54ff53a, 0xa54ff53a, 0xa54ff53a, 0xa54ff53a, 0xa54ff53a, 0xa54ff53a, 0xa54ff53a
+	.long 0x510e527f, 0x510e527f, 0x510e527f, 0x510e527f, 0x510e527f, 0x510e527f, 0x510e527f, 0x510e527f
+	.long 0x9b05688c, 0x9b05688c, 0x9b05688c, 0x9b05688c, 0x9b05688c, 0x9b05688c, 0x9b05688c, 0x9b05688c
+	.long 0x1f83d9ab, 0x1f83d9ab, 0x1f83d9ab, 0x1f83d9ab, 0x1f83d9ab, 0x1f83d9ab, 0x1f83d9ab, 0x1f83d9ab
+	.long 0x5be0cd19, 0x5be0cd19, 0x5be0cd19, 0x5be0cd19, 0x5be0cd19, 0x5be0cd19, 0x5be0cd19, 0x5be0cd19
+
+	.data
+	.p2align 7
+sha256_8k:
+	.long 0x428a2f98, 0x428a2f98, 0x428a2f98, 0x428a2f98, 0x428a2f98, 0x428a2f98, 0x428a2f98, 0x428a2f98
+	.long 0x71374491, 0x71374491, 0x71374491, 0x71374491, 0x71374491, 0x71374491, 0x71374491, 0x71374491
+	.long 0xb5c0fbcf, 0xb5c0fbcf, 0xb5c0fbcf, 0xb5c0fbcf, 0xb5c0fbcf, 0xb5c0fbcf, 0xb5c0fbcf, 0xb5c0fbcf
+	.long 0xe9b5dba5, 0xe9b5dba5, 0xe9b5dba5, 0xe9b5dba5, 0xe9b5dba5, 0xe9b5dba5, 0xe9b5dba5, 0xe9b5dba5
+	.long 0x3956c25b, 0x3956c25b, 0x3956c25b, 0x3956c25b, 0x3956c25b, 0x3956c25b, 0x3956c25b, 0x3956c25b
+	.long 0x59f111f1, 0x59f111f1, 0x59f111f1, 0x59f111f1, 0x59f111f1, 0x59f111f1, 0x59f111f1, 0x59f111f1
+	.long 0x923f82a4, 0x923f82a4, 0x923f82a4, 0x923f82a4, 0x923f82a4, 0x923f82a4, 0x923f82a4, 0x923f82a4
+	.long 0xab1c5ed5, 0xab1c5ed5, 0xab1c5ed5, 0xab1c5ed5, 0xab1c5ed5, 0xab1c5ed5, 0xab1c5ed5, 0xab1c5ed5
+	.long 0xd807aa98, 0xd807aa98, 0xd807aa98, 0xd807aa98, 0xd807aa98, 0xd807aa98, 0xd807aa98, 0xd807aa98
+	.long 0x12835b01, 0x12835b01, 0x12835b01, 0x12835b01, 0x12835b01, 0x12835b01, 0x12835b01, 0x12835b01
+	.long 0x243185be, 0x243185be, 0x243185be, 0x243185be, 0x243185be, 0x243185be, 0x243185be, 0x243185be
+	.long 0x550c7dc3, 0x550c7dc3, 0x550c7dc3, 0x550c7dc3, 0x550c7dc3, 0x550c7dc3, 0x550c7dc3, 0x550c7dc3
+	.long 0x72be5d74, 0x72be5d74, 0x72be5d74, 0x72be5d74, 0x72be5d74, 0x72be5d74, 0x72be5d74, 0x72be5d74
+	.long 0x80deb1fe, 0x80deb1fe, 0x80deb1fe, 0x80deb1fe, 0x80deb1fe, 0x80deb1fe, 0x80deb1fe, 0x80deb1fe
+	.long 0x9bdc06a7, 0x9bdc06a7, 0x9bdc06a7, 0x9bdc06a7, 0x9bdc06a7, 0x9bdc06a7, 0x9bdc06a7, 0x9bdc06a7
+	.long 0xc19bf174, 0xc19bf174, 0xc19bf174, 0xc19bf174, 0xc19bf174, 0xc19bf174, 0xc19bf174, 0xc19bf174
+	.long 0xe49b69c1, 0xe49b69c1, 0xe49b69c1, 0xe49b69c1, 0xe49b69c1, 0xe49b69c1, 0xe49b69c1, 0xe49b69c1
+	.long 0xefbe4786, 0xefbe4786, 0xefbe4786, 0xefbe4786, 0xefbe4786, 0xefbe4786, 0xefbe4786, 0xefbe4786
+	.long 0x0fc19dc6, 0x0fc19dc6, 0x0fc19dc6, 0x0fc19dc6, 0x0fc19dc6, 0x0fc19dc6, 0x0fc19dc6, 0x0fc19dc6
+	.long 0x240ca1cc, 0x240ca1cc, 0x240ca1cc, 0x240ca1cc, 0x240ca1cc, 0x240ca1cc, 0x240ca1cc, 0x240ca1cc
+	.long 0x2de92c6f, 0x2de92c6f, 0x2de92c6f, 0x2de92c6f, 0x2de92c6f, 0x2de92c6f, 0x2de92c6f, 0x2de92c6f
+	.long 0x4a7484aa, 0x4a7484aa, 0x4a7484aa, 0x4a7484aa, 0x4a7484aa, 0x4a7484aa, 0x4a7484aa, 0x4a7484aa
+	.long 0x5cb0a9dc, 0x5cb0a9dc, 0x5cb0a9dc, 0x5cb0a9dc, 0x5cb0a9dc, 0x5cb0a9dc, 0x5cb0a9dc, 0x5cb0a9dc
+	.long 0x76f988da, 0x76f988da, 0x76f988da, 0x76f988da, 0x76f988da, 0x76f988da, 0x76f988da, 0x76f988da
+	.long 0x983e5152, 0x983e5152, 0x983e5152, 0x983e5152, 0x983e5152, 0x983e5152, 0x983e5152, 0x983e5152
+	.long 0xa831c66d, 0xa831c66d, 0xa831c66d, 0xa831c66d, 0xa831c66d, 0xa831c66d, 0xa831c66d, 0xa831c66d
+	.long 0xb00327c8, 0xb00327c8, 0xb00327c8, 0xb00327c8, 0xb00327c8, 0xb00327c8, 0xb00327c8, 0xb00327c8
+	.long 0xbf597fc7, 0xbf597fc7, 0xbf597fc7, 0xbf597fc7, 0xbf597fc7, 0xbf597fc7, 0xbf597fc7, 0xbf597fc7
+	.long 0xc6e00bf3, 0xc6e00bf3, 0xc6e00bf3, 0xc6e00bf3, 0xc6e00bf3, 0xc6e00bf3, 0xc6e00bf3, 0xc6e00bf3
+	.long 0xd5a79147, 0xd5a79147, 0xd5a79147, 0xd5a79147, 0xd5a79147, 0xd5a79147, 0xd5a79147, 0xd5a79147
+	.long 0x06ca6351, 0x06ca6351, 0x06ca6351, 0x06ca6351, 0x06ca6351, 0x06ca6351, 0x06ca6351, 0x06ca6351
+	.long 0x14292967, 0x14292967, 0x14292967, 0x14292967, 0x14292967, 0x14292967, 0x14292967, 0x14292967
+	.long 0x27b70a85, 0x27b70a85, 0x27b70a85, 0x27b70a85, 0x27b70a85, 0x27b70a85, 0x27b70a85, 0x27b70a85
+	.long 0x2e1b2138, 0x2e1b2138, 0x2e1b2138, 0x2e1b2138, 0x2e1b2138, 0x2e1b2138, 0x2e1b2138, 0x2e1b2138
+	.long 0x4d2c6dfc, 0x4d2c6dfc, 0x4d2c6dfc, 0x4d2c6dfc, 0x4d2c6dfc, 0x4d2c6dfc, 0x4d2c6dfc, 0x4d2c6dfc
+	.long 0x53380d13, 0x53380d13, 0x53380d13, 0x53380d13, 0x53380d13, 0x53380d13, 0x53380d13, 0x53380d13
+	.long 0x650a7354, 0x650a7354, 0x650a7354, 0x650a7354, 0x650a7354, 0x650a7354, 0x650a7354, 0x650a7354
+	.long 0x766a0abb, 0x766a0abb, 0x766a0abb, 0x766a0abb, 0x766a0abb, 0x766a0abb, 0x766a0abb, 0x766a0abb
+	.long 0x81c2c92e, 0x81c2c92e, 0x81c2c92e, 0x81c2c92e, 0x81c2c92e, 0x81c2c92e, 0x81c2c92e, 0x81c2c92e
+	.long 0x92722c85, 0x92722c85, 0x92722c85, 0x92722c85, 0x92722c85, 0x92722c85, 0x92722c85, 0x92722c85
+	.long 0xa2bfe8a1, 0xa2bfe8a1, 0xa2bfe8a1, 0xa2bfe8a1, 0xa2bfe8a1, 0xa2bfe8a1, 0xa2bfe8a1, 0xa2bfe8a1
+	.long 0xa81a664b, 0xa81a664b, 0xa81a664b, 0xa81a664b, 0xa81a664b, 0xa81a664b, 0xa81a664b, 0xa81a664b
+	.long 0xc24b8b70, 0xc24b8b70, 0xc24b8b70, 0xc24b8b70, 0xc24b8b70, 0xc24b8b70, 0xc24b8b70, 0xc24b8b70
+	.long 0xc76c51a3, 0xc76c51a3, 0xc76c51a3, 0xc76c51a3, 0xc76c51a3, 0xc76c51a3, 0xc76c51a3, 0xc76c51a3
+	.long 0xd192e819, 0xd192e819, 0xd192e819, 0xd192e819, 0xd192e819, 0xd192e819, 0xd192e819, 0xd192e819
+	.long 0xd6990624, 0xd6990624, 0xd6990624, 0xd6990624, 0xd6990624, 0xd6990624, 0xd6990624, 0xd6990624
+	.long 0xf40e3585, 0xf40e3585, 0xf40e3585, 0xf40e3585, 0xf40e3585, 0xf40e3585, 0xf40e3585, 0xf40e3585
+	.long 0x106aa070, 0x106aa070, 0x106aa070, 0x106aa070, 0x106aa070, 0x106aa070, 0x106aa070, 0x106aa070
+	.long 0x19a4c116, 0x19a4c116, 0x19a4c116, 0x19a4c116, 0x19a4c116, 0x19a4c116, 0x19a4c116, 0x19a4c116
+	.long 0x1e376c08, 0x1e376c08, 0x1e376c08, 0x1e376c08, 0x1e376c08, 0x1e376c08, 0x1e376c08, 0x1e376c08
+	.long 0x2748774c, 0x2748774c, 0x2748774c, 0x2748774c, 0x2748774c, 0x2748774c, 0x2748774c, 0x2748774c
+	.long 0x34b0bcb5, 0x34b0bcb5, 0x34b0bcb5, 0x34b0bcb5, 0x34b0bcb5, 0x34b0bcb5, 0x34b0bcb5, 0x34b0bcb5
+	.long 0x391c0cb3, 0x391c0cb3, 0x391c0cb3, 0x391c0cb3, 0x391c0cb3, 0x391c0cb3, 0x391c0cb3, 0x391c0cb3
+	.long 0x4ed8aa4a, 0x4ed8aa4a, 0x4ed8aa4a, 0x4ed8aa4a, 0x4ed8aa4a, 0x4ed8aa4a, 0x4ed8aa4a, 0x4ed8aa4a
+	.long 0x5b9cca4f, 0x5b9cca4f, 0x5b9cca4f, 0x5b9cca4f, 0x5b9cca4f, 0x5b9cca4f, 0x5b9cca4f, 0x5b9cca4f
+	.long 0x682e6ff3, 0x682e6ff3, 0x682e6ff3, 0x682e6ff3, 0x682e6ff3, 0x682e6ff3, 0x682e6ff3, 0x682e6ff3
+	.long 0x748f82ee, 0x748f82ee, 0x748f82ee, 0x748f82ee, 0x748f82ee, 0x748f82ee, 0x748f82ee, 0x748f82ee
+	.long 0x78a5636f, 0x78a5636f, 0x78a5636f, 0x78a5636f, 0x78a5636f, 0x78a5636f, 0x78a5636f, 0x78a5636f
+	.long 0x84c87814, 0x84c87814, 0x84c87814, 0x84c87814, 0x84c87814, 0x84c87814, 0x84c87814, 0x84c87814
+	.long 0x8cc70208, 0x8cc70208, 0x8cc70208, 0x8cc70208, 0x8cc70208, 0x8cc70208, 0x8cc70208, 0x8cc70208
+	.long 0x90befffa, 0x90befffa, 0x90befffa, 0x90befffa, 0x90befffa, 0x90befffa, 0x90befffa, 0x90befffa
+	.long 0xa4506ceb, 0xa4506ceb, 0xa4506ceb, 0xa4506ceb, 0xa4506ceb, 0xa4506ceb, 0xa4506ceb, 0xa4506ceb
+	.long 0xbef9a3f7, 0xbef9a3f7, 0xbef9a3f7, 0xbef9a3f7, 0xbef9a3f7, 0xbef9a3f7, 0xbef9a3f7, 0xbef9a3f7
+	.long 0xc67178f2, 0xc67178f2, 0xc67178f2, 0xc67178f2, 0xc67178f2, 0xc67178f2, 0xc67178f2, 0xc67178f2
+
+	.data
+	.p2align 6
+sha256d_8preext2_17:
+	.long 0x00a00000, 0x00a00000, 0x00a00000, 0x00a00000, 0x00a00000, 0x00a00000, 0x00a00000, 0x00a00000
+sha256d_8preext2_23:
+	.long 0x11002000, 0x11002000, 0x11002000, 0x11002000, 0x11002000, 0x11002000, 0x11002000, 0x11002000
+sha256d_8preext2_24:
+	.long 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000
+sha256d_8preext2_30:
+	.long 0x00400022, 0x00400022, 0x00400022, 0x00400022, 0x00400022, 0x00400022, 0x00400022, 0x00400022
+
+#endif /* USE_AVX2 */
+
+
 	.text
 	.p2align 6
 	.globl sha256_init_4way
@@ -137,6 +233,40 @@ _sha256_init_4way:
 	popq	%rdi
 #endif
 	ret
+
+
+#ifdef USE_AVX2
+	.text
+	.p2align 6
+	.globl sha256_init_8way
+	.globl _sha256_init_8way
+sha256_init_8way:
+_sha256_init_8way:
+#if defined(WIN64)
+	pushq	%rdi
+	movq	%rcx, %rdi
+#endif
+	vpbroadcastd	sha256_4h+0(%rip), %ymm0
+	vpbroadcastd	sha256_4h+16(%rip), %ymm1
+	vpbroadcastd	sha256_4h+32(%rip), %ymm2
+	vpbroadcastd	sha256_4h+48(%rip), %ymm3
+	vmovdqu	%ymm0, 0*32(%rdi)
+	vmovdqu	%ymm1, 1*32(%rdi)
+	vmovdqu	%ymm2, 2*32(%rdi)
+	vmovdqu	%ymm3, 3*32(%rdi)
+	vpbroadcastd	sha256_4h+64(%rip), %ymm0
+	vpbroadcastd	sha256_4h+80(%rip), %ymm1
+	vpbroadcastd	sha256_4h+96(%rip), %ymm2
+	vpbroadcastd	sha256_4h+112(%rip), %ymm3
+	vmovdqu	%ymm0, 4*32(%rdi)
+	vmovdqu	%ymm1, 5*32(%rdi)
+	vmovdqu	%ymm2, 6*32(%rdi)
+	vmovdqu	%ymm3, 7*32(%rdi)
+#if defined(WIN64)
+	popq	%rdi
+#endif
+	ret
+#endif /* USE_AVX2 */
 
 
 .macro sha256_sse2_extend_round i
@@ -439,6 +569,143 @@ _sha256_init_4way:
 .endm
 
 #endif /* USE_AVX */
+
+
+#if defined(USE_AVX2)
+
+.macro sha256_avx2_extend_round i
+	vmovdqa	(\i-15)*32(%rax), %ymm0
+	vpslld	$14, %ymm0, %ymm2
+	vpsrld	$3, %ymm0, %ymm0
+	vpsrld	$4, %ymm0, %ymm1
+	vpxor	%ymm1, %ymm0, %ymm0
+	vpxor	%ymm2, %ymm0, %ymm0
+	vpsrld	$11, %ymm1, %ymm1
+	vpslld	$11, %ymm2, %ymm2
+	vpxor	%ymm1, %ymm0, %ymm0
+	vpxor	%ymm2, %ymm0, %ymm0
+	vpaddd	(\i-16)*32(%rax), %ymm0, %ymm0
+	vpaddd	(\i-7)*32(%rax), %ymm0, %ymm0
+
+	vpslld	$13, %ymm3, %ymm2
+	vpsrld	$10, %ymm3, %ymm3
+	vpsrld	$7, %ymm3, %ymm1
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpsrld	$2, %ymm1, %ymm1
+	vpslld	$2, %ymm2, %ymm2
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpaddd	%ymm0, %ymm3, %ymm3
+	vmovdqa	%ymm3, \i*32(%rax)
+.endm
+
+.macro sha256_avx2_extend_doubleround i
+	vmovdqa	(\i-15)*32(%rax), %ymm0
+	vmovdqa	(\i-14)*32(%rax), %ymm4
+	vpslld	$14, %ymm0, %ymm2
+	vpslld	$14, %ymm4, %ymm6
+	vpsrld	$3, %ymm0, %ymm8
+	vpsrld	$3, %ymm4, %ymm4
+	vpsrld	$7, %ymm0, %ymm1
+	vpsrld	$4, %ymm4, %ymm5
+	vpxor	%ymm1, %ymm8, %ymm8
+	vpxor	%ymm5, %ymm4, %ymm4
+	vpsrld	$11, %ymm1, %ymm1
+	vpsrld	$11, %ymm5, %ymm5
+	vpxor	%ymm2, %ymm8, %ymm8
+	vpxor	%ymm6, %ymm4, %ymm4
+	vpslld	$11, %ymm2, %ymm2
+	vpslld	$11, %ymm6, %ymm6
+	vpxor	%ymm1, %ymm8, %ymm8
+	vpxor	%ymm5, %ymm4, %ymm4
+	vpxor	%ymm2, %ymm8, %ymm8
+	vpxor	%ymm6, %ymm4, %ymm4
+
+	vpaddd	%ymm0, %ymm4, %ymm4
+	vpaddd	(\i-16)*32(%rax), %ymm8, %ymm0
+
+	vpslld	$13, %ymm3, %ymm2
+	vpslld	$13, %ymm7, %ymm6
+	vpsrld	$10, %ymm3, %ymm3
+	vpsrld	$10, %ymm7, %ymm7
+
+	vpaddd	(\i-7)*32(%rax), %ymm0, %ymm0
+	vpaddd	(\i-6)*32(%rax), %ymm4, %ymm4
+
+	vpsrld	$7, %ymm3, %ymm1
+	vpsrld	$7, %ymm7, %ymm5
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpsrld	$2, %ymm1, %ymm1
+	vpsrld	$2, %ymm5, %ymm5
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpslld	$2, %ymm2, %ymm2
+	vpslld	$2, %ymm6, %ymm6
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+
+	vpaddd	%ymm0, %ymm3, %ymm3
+	vpaddd	%ymm4, %ymm7, %ymm7
+	vmovdqa	%ymm3, \i*32(%rax)
+	vmovdqa	%ymm7, (\i+1)*32(%rax)
+.endm
+
+.macro sha256_avx2_main_round i, r0, r1, r2, r3, r4, r5, r6, r7
+	vpaddd	32*(\i)(%rax), \r0, %ymm6
+	vpaddd	32*(\i)(%rcx), %ymm6, %ymm6
+
+	vpandn	\r1, \r3, %ymm1
+	vpand	\r3, \r2, %ymm2
+	vpxor	%ymm2, %ymm1, %ymm1
+	vpaddd	%ymm1, %ymm6, %ymm6
+
+	vpslld	$7, \r3, %ymm1
+	vpsrld	$6, \r3, \r0
+	vpsrld	$5, \r0, %ymm2
+	vpxor	%ymm1, \r0, \r0
+	vpxor	%ymm2, \r0, \r0
+	vpslld	$14, %ymm1, %ymm1
+	vpsrld	$14, %ymm2, %ymm2
+	vpxor	%ymm1, \r0, \r0
+	vpxor	%ymm2, \r0, \r0
+	vpslld	$5, %ymm1, %ymm1
+	vpxor	%ymm1, \r0, \r0
+	vpaddd	\r0, %ymm6, %ymm6
+	vpaddd	%ymm6, \r4, \r0
+
+	vpand	\r6, \r5, %ymm2
+	vpand	\r7, \r5, \r4
+	vpand	\r7, \r6, %ymm1
+	vpxor	\r4, %ymm1, %ymm1
+	vpxor	%ymm2, %ymm1, %ymm1
+	vpaddd	%ymm1, %ymm6, %ymm6
+
+	vpslld	$10, \r7, %ymm2
+	vpsrld	$2, \r7, \r4
+	vpsrld	$11, \r4, %ymm1
+	vpxor	%ymm2, \r4, \r4
+	vpxor	%ymm1, \r4, \r4
+	vpslld	$9, %ymm2, %ymm2
+	vpsrld	$9, %ymm1, %ymm1
+	vpxor	%ymm2, \r4, \r4
+	vpxor	%ymm1, \r4, \r4
+	vpslld	$11, %ymm2, %ymm2
+	vpxor	%ymm2, \r4, \r4
+	vpaddd	%ymm6, \r4, \r4
+.endm
+
+.macro sha256_avx2_main_quadround i
+	sha256_avx2_main_round \i+0, %ymm10, %ymm9, %ymm8, %ymm0, %ymm3, %ymm4, %ymm5, %ymm7
+	sha256_avx2_main_round \i+1, %ymm9, %ymm8, %ymm0, %ymm10, %ymm4, %ymm5, %ymm7, %ymm3
+	sha256_avx2_main_round \i+2, %ymm8, %ymm0, %ymm10, %ymm9, %ymm5, %ymm7, %ymm3, %ymm4
+	sha256_avx2_main_round \i+3, %ymm0, %ymm10, %ymm9, %ymm8, %ymm7, %ymm3, %ymm4, %ymm5
+.endm
+
+#endif /* USE_AVX2 */
 
 
 #if defined(USE_XOP)
@@ -955,6 +1222,201 @@ sha256_transform_4way_finish:
 	popq	%rdi
 #endif
 	ret
+
+
+#ifdef USE_AVX2
+
+	.text
+	.p2align 6
+sha256_transform_8way_core_avx2:
+	leaq	8*64(%rsp), %rax
+	vmovdqa	-2*32(%rax), %ymm3
+	vmovdqa	-1*32(%rax), %ymm7
+	sha256_avx2_extend_doubleround 0
+	sha256_avx2_extend_doubleround 2
+	sha256_avx2_extend_doubleround 4
+	sha256_avx2_extend_doubleround 6
+	sha256_avx2_extend_doubleround 8
+	sha256_avx2_extend_doubleround 10
+	sha256_avx2_extend_doubleround 12
+	sha256_avx2_extend_doubleround 14
+	sha256_avx2_extend_doubleround 16
+	sha256_avx2_extend_doubleround 18
+	sha256_avx2_extend_doubleround 20
+	sha256_avx2_extend_doubleround 22
+	sha256_avx2_extend_doubleround 24
+	sha256_avx2_extend_doubleround 26
+	sha256_avx2_extend_doubleround 28
+	sha256_avx2_extend_doubleround 30
+	sha256_avx2_extend_doubleround 32
+	sha256_avx2_extend_doubleround 34
+	sha256_avx2_extend_doubleround 36
+	sha256_avx2_extend_doubleround 38
+	sha256_avx2_extend_doubleround 40
+	sha256_avx2_extend_doubleround 42
+	sha256_avx2_extend_doubleround 44
+	sha256_avx2_extend_doubleround 46
+	vmovdqu	0*32(%rdi), %ymm7
+	vmovdqu	1*32(%rdi), %ymm5
+	vmovdqu	2*32(%rdi), %ymm4
+	vmovdqu	3*32(%rdi), %ymm3
+	vmovdqu	4*32(%rdi), %ymm0
+	vmovdqu	5*32(%rdi), %ymm8
+	vmovdqu	6*32(%rdi), %ymm9
+	vmovdqu	7*32(%rdi), %ymm10
+	movq	%rsp, %rax
+	leaq	sha256_8k(%rip), %rcx
+	sha256_avx2_main_quadround 0
+	sha256_avx2_main_quadround 4
+	sha256_avx2_main_quadround 8
+	sha256_avx2_main_quadround 12
+	sha256_avx2_main_quadround 16
+	sha256_avx2_main_quadround 20
+	sha256_avx2_main_quadround 24
+	sha256_avx2_main_quadround 28
+	sha256_avx2_main_quadround 32
+	sha256_avx2_main_quadround 36
+	sha256_avx2_main_quadround 40
+	sha256_avx2_main_quadround 44
+	sha256_avx2_main_quadround 48
+	sha256_avx2_main_quadround 52
+	sha256_avx2_main_quadround 56
+	sha256_avx2_main_quadround 60
+	jmp sha256_transform_8way_finish
+
+.macro p2bswap_avx2_rsi_rsp i
+	vmovdqu	\i*32(%rsi), %ymm0
+	vmovdqu	(\i+1)*32(%rsi), %ymm2
+	vpshuflw	$0xb1, %ymm0, %ymm0
+	vpshuflw	$0xb1, %ymm2, %ymm2
+	vpshufhw	$0xb1, %ymm0, %ymm0
+	vpshufhw	$0xb1, %ymm2, %ymm2
+	vpsrlw	$8, %ymm0, %ymm1
+	vpsrlw	$8, %ymm2, %ymm3
+	vpsllw	$8, %ymm0, %ymm0
+	vpsllw	$8, %ymm2, %ymm2
+	vpxor	%ymm1, %ymm0, %ymm0
+	vpxor	%ymm3, %ymm2, %ymm2
+	vmovdqa	%ymm0, \i*32(%rsp)
+	vmovdqa	%ymm2, (\i+1)*32(%rsp)
+.endm
+	
+	.text
+	.p2align 6
+	.globl sha256_transform_8way
+	.globl _sha256_transform_8way
+sha256_transform_8way:
+_sha256_transform_8way:
+#if defined(WIN64)
+	pushq	%rdi
+	subq	$96, %rsp
+	vmovdqa	%xmm6, 0(%rsp)
+	vmovdqa	%xmm7, 16(%rsp)
+	vmovdqa	%xmm8, 32(%rsp)
+	vmovdqa	%xmm9, 48(%rsp)
+	vmovdqa	%xmm10, 64(%rsp)
+	vmovdqa	%xmm11, 80(%rsp)
+	pushq	%rsi
+	movq	%rcx, %rdi
+	movq	%rdx, %rsi
+	movq	%r8, %rdx
+#endif
+	movq	%rsp, %r8
+	subq	$64*32, %rsp
+	andq	$-128, %rsp
+	
+	testq	%rdx, %rdx
+	jnz sha256_transform_8way_swap
+	
+	vmovdqu	0*32(%rsi), %ymm0
+	vmovdqu	1*32(%rsi), %ymm1
+	vmovdqu	2*32(%rsi), %ymm2
+	vmovdqu	3*32(%rsi), %ymm3
+	vmovdqu	4*32(%rsi), %ymm4
+	vmovdqu	5*32(%rsi), %ymm5
+	vmovdqu	6*32(%rsi), %ymm6
+	vmovdqu	7*32(%rsi), %ymm7
+	vmovdqa	%ymm0, 0*32(%rsp)
+	vmovdqa	%ymm1, 1*32(%rsp)
+	vmovdqa	%ymm2, 2*32(%rsp)
+	vmovdqa	%ymm3, 3*32(%rsp)
+	vmovdqa	%ymm4, 4*32(%rsp)
+	vmovdqa	%ymm5, 5*32(%rsp)
+	vmovdqa	%ymm6, 6*32(%rsp)
+	vmovdqa	%ymm7, 7*32(%rsp)
+	vmovdqu	8*32(%rsi), %ymm0
+	vmovdqu	9*32(%rsi), %ymm1
+	vmovdqu	10*32(%rsi), %ymm2
+	vmovdqu	11*32(%rsi), %ymm3
+	vmovdqu	12*32(%rsi), %ymm4
+	vmovdqu	13*32(%rsi), %ymm5
+	vmovdqu	14*32(%rsi), %ymm6
+	vmovdqu	15*32(%rsi), %ymm7
+	vmovdqa	%ymm0, 8*32(%rsp)
+	vmovdqa	%ymm1, 9*32(%rsp)
+	vmovdqa	%ymm2, 10*32(%rsp)
+	vmovdqa	%ymm3, 11*32(%rsp)
+	vmovdqa	%ymm4, 12*32(%rsp)
+	vmovdqa	%ymm5, 13*32(%rsp)
+	vmovdqa	%ymm6, 14*32(%rsp)
+	vmovdqa	%ymm7, 15*32(%rsp)
+	jmp sha256_transform_8way_core_avx2
+	
+	.p2align 6
+sha256_transform_8way_swap:
+	p2bswap_avx2_rsi_rsp 0
+	p2bswap_avx2_rsi_rsp 2
+	p2bswap_avx2_rsi_rsp 4
+	p2bswap_avx2_rsi_rsp 6
+	p2bswap_avx2_rsi_rsp 8
+	p2bswap_avx2_rsi_rsp 10
+	p2bswap_avx2_rsi_rsp 12
+	p2bswap_avx2_rsi_rsp 14
+	jmp sha256_transform_8way_core_avx2
+	
+	.p2align 6
+sha256_transform_8way_finish:
+	vmovdqu	0*32(%rdi), %ymm2
+	vmovdqu	1*32(%rdi), %ymm6
+	vmovdqu	2*32(%rdi), %ymm11
+	vmovdqu	3*32(%rdi), %ymm1
+	vpaddd	%ymm2, %ymm7, %ymm7
+	vpaddd	%ymm6, %ymm5, %ymm5
+	vpaddd	%ymm11, %ymm4, %ymm4
+	vpaddd	%ymm1, %ymm3, %ymm3
+	vmovdqu	4*32(%rdi), %ymm2
+	vmovdqu	5*32(%rdi), %ymm6
+	vmovdqu	6*32(%rdi), %ymm11
+	vmovdqu	7*32(%rdi), %ymm1
+	vpaddd	%ymm2, %ymm0, %ymm0
+	vpaddd	%ymm6, %ymm8, %ymm8
+	vpaddd	%ymm11, %ymm9, %ymm9
+	vpaddd	%ymm1, %ymm10, %ymm10
+	
+	vmovdqu	%ymm7, 0*32(%rdi)
+	vmovdqu	%ymm5, 1*32(%rdi)
+	vmovdqu	%ymm4, 2*32(%rdi)
+	vmovdqu	%ymm3, 3*32(%rdi)
+	vmovdqu	%ymm0, 4*32(%rdi)
+	vmovdqu	%ymm8, 5*32(%rdi)
+	vmovdqu	%ymm9, 6*32(%rdi)
+	vmovdqu	%ymm10, 7*32(%rdi)
+	
+	movq	%r8, %rsp
+#if defined(WIN64)
+	popq	%rsi
+	vmovdqa	0(%rsp), %xmm6
+	vmovdqa	16(%rsp), %xmm7
+	vmovdqa	32(%rsp), %xmm8
+	vmovdqa	48(%rsp), %xmm9
+	vmovdqa	64(%rsp), %xmm10
+	vmovdqa	80(%rsp), %xmm11
+	addq	$96, %rsp
+	popq	%rdi
+#endif
+	ret
+
+#endif /* USE_AVX2 */
 	
 	
 	.data
@@ -2603,5 +3065,597 @@ sha256_use_4way_done:
 	popq	%rbx
 	movl	$1, %eax
 	ret
+
+
+#if defined(USE_AVX2)
+
+	.text
+	.p2align 6
+	.globl sha256d_ms_8way
+	.globl _sha256d_ms_8way
+sha256d_ms_8way:
+_sha256d_ms_8way:
+sha256d_ms_8way_avx2:
+#if defined(WIN64)
+	pushq	%rdi
+	subq	$80, %rsp
+	vmovdqa	%xmm6, 0(%rsp)
+	vmovdqa	%xmm7, 16(%rsp)
+	vmovdqa	%xmm8, 32(%rsp)
+	vmovdqa	%xmm9, 48(%rsp)
+	vmovdqa	%xmm10, 64(%rsp)
+	pushq	%rsi
+	movq	%rcx, %rdi
+	movq	%rdx, %rsi
+	movq	%r8, %rdx
+	movq	%r9, %rcx
+#endif
+	pushq	%rbp
+	movq	%rsp, %rbp
+	subq	$64*32, %rsp
+	andq	$-128, %rsp
+	
+	leaq	16*32(%rsi), %rax
+	
+sha256d_ms_8way_avx2_extend_loop1:
+	vmovdqa	3*32(%rsi), %ymm0
+	vmovdqa	2*32(%rax), %ymm3
+	vmovdqa	3*32(%rax), %ymm7
+	vmovdqa	%ymm3, 2*32(%rsp)
+	vmovdqa	%ymm7, 3*32(%rsp)
+	vpaddd	%ymm0, %ymm7, %ymm7
+	vpslld	$14, %ymm0, %ymm2
+	vpsrld	$3, %ymm0, %ymm0
+	vpsrld	$4, %ymm0, %ymm1
+	vpxor	%ymm1, %ymm0, %ymm0
+	vpxor	%ymm2, %ymm0, %ymm0
+	vpsrld	$11, %ymm1, %ymm1
+	vpslld	$11, %ymm2, %ymm2
+	vpxor	%ymm1, %ymm0, %ymm0
+	vpxor	%ymm2, %ymm0, %ymm0
+	vpaddd	%ymm0, %ymm3, %ymm3
+	vmovdqa	%ymm3, 2*32(%rax)
+	vmovdqa	%ymm7, 3*32(%rax)
+	
+	vmovdqa	4*32(%rax), %ymm0
+	vmovdqa	%ymm0, 4*32(%rsp)
+	vpslld	$13, %ymm3, %ymm2
+	vpslld	$13, %ymm7, %ymm6
+	vpsrld	$10, %ymm3, %ymm3
+	vpsrld	$10, %ymm7, %ymm7
+	vpsrld	$7, %ymm3, %ymm1
+	vpsrld	$7, %ymm7, %ymm5
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpsrld	$2, %ymm1, %ymm1
+	vpsrld	$2, %ymm5, %ymm5
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpslld	$2, %ymm2, %ymm2
+	vpslld	$2, %ymm6, %ymm6
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpaddd	%ymm0, %ymm3, %ymm3
+	vmovdqa	%ymm3, 4*32(%rax)
+	vmovdqa	%ymm7, 5*32(%rax)
+	
+	vmovdqa	6*32(%rax), %ymm0
+	vmovdqa	7*32(%rax), %ymm4
+	vmovdqa	%ymm0, 6*32(%rsp)
+	vmovdqa	%ymm4, 7*32(%rsp)
+	vpslld	$13, %ymm3, %ymm2
+	vpslld	$13, %ymm7, %ymm6
+	vpsrld	$10, %ymm3, %ymm3
+	vpsrld	$10, %ymm7, %ymm7
+	vpsrld	$7, %ymm3, %ymm1
+	vpsrld	$7, %ymm7, %ymm5
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpsrld	$2, %ymm1, %ymm1
+	vpsrld	$2, %ymm5, %ymm5
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpslld	$2, %ymm2, %ymm2
+	vpslld	$2, %ymm6, %ymm6
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpaddd	%ymm0, %ymm3, %ymm3
+	vpaddd	%ymm4, %ymm7, %ymm7
+	vmovdqa	%ymm3, 6*32(%rax)
+	vmovdqa	%ymm7, 7*32(%rax)
+	
+	vmovdqa	8*32(%rax), %ymm0
+	vmovdqa	2*32(%rax), %ymm4
+	vmovdqa	%ymm0, 8*32(%rsp)
+	vpslld	$13, %ymm3, %ymm2
+	vpslld	$13, %ymm7, %ymm6
+	vpsrld	$10, %ymm3, %ymm3
+	vpsrld	$10, %ymm7, %ymm7
+	vpsrld	$7, %ymm3, %ymm1
+	vpsrld	$7, %ymm7, %ymm5
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpsrld	$2, %ymm1, %ymm1
+	vpsrld	$2, %ymm5, %ymm5
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpslld	$2, %ymm2, %ymm2
+	vpslld	$2, %ymm6, %ymm6
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpaddd	%ymm0, %ymm3, %ymm3
+	vpaddd	%ymm4, %ymm7, %ymm7
+	vmovdqa	%ymm3, 8*32(%rax)
+	vmovdqa	%ymm7, 9*32(%rax)
+	
+	vpslld	$13, %ymm3, %ymm2
+	vpslld	$13, %ymm7, %ymm6
+	vpsrld	$10, %ymm3, %ymm3
+	vpsrld	$10, %ymm7, %ymm7
+	vpsrld	$7, %ymm3, %ymm1
+	vpsrld	$7, %ymm7, %ymm5
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpsrld	$2, %ymm1, %ymm1
+	vpsrld	$2, %ymm5, %ymm5
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpslld	$2, %ymm2, %ymm2
+	vpslld	$2, %ymm6, %ymm6
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpaddd	3*32(%rax), %ymm3, %ymm3
+	vpaddd	4*32(%rax), %ymm7, %ymm7
+	vmovdqa	%ymm3, 10*32(%rax)
+	vmovdqa	%ymm7, 11*32(%rax)
+	
+	vpslld	$13, %ymm3, %ymm2
+	vpslld	$13, %ymm7, %ymm6
+	vpsrld	$10, %ymm3, %ymm3
+	vpsrld	$10, %ymm7, %ymm7
+	vpsrld	$7, %ymm3, %ymm1
+	vpsrld	$7, %ymm7, %ymm5
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpsrld	$2, %ymm1, %ymm1
+	vpsrld	$2, %ymm5, %ymm5
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpslld	$2, %ymm2, %ymm2
+	vpslld	$2, %ymm6, %ymm6
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpaddd	5*32(%rax), %ymm3, %ymm3
+	vpaddd	6*32(%rax), %ymm7, %ymm7
+	vmovdqa	%ymm3, 12*32(%rax)
+	vmovdqa	%ymm7, 13*32(%rax)
+	
+	vmovdqa	14*32(%rax), %ymm0
+	vmovdqa	15*32(%rax), %ymm4
+	vmovdqa	%ymm0, 14*32(%rsp)
+	vmovdqa	%ymm4, 15*32(%rsp)
+	vpslld	$13, %ymm3, %ymm2
+	vpslld	$13, %ymm7, %ymm6
+	vpsrld	$10, %ymm3, %ymm3
+	vpsrld	$10, %ymm7, %ymm7
+	vpaddd	7*32(%rax), %ymm0, %ymm0
+	vpaddd	8*32(%rax), %ymm4, %ymm4
+	vpsrld	$7, %ymm3, %ymm1
+	vpsrld	$7, %ymm7, %ymm5
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpsrld	$2, %ymm1, %ymm1
+	vpsrld	$2, %ymm5, %ymm5
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpslld	$2, %ymm2, %ymm2
+	vpslld	$2, %ymm6, %ymm6
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpaddd	%ymm0, %ymm3, %ymm3
+	vpaddd	%ymm4, %ymm7, %ymm7
+	vmovdqa	%ymm3, 14*32(%rax)
+	vmovdqa	%ymm7, 15*32(%rax)
+	
+sha256d_ms_8way_avx2_extend_loop2:
+	sha256_avx2_extend_doubleround 16
+	sha256_avx2_extend_doubleround 18
+	sha256_avx2_extend_doubleround 20
+	sha256_avx2_extend_doubleround 22
+	sha256_avx2_extend_doubleround 24
+	sha256_avx2_extend_doubleround 26
+	sha256_avx2_extend_doubleround 28
+	sha256_avx2_extend_doubleround 30
+	sha256_avx2_extend_doubleround 32
+	sha256_avx2_extend_doubleround 34
+	sha256_avx2_extend_doubleround 36
+	sha256_avx2_extend_doubleround 38
+	sha256_avx2_extend_doubleround 40
+	sha256_avx2_extend_doubleround 42
+	jz sha256d_ms_8way_avx2_extend_coda2
+	sha256_avx2_extend_doubleround 44
+	sha256_avx2_extend_doubleround 46
+	
+	vmovdqa	0(%rcx), %ymm7
+	vmovdqa	32(%rcx), %ymm8
+	vmovdqa	64(%rcx), %ymm9
+	vmovdqa	96(%rcx), %ymm10
+	vmovdqa	128(%rcx), %ymm0
+	vmovdqa	160(%rcx), %ymm5
+	vmovdqa	192(%rcx), %ymm4
+	vmovdqa	224(%rcx), %ymm3
+	
+	movq	%rsi, %rax
+	leaq	sha256_8k(%rip), %rcx
+	jmp sha256d_ms_8way_avx2_main_loop1
+	
+sha256d_ms_8way_avx2_main_loop2:
+	sha256_avx2_main_round 0, %ymm10, %ymm9, %ymm8, %ymm0, %ymm3, %ymm4, %ymm5, %ymm7
+	sha256_avx2_main_round 1, %ymm9, %ymm8, %ymm0, %ymm10, %ymm4, %ymm5, %ymm7, %ymm3
+	sha256_avx2_main_round 2, %ymm8, %ymm0, %ymm10, %ymm9, %ymm5, %ymm7, %ymm3, %ymm4
+sha256d_ms_8way_avx2_main_loop1:
+	sha256_avx2_main_round 3, %ymm0, %ymm10, %ymm9, %ymm8, %ymm7, %ymm3, %ymm4, %ymm5
+	sha256_avx2_main_quadround 4
+	sha256_avx2_main_quadround 8
+	sha256_avx2_main_quadround 12
+	sha256_avx2_main_quadround 16
+	sha256_avx2_main_quadround 20
+	sha256_avx2_main_quadround 24
+	sha256_avx2_main_quadround 28
+	sha256_avx2_main_quadround 32
+	sha256_avx2_main_quadround 36
+	sha256_avx2_main_quadround 40
+	sha256_avx2_main_quadround 44
+	sha256_avx2_main_quadround 48
+	sha256_avx2_main_quadround 52
+	sha256_avx2_main_round 56, %ymm10, %ymm9, %ymm8, %ymm0, %ymm3, %ymm4, %ymm5, %ymm7
+	jz sha256d_ms_8way_avx2_finish
+	sha256_avx2_main_round 57, %ymm9, %ymm8, %ymm0, %ymm10, %ymm4, %ymm5, %ymm7, %ymm3
+	sha256_avx2_main_round 58, %ymm8, %ymm0, %ymm10, %ymm9, %ymm5, %ymm7, %ymm3, %ymm4
+	sha256_avx2_main_round 59, %ymm0, %ymm10, %ymm9, %ymm8, %ymm7, %ymm3, %ymm4, %ymm5
+	sha256_avx2_main_quadround 60
+	
+	vmovdqa	2*32(%rsp), %ymm1
+	vmovdqa	3*32(%rsp), %ymm2
+	vmovdqa	4*32(%rsp), %ymm6
+	vmovdqa	%ymm1, 18*32(%rsi)
+	vmovdqa	%ymm2, 19*32(%rsi)
+	vmovdqa	%ymm6, 20*32(%rsi)
+	vmovdqa	6*32(%rsp), %ymm1
+	vmovdqa	7*32(%rsp), %ymm2
+	vmovdqa	8*32(%rsp), %ymm6
+	vmovdqa	%ymm1, 22*32(%rsi)
+	vmovdqa	%ymm2, 23*32(%rsi)
+	vmovdqa	%ymm6, 24*32(%rsi)
+	vmovdqa	14*32(%rsp), %ymm1
+	vmovdqa	15*32(%rsp), %ymm2
+	vmovdqa	%ymm1, 30*32(%rsi)
+	vmovdqa	%ymm2, 31*32(%rsi)
+	
+	vpaddd	0(%rdx), %ymm7, %ymm7
+	vpaddd	32(%rdx), %ymm5, %ymm5
+	vpaddd	64(%rdx), %ymm4, %ymm4
+	vpaddd	96(%rdx), %ymm3, %ymm3
+	vpaddd	128(%rdx), %ymm0, %ymm0
+	vpaddd	160(%rdx), %ymm8, %ymm8
+	vpaddd	192(%rdx), %ymm9, %ymm9
+	vpaddd	224(%rdx), %ymm10, %ymm10
+	
+	vmovdqa	%ymm7, 0(%rsp)
+	vmovdqa	%ymm5, 32(%rsp)
+	vmovdqa	%ymm4, 64(%rsp)
+	vmovdqa	%ymm3, 96(%rsp)
+	vmovdqa	%ymm0, 128(%rsp)
+	vmovdqa	%ymm8, 160(%rsp)
+	vmovdqa	%ymm9, 192(%rsp)
+	vmovdqa	%ymm10, 224(%rsp)
+	
+	vpxor	%ymm0, %ymm0, %ymm0
+	movq	$0x8000000000000100, %rax
+	vmovd	%rax, %xmm1
+	vinserti128	$1, %xmm1, %ymm1, %ymm1
+	vpshufd	$0x55, %ymm1, %ymm2
+	vpshufd	$0x00, %ymm1, %ymm1
+	vmovdqa	%ymm2, 8*32(%rsp)
+	vmovdqa	%ymm0, 9*32(%rsp)
+	vmovdqa	%ymm0, 10*32(%rsp)
+	vmovdqa	%ymm0, 11*32(%rsp)
+	vmovdqa	%ymm0, 12*32(%rsp)
+	vmovdqa	%ymm0, 13*32(%rsp)
+	vmovdqa	%ymm0, 14*32(%rsp)
+	vmovdqa	%ymm1, 15*32(%rsp)
+	
+	leaq	16*32(%rsp), %rax
+	cmpq	%rax, %rax
+	
+	vmovdqa	-15*32(%rax), %ymm0
+	vmovdqa	-14*32(%rax), %ymm4
+	vpslld	$14, %ymm0, %ymm2
+	vpslld	$14, %ymm4, %ymm6
+	vpsrld	$3, %ymm0, %ymm8
+	vpsrld	$3, %ymm4, %ymm4
+	vpsrld	$7, %ymm0, %ymm1
+	vpsrld	$4, %ymm4, %ymm5
+	vpxor	%ymm1, %ymm8, %ymm8
+	vpxor	%ymm5, %ymm4, %ymm4
+	vpsrld	$11, %ymm1, %ymm1
+	vpsrld	$11, %ymm5, %ymm5
+	vpxor	%ymm2, %ymm8, %ymm8
+	vpxor	%ymm6, %ymm4, %ymm4
+	vpslld	$11, %ymm2, %ymm2
+	vpslld	$11, %ymm6, %ymm6
+	vpxor	%ymm1, %ymm8, %ymm8
+	vpxor	%ymm5, %ymm4, %ymm4
+	vpxor	%ymm2, %ymm8, %ymm8
+	vpxor	%ymm6, %ymm4, %ymm4
+	vpaddd	%ymm0, %ymm4, %ymm4
+	vpaddd	-16*32(%rax), %ymm8, %ymm3
+	vpaddd	sha256d_8preext2_17(%rip), %ymm4, %ymm7
+	vmovdqa	%ymm3, 0*32(%rax)
+	vmovdqa	%ymm7, 1*32(%rax)
+	
+	sha256_avx2_extend_doubleround 2
+	sha256_avx2_extend_doubleround 4
+	
+	vmovdqa	-9*32(%rax), %ymm0
+	vpslld	$14, %ymm0, %ymm2
+	vpsrld	$3, %ymm0, %ymm8
+	vpsrld	$7, %ymm0, %ymm1
+	vpxor	%ymm1, %ymm8, %ymm8
+	vpxor	%ymm2, %ymm8, %ymm8
+	vpsrld	$11, %ymm1, %ymm1
+	vpslld	$11, %ymm2, %ymm2
+	vpxor	%ymm1, %ymm8, %ymm8
+	vpxor	%ymm2, %ymm8, %ymm8
+	vpaddd	sha256d_8preext2_23(%rip), %ymm0, %ymm4
+	vpaddd	-10*32(%rax), %ymm8, %ymm0
+	vpslld	$13, %ymm3, %ymm2
+	vpslld	$13, %ymm7, %ymm6
+	vpsrld	$10, %ymm3, %ymm3
+	vpsrld	$10, %ymm7, %ymm7
+	vpaddd	-1*32(%rax), %ymm0, %ymm0
+	vpaddd	0*32(%rax), %ymm4, %ymm4
+	vpsrld	$7, %ymm3, %ymm1
+	vpsrld	$7, %ymm7, %ymm5
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpsrld	$2, %ymm1, %ymm1
+	vpsrld	$2, %ymm5, %ymm5
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpslld	$2, %ymm2, %ymm2
+	vpslld	$2, %ymm6, %ymm6
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpaddd	%ymm0, %ymm3, %ymm3
+	vpaddd	%ymm4, %ymm7, %ymm7
+	vmovdqa	%ymm3, 6*32(%rax)
+	vmovdqa	%ymm7, 7*32(%rax)
+	
+	vpslld	$13, %ymm3, %ymm2
+	vpslld	$13, %ymm7, %ymm6
+	vpsrld	$10, %ymm3, %ymm3
+	vpsrld	$10, %ymm7, %ymm7
+	vpsrld	$7, %ymm3, %ymm1
+	vpsrld	$7, %ymm7, %ymm5
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpsrld	$2, %ymm1, %ymm1
+	vpsrld	$2, %ymm5, %ymm5
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpslld	$2, %ymm2, %ymm2
+	vpslld	$2, %ymm6, %ymm6
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpaddd	sha256d_8preext2_24(%rip), %ymm3, %ymm3
+	vpaddd	1*32(%rax), %ymm3, %ymm3
+	vpaddd	2*32(%rax), %ymm7, %ymm7
+	vmovdqa	%ymm3, 8*32(%rax)
+	vmovdqa	%ymm7, 9*32(%rax)
+	
+	vpslld	$13, %ymm3, %ymm2
+	vpslld	$13, %ymm7, %ymm6
+	vpsrld	$10, %ymm3, %ymm3
+	vpsrld	$10, %ymm7, %ymm7
+	vpsrld	$7, %ymm3, %ymm1
+	vpsrld	$7, %ymm7, %ymm5
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpsrld	$2, %ymm1, %ymm1
+	vpsrld	$2, %ymm5, %ymm5
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpslld	$2, %ymm2, %ymm2
+	vpslld	$2, %ymm6, %ymm6
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpaddd	3*32(%rax), %ymm3, %ymm3
+	vpaddd	4*32(%rax), %ymm7, %ymm7
+	vmovdqa	%ymm3, 10*32(%rax)
+	vmovdqa	%ymm7, 11*32(%rax)
+	
+	vpslld	$13, %ymm3, %ymm2
+	vpslld	$13, %ymm7, %ymm6
+	vpsrld	$10, %ymm3, %ymm3
+	vpsrld	$10, %ymm7, %ymm7
+	vpsrld	$7, %ymm3, %ymm1
+	vpsrld	$7, %ymm7, %ymm5
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpsrld	$2, %ymm1, %ymm1
+	vpsrld	$2, %ymm5, %ymm5
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpslld	$2, %ymm2, %ymm2
+	vpslld	$2, %ymm6, %ymm6
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpaddd	5*32(%rax), %ymm3, %ymm3
+	vpaddd	6*32(%rax), %ymm7, %ymm7
+	vmovdqa	%ymm3, 12*32(%rax)
+	vmovdqa	%ymm7, 13*32(%rax)
+	
+	vmovdqa	sha256d_8preext2_30(%rip), %ymm0
+	vmovdqa	0*32(%rax), %ymm4
+	vpslld	$14, %ymm4, %ymm6
+	vpsrld	$3, %ymm4, %ymm4
+	vpsrld	$4, %ymm4, %ymm5
+	vpxor	%ymm5, %ymm4, %ymm4
+	vpxor	%ymm6, %ymm4, %ymm4
+	vpsrld	$11, %ymm5, %ymm5
+	vpslld	$11, %ymm6, %ymm6
+	vpxor	%ymm5, %ymm4, %ymm4
+	vpxor	%ymm6, %ymm4, %ymm4
+	vpaddd	-1*32(%rax), %ymm4, %ymm4
+	vpslld	$13, %ymm3, %ymm2
+	vpslld	$13, %ymm7, %ymm6
+	vpsrld	$10, %ymm3, %ymm3
+	vpsrld	$10, %ymm7, %ymm7
+	vpaddd	7*32(%rax), %ymm0, %ymm0
+	vpaddd	8*32(%rax), %ymm4, %ymm4
+	vpsrld	$7, %ymm3, %ymm1
+	vpsrld	$7, %ymm7, %ymm5
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpsrld	$2, %ymm1, %ymm1
+	vpsrld	$2, %ymm5, %ymm5
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpslld	$2, %ymm2, %ymm2
+	vpslld	$2, %ymm6, %ymm6
+	vpxor	%ymm1, %ymm3, %ymm3
+	vpxor	%ymm5, %ymm7, %ymm7
+	vpxor	%ymm2, %ymm3, %ymm3
+	vpxor	%ymm6, %ymm7, %ymm7
+	vpaddd	%ymm0, %ymm3, %ymm3
+	vpaddd	%ymm4, %ymm7, %ymm7
+	vmovdqa	%ymm3, 14*32(%rax)
+	vmovdqa	%ymm7, 15*32(%rax)
+	
+	jmp sha256d_ms_8way_avx2_extend_loop2
+	
+sha256d_ms_8way_avx2_extend_coda2:
+	sha256_avx2_extend_round 44
+	
+	vmovdqa	sha256_8h+0(%rip), %ymm7
+	vmovdqa	sha256_8h+32(%rip), %ymm5
+	vmovdqa	sha256_8h+64(%rip), %ymm4
+	vmovdqa	sha256_8h+96(%rip), %ymm3
+	vmovdqa	sha256_8h+128(%rip), %ymm0
+	vmovdqa	sha256_8h+160(%rip), %ymm8
+	vmovdqa	sha256_8h+192(%rip), %ymm9
+	vmovdqa	sha256_8h+224(%rip), %ymm10
+	
+	movq	%rsp, %rax
+	leaq	sha256_8k(%rip), %rcx
+	jmp sha256d_ms_8way_avx2_main_loop2
+
+.macro sha256_avx2_main_round_red i, r0, r1, r2, r3, r4
+	vpaddd	32*\i(%rax), \r0, %ymm6
+	vpaddd	32*\i(%rcx), %ymm6, %ymm6
+	vpandn	\r1, \r3, %ymm1
+	vpand	\r3, \r2, %ymm2
+	vpxor	%ymm2, %ymm1, %ymm1
+	vpaddd	%ymm1, %ymm6, %ymm6
+	vpslld	$7, \r3, %ymm1
+	vpsrld	$6, \r3, \r0
+	vpsrld	$5, \r0, %ymm2
+	vpxor	%ymm1, \r0, \r0
+	vpxor	%ymm2, \r0, \r0
+	vpslld	$14, %ymm1, %ymm1
+	vpsrld	$14, %ymm2, %ymm2
+	vpxor	%ymm1, \r0, \r0
+	vpxor	%ymm2, \r0, \r0
+	vpslld	$5, %ymm1, %ymm1
+	vpxor	%ymm1, \r0, \r0
+	vpaddd	\r0, %ymm6, %ymm6
+	vpaddd	%ymm6, \r4, \r0
+.endm
+
+sha256d_ms_8way_avx2_finish:
+	sha256_avx2_main_round_red 57, %ymm9, %ymm8, %ymm0, %ymm10, %ymm4
+	sha256_avx2_main_round_red 58, %ymm8, %ymm0, %ymm10, %ymm9, %ymm5
+	sha256_avx2_main_round_red 59, %ymm0, %ymm10, %ymm9, %ymm8, %ymm7
+	sha256_avx2_main_round_red 60, %ymm10, %ymm9, %ymm8, %ymm0, %ymm3
+	
+	vpaddd	sha256_8h+224(%rip), %ymm10, %ymm10
+	vmovdqa	%ymm10, 224(%rdi)
+	
+	movq	%rbp, %rsp
+	popq	%rbp
+#if defined(WIN64)
+	popq	%rsi
+	vmovdqa	0(%rsp), %xmm6
+	vmovdqa	16(%rsp), %xmm7
+	vmovdqa	32(%rsp), %xmm8
+	vmovdqa	48(%rsp), %xmm9
+	vmovdqa	64(%rsp), %xmm10
+	addq	$80, %rsp
+	popq	%rdi
+#endif
+	ret
+
+
+	.text
+	.p2align 6
+	.globl sha256_use_8way
+	.globl _sha256_use_8way
+sha256_use_8way:
+_sha256_use_8way:
+	pushq	%rbx
+	
+	/* Check for AVX and OSXSAVE support */
+	movl	$1, %eax
+	cpuid
+	andl	$0x18000000, %ecx
+	cmpl	$0x18000000, %ecx
+	jne sha256_use_8way_no
+	/* Check for AVX2 support */
+	movl	$7, %eax
+	xorl	%ecx, %ecx
+	cpuid
+	andl	$0x00000020, %ebx
+	cmpl	$0x00000020, %ebx
+	jne sha256_use_8way_no
+	/* Check for XMM and YMM state support */
+	xorl	%ecx, %ecx
+	xgetbv
+	andl	$0x00000006, %eax
+	cmpl	$0x00000006, %eax
+	jne sha256_use_8way_no
+	
+sha256_use_8way_yes:
+	movl	$1, %eax
+	jmp sha256_use_8way_done
+	
+sha256_use_8way_no:
+	xorl	%eax, %eax
+	
+sha256_use_8way_done:
+	popq	%rbx
+	ret
+
+#endif /* USE_AVX2 */
 
 #endif

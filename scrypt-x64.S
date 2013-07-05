@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2012 pooler@litecoinpool.org
+ * Copyright 2011-2013 pooler@litecoinpool.org
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,6 +39,30 @@
 scrypt_best_throughput:
 _scrypt_best_throughput:
 	pushq	%rbx
+#if defined(USE_AVX2)
+	/* Check for AVX and OSXSAVE support */
+	movl	$1, %eax
+	cpuid
+	andl	$0x18000000, %ecx
+	cmpl	$0x18000000, %ecx
+	jne scrypt_best_throughput_no_avx2
+	/* Check for AVX2 support */
+	movl	$7, %eax
+	xorl	%ecx, %ecx
+	cpuid
+	andl	$0x00000020, %ebx
+	cmpl	$0x00000020, %ebx
+	jne scrypt_best_throughput_no_avx2
+	/* Check for XMM and YMM state support */
+	xorl	%ecx, %ecx
+	xgetbv
+	andl	$0x00000006, %eax
+	cmpl	$0x00000006, %eax
+	jne scrypt_best_throughput_no_avx2
+	movl	$6, %eax
+	jmp scrypt_best_throughput_exit
+scrypt_best_throughput_no_avx2:
+#endif
 	/* Check for AuthenticAMD */
 	xorq	%rax, %rax
 	cpuid
@@ -2238,5 +2262,618 @@ scrypt_core_3way_xmm_loop2:
 	
 	scrypt_core_3way_cleanup
 	ret
+
+
+#if defined(USE_AVX2)
+
+.macro salsa8_core_6way_avx2_doubleround
+	vpaddd	%ymm0, %ymm1, %ymm4
+	vpaddd	%ymm8, %ymm9, %ymm6
+	vpaddd	%ymm12, %ymm13, %ymm7
+	vpslld	$7, %ymm4, %ymm5
+	vpsrld	$25, %ymm4, %ymm4
+	vpxor	%ymm5, %ymm3, %ymm3
+	vpxor	%ymm4, %ymm3, %ymm3
+	vpslld	$7, %ymm6, %ymm5
+	vpsrld	$25, %ymm6, %ymm6
+	vpxor	%ymm5, %ymm11, %ymm11
+	vpxor	%ymm6, %ymm11, %ymm11
+	vpslld	$7, %ymm7, %ymm5
+	vpsrld	$25, %ymm7, %ymm7
+	vpxor	%ymm5, %ymm15, %ymm15
+	vpxor	%ymm7, %ymm15, %ymm15
+	
+	vpaddd	%ymm3, %ymm0, %ymm4
+	vpaddd	%ymm11, %ymm8, %ymm6
+	vpaddd	%ymm15, %ymm12, %ymm7
+	vpslld	$9, %ymm4, %ymm5
+	vpsrld	$23, %ymm4, %ymm4
+	vpxor	%ymm5, %ymm2, %ymm2
+	vpxor	%ymm4, %ymm2, %ymm2
+	vpslld	$9, %ymm6, %ymm5
+	vpsrld	$23, %ymm6, %ymm6
+	vpxor	%ymm5, %ymm10, %ymm10
+	vpxor	%ymm6, %ymm10, %ymm10
+	vpslld	$9, %ymm7, %ymm5
+	vpsrld	$23, %ymm7, %ymm7
+	vpxor	%ymm5, %ymm14, %ymm14
+	vpxor	%ymm7, %ymm14, %ymm14
+	
+	vpaddd	%ymm2, %ymm3, %ymm4
+	vpaddd	%ymm10, %ymm11, %ymm6
+	vpaddd	%ymm14, %ymm15, %ymm7
+	vpslld	$13, %ymm4, %ymm5
+	vpsrld	$19, %ymm4, %ymm4
+	vpshufd	$0x93, %ymm3, %ymm3
+	vpshufd	$0x93, %ymm11, %ymm11
+	vpshufd	$0x93, %ymm15, %ymm15
+	vpxor	%ymm5, %ymm1, %ymm1
+	vpxor	%ymm4, %ymm1, %ymm1
+	vpslld	$13, %ymm6, %ymm5
+	vpsrld	$19, %ymm6, %ymm6
+	vpxor	%ymm5, %ymm9, %ymm9
+	vpxor	%ymm6, %ymm9, %ymm9
+	vpslld	$13, %ymm7, %ymm5
+	vpsrld	$19, %ymm7, %ymm7
+	vpxor	%ymm5, %ymm13, %ymm13
+	vpxor	%ymm7, %ymm13, %ymm13
+	
+	vpaddd	%ymm1, %ymm2, %ymm4
+	vpaddd	%ymm9, %ymm10, %ymm6
+	vpaddd	%ymm13, %ymm14, %ymm7
+	vpslld	$18, %ymm4, %ymm5
+	vpsrld	$14, %ymm4, %ymm4
+	vpshufd	$0x4e, %ymm2, %ymm2
+	vpshufd	$0x4e, %ymm10, %ymm10
+	vpshufd	$0x4e, %ymm14, %ymm14
+	vpxor	%ymm5, %ymm0, %ymm0
+	vpxor	%ymm4, %ymm0, %ymm0
+	vpslld	$18, %ymm6, %ymm5
+	vpsrld	$14, %ymm6, %ymm6
+	vpxor	%ymm5, %ymm8, %ymm8
+	vpxor	%ymm6, %ymm8, %ymm8
+	vpslld	$18, %ymm7, %ymm5
+	vpsrld	$14, %ymm7, %ymm7
+	vpxor	%ymm5, %ymm12, %ymm12
+	vpxor	%ymm7, %ymm12, %ymm12
+	
+	vpaddd	%ymm0, %ymm3, %ymm4
+	vpaddd	%ymm8, %ymm11, %ymm6
+	vpaddd	%ymm12, %ymm15, %ymm7
+	vpslld	$7, %ymm4, %ymm5
+	vpsrld	$25, %ymm4, %ymm4
+	vpshufd	$0x39, %ymm1, %ymm1
+	vpxor	%ymm5, %ymm1, %ymm1
+	vpxor	%ymm4, %ymm1, %ymm1
+	vpslld	$7, %ymm6, %ymm5
+	vpsrld	$25, %ymm6, %ymm6
+	vpshufd	$0x39, %ymm9, %ymm9
+	vpxor	%ymm5, %ymm9, %ymm9
+	vpxor	%ymm6, %ymm9, %ymm9
+	vpslld	$7, %ymm7, %ymm5
+	vpsrld	$25, %ymm7, %ymm7
+	vpshufd	$0x39, %ymm13, %ymm13
+	vpxor	%ymm5, %ymm13, %ymm13
+	vpxor	%ymm7, %ymm13, %ymm13
+	
+	vpaddd	%ymm1, %ymm0, %ymm4
+	vpaddd	%ymm9, %ymm8, %ymm6
+	vpaddd	%ymm13, %ymm12, %ymm7
+	vpslld	$9, %ymm4, %ymm5
+	vpsrld	$23, %ymm4, %ymm4
+	vpxor	%ymm5, %ymm2, %ymm2
+	vpxor	%ymm4, %ymm2, %ymm2
+	vpslld	$9, %ymm6, %ymm5
+	vpsrld	$23, %ymm6, %ymm6
+	vpxor	%ymm5, %ymm10, %ymm10
+	vpxor	%ymm6, %ymm10, %ymm10
+	vpslld	$9, %ymm7, %ymm5
+	vpsrld	$23, %ymm7, %ymm7
+	vpxor	%ymm5, %ymm14, %ymm14
+	vpxor	%ymm7, %ymm14, %ymm14
+	
+	vpaddd	%ymm2, %ymm1, %ymm4
+	vpaddd	%ymm10, %ymm9, %ymm6
+	vpaddd	%ymm14, %ymm13, %ymm7
+	vpslld	$13, %ymm4, %ymm5
+	vpsrld	$19, %ymm4, %ymm4
+	vpshufd	$0x93, %ymm1, %ymm1
+	vpshufd	$0x93, %ymm9, %ymm9
+	vpshufd	$0x93, %ymm13, %ymm13
+	vpxor	%ymm5, %ymm3, %ymm3
+	vpxor	%ymm4, %ymm3, %ymm3
+	vpslld	$13, %ymm6, %ymm5
+	vpsrld	$19, %ymm6, %ymm6
+	vpxor	%ymm5, %ymm11, %ymm11
+	vpxor	%ymm6, %ymm11, %ymm11
+	vpslld	$13, %ymm7, %ymm5
+	vpsrld	$19, %ymm7, %ymm7
+	vpxor	%ymm5, %ymm15, %ymm15
+	vpxor	%ymm7, %ymm15, %ymm15
+	
+	vpaddd	%ymm3, %ymm2, %ymm4
+	vpaddd	%ymm11, %ymm10, %ymm6
+	vpaddd	%ymm15, %ymm14, %ymm7
+	vpslld	$18, %ymm4, %ymm5
+	vpsrld	$14, %ymm4, %ymm4
+	vpshufd	$0x4e, %ymm2, %ymm2
+	vpshufd	$0x4e, %ymm10, %ymm10
+	vpxor	%ymm5, %ymm0, %ymm0
+	vpxor	%ymm4, %ymm0, %ymm0
+	vpslld	$18, %ymm6, %ymm5
+	vpsrld	$14, %ymm6, %ymm6
+	vpshufd	$0x4e, %ymm14, %ymm14
+	vpshufd	$0x39, %ymm11, %ymm11
+	vpxor	%ymm5, %ymm8, %ymm8
+	vpxor	%ymm6, %ymm8, %ymm8
+	vpslld	$18, %ymm7, %ymm5
+	vpsrld	$14, %ymm7, %ymm7
+	vpshufd	$0x39, %ymm3, %ymm3
+	vpshufd	$0x39, %ymm15, %ymm15
+	vpxor	%ymm5, %ymm12, %ymm12
+	vpxor	%ymm7, %ymm12, %ymm12
+.endm
+
+.macro salsa8_core_6way_avx2
+	salsa8_core_6way_avx2_doubleround
+	salsa8_core_6way_avx2_doubleround
+	salsa8_core_6way_avx2_doubleround
+	salsa8_core_6way_avx2_doubleround
+.endm
+	
+	.text
+	.p2align 6
+	.globl scrypt_core_6way
+	.globl _scrypt_core_6way
+scrypt_core_6way:
+_scrypt_core_6way:
+	pushq	%rbx
+	pushq	%rbp
+#if defined(WIN64)
+	subq	$176, %rsp
+	vmovdqa	%xmm6, 8(%rsp)
+	vmovdqa	%xmm7, 24(%rsp)
+	vmovdqa	%xmm8, 40(%rsp)
+	vmovdqa	%xmm9, 56(%rsp)
+	vmovdqa	%xmm10, 72(%rsp)
+	vmovdqa	%xmm11, 88(%rsp)
+	vmovdqa	%xmm12, 104(%rsp)
+	vmovdqa	%xmm13, 120(%rsp)
+	vmovdqa	%xmm14, 136(%rsp)
+	vmovdqa	%xmm15, 152(%rsp)
+	pushq	%rdi
+	pushq	%rsi
+	movq	%rcx, %rdi
+	movq	%rdx, %rsi
+#endif
+	movq	%rsp, %rdx
+	subq	$768, %rsp
+	andq	$-128, %rsp
+	
+.macro scrypt_core_6way_cleanup
+	movq	%rdx, %rsp
+#if defined(WIN64)
+	popq	%rsi
+	popq	%rdi
+	vmovdqa	8(%rsp), %xmm6
+	vmovdqa	24(%rsp), %xmm7
+	vmovdqa	40(%rsp), %xmm8
+	vmovdqa	56(%rsp), %xmm9
+	vmovdqa	72(%rsp), %xmm10
+	vmovdqa	88(%rsp), %xmm11
+	vmovdqa	104(%rsp), %xmm12
+	vmovdqa	120(%rsp), %xmm13
+	vmovdqa	136(%rsp), %xmm14
+	vmovdqa	152(%rsp), %xmm15
+	addq	$176, %rsp
+#endif
+	popq	%rbp
+	popq	%rbx
+.endm
+
+.macro scrypt_shuffle_pack2 src, so, dest, do
+	vmovdqa	\so+0*16(\src), %xmm0
+	vmovdqa	\so+1*16(\src), %xmm1
+	vmovdqa	\so+2*16(\src), %xmm2
+	vmovdqa	\so+3*16(\src), %xmm3
+	vinserti128	$1, \so+128+0*16(\src), %ymm0, %ymm0
+	vinserti128	$1, \so+128+1*16(\src), %ymm1, %ymm1
+	vinserti128	$1, \so+128+2*16(\src), %ymm2, %ymm2
+	vinserti128	$1, \so+128+3*16(\src), %ymm3, %ymm3
+	vpblendd	$0x33, %ymm0, %ymm2, %ymm4
+	vpblendd	$0xcc, %ymm1, %ymm3, %ymm5
+	vpblendd	$0x33, %ymm2, %ymm0, %ymm6
+	vpblendd	$0xcc, %ymm3, %ymm1, %ymm7
+	vpblendd	$0x55, %ymm7, %ymm6, %ymm3
+	vpblendd	$0x55, %ymm6, %ymm5, %ymm2
+	vpblendd	$0x55, %ymm5, %ymm4, %ymm1
+	vpblendd	$0x55, %ymm4, %ymm7, %ymm0
+	vmovdqa	%ymm0, \do+0*32(\dest)
+	vmovdqa	%ymm1, \do+1*32(\dest)
+	vmovdqa	%ymm2, \do+2*32(\dest)
+	vmovdqa	%ymm3, \do+3*32(\dest)
+.endm
+
+.macro scrypt_shuffle_unpack2 src, so, dest, do
+	vmovdqa	\so+0*32(\src), %ymm0
+	vmovdqa	\so+1*32(\src), %ymm1
+	vmovdqa	\so+2*32(\src), %ymm2
+	vmovdqa	\so+3*32(\src), %ymm3
+	vpblendd	$0x33, %ymm0, %ymm2, %ymm4
+	vpblendd	$0xcc, %ymm1, %ymm3, %ymm5
+	vpblendd	$0x33, %ymm2, %ymm0, %ymm6
+	vpblendd	$0xcc, %ymm3, %ymm1, %ymm7
+	vpblendd	$0x55, %ymm7, %ymm6, %ymm3
+	vpblendd	$0x55, %ymm6, %ymm5, %ymm2
+	vpblendd	$0x55, %ymm5, %ymm4, %ymm1
+	vpblendd	$0x55, %ymm4, %ymm7, %ymm0
+	vmovdqa	%xmm0, \do+0*16(\dest)
+	vmovdqa	%xmm1, \do+1*16(\dest)
+	vmovdqa	%xmm2, \do+2*16(\dest)
+	vmovdqa	%xmm3, \do+3*16(\dest)
+	vextracti128	$1, %ymm0, \do+128+0*16(\dest)
+	vextracti128	$1, %ymm1, \do+128+1*16(\dest)
+	vextracti128	$1, %ymm2, \do+128+2*16(\dest)
+	vextracti128	$1, %ymm3, \do+128+3*16(\dest)
+.endm
+	
+scrypt_core_6way_avx2:
+	scrypt_shuffle_pack2 %rdi, 0*256+0, %rsp, 0*128
+	scrypt_shuffle_pack2 %rdi, 0*256+64, %rsp, 1*128
+	scrypt_shuffle_pack2 %rdi, 1*256+0, %rsp, 2*128
+	scrypt_shuffle_pack2 %rdi, 1*256+64, %rsp, 3*128
+	scrypt_shuffle_pack2 %rdi, 2*256+0, %rsp, 4*128
+	scrypt_shuffle_pack2 %rdi, 2*256+64, %rsp, 5*128
+	
+	vmovdqa	0*256+4*32(%rsp), %ymm0
+	vmovdqa	0*256+5*32(%rsp), %ymm1
+	vmovdqa	0*256+6*32(%rsp), %ymm2
+	vmovdqa	0*256+7*32(%rsp), %ymm3
+	vmovdqa	1*256+4*32(%rsp), %ymm8
+	vmovdqa	1*256+5*32(%rsp), %ymm9
+	vmovdqa	1*256+6*32(%rsp), %ymm10
+	vmovdqa	1*256+7*32(%rsp), %ymm11
+	vmovdqa	2*256+4*32(%rsp), %ymm12
+	vmovdqa	2*256+5*32(%rsp), %ymm13
+	vmovdqa	2*256+6*32(%rsp), %ymm14
+	vmovdqa	2*256+7*32(%rsp), %ymm15
+	
+	movq	%rsi, %rbx
+	leaq	6*131072(%rsi), %rax
+scrypt_core_6way_avx2_loop1:
+	vmovdqa	%ymm0, 0*256+4*32(%rbx)
+	vmovdqa	%ymm1, 0*256+5*32(%rbx)
+	vmovdqa	%ymm2, 0*256+6*32(%rbx)
+	vmovdqa	%ymm3, 0*256+7*32(%rbx)
+	vpxor	0*256+0*32(%rsp), %ymm0, %ymm0
+	vpxor	0*256+1*32(%rsp), %ymm1, %ymm1
+	vpxor	0*256+2*32(%rsp), %ymm2, %ymm2
+	vpxor	0*256+3*32(%rsp), %ymm3, %ymm3
+	vmovdqa	%ymm8, 1*256+4*32(%rbx)
+	vmovdqa	%ymm9, 1*256+5*32(%rbx)
+	vmovdqa	%ymm10, 1*256+6*32(%rbx)
+	vmovdqa	%ymm11, 1*256+7*32(%rbx)
+	vpxor	1*256+0*32(%rsp), %ymm8, %ymm8
+	vpxor	1*256+1*32(%rsp), %ymm9, %ymm9
+	vpxor	1*256+2*32(%rsp), %ymm10, %ymm10
+	vpxor	1*256+3*32(%rsp), %ymm11, %ymm11
+	vmovdqa	%ymm12, 2*256+4*32(%rbx)
+	vmovdqa	%ymm13, 2*256+5*32(%rbx)
+	vmovdqa	%ymm14, 2*256+6*32(%rbx)
+	vmovdqa	%ymm15, 2*256+7*32(%rbx)
+	vpxor	2*256+0*32(%rsp), %ymm12, %ymm12
+	vpxor	2*256+1*32(%rsp), %ymm13, %ymm13
+	vpxor	2*256+2*32(%rsp), %ymm14, %ymm14
+	vpxor	2*256+3*32(%rsp), %ymm15, %ymm15
+	vmovdqa	%ymm0, 0*256+0*32(%rbx)
+	vmovdqa	%ymm1, 0*256+1*32(%rbx)
+	vmovdqa	%ymm2, 0*256+2*32(%rbx)
+	vmovdqa	%ymm3, 0*256+3*32(%rbx)
+	vmovdqa	%ymm8, 1*256+0*32(%rbx)
+	vmovdqa	%ymm9, 1*256+1*32(%rbx)
+	vmovdqa	%ymm10, 1*256+2*32(%rbx)
+	vmovdqa	%ymm11, 1*256+3*32(%rbx)
+	vmovdqa	%ymm12, 2*256+0*32(%rbx)
+	vmovdqa	%ymm13, 2*256+1*32(%rbx)
+	vmovdqa	%ymm14, 2*256+2*32(%rbx)
+	vmovdqa	%ymm15, 2*256+3*32(%rbx)
+	
+	salsa8_core_6way_avx2
+	vpaddd	0*256+0*32(%rbx), %ymm0, %ymm0
+	vpaddd	0*256+1*32(%rbx), %ymm1, %ymm1
+	vpaddd	0*256+2*32(%rbx), %ymm2, %ymm2
+	vpaddd	0*256+3*32(%rbx), %ymm3, %ymm3
+	vpaddd	1*256+0*32(%rbx), %ymm8, %ymm8
+	vpaddd	1*256+1*32(%rbx), %ymm9, %ymm9
+	vpaddd	1*256+2*32(%rbx), %ymm10, %ymm10
+	vpaddd	1*256+3*32(%rbx), %ymm11, %ymm11
+	vpaddd	2*256+0*32(%rbx), %ymm12, %ymm12
+	vpaddd	2*256+1*32(%rbx), %ymm13, %ymm13
+	vpaddd	2*256+2*32(%rbx), %ymm14, %ymm14
+	vpaddd	2*256+3*32(%rbx), %ymm15, %ymm15
+	vmovdqa	%ymm0, 0*256+0*32(%rsp)
+	vmovdqa	%ymm1, 0*256+1*32(%rsp)
+	vmovdqa	%ymm2, 0*256+2*32(%rsp)
+	vmovdqa	%ymm3, 0*256+3*32(%rsp)
+	vmovdqa	%ymm8, 1*256+0*32(%rsp)
+	vmovdqa	%ymm9, 1*256+1*32(%rsp)
+	vmovdqa	%ymm10, 1*256+2*32(%rsp)
+	vmovdqa	%ymm11, 1*256+3*32(%rsp)
+	vmovdqa	%ymm12, 2*256+0*32(%rsp)
+	vmovdqa	%ymm13, 2*256+1*32(%rsp)
+	vmovdqa	%ymm14, 2*256+2*32(%rsp)
+	vmovdqa	%ymm15, 2*256+3*32(%rsp)
+	
+	vpxor	0*256+4*32(%rbx), %ymm0, %ymm0
+	vpxor	0*256+5*32(%rbx), %ymm1, %ymm1
+	vpxor	0*256+6*32(%rbx), %ymm2, %ymm2
+	vpxor	0*256+7*32(%rbx), %ymm3, %ymm3
+	vpxor	1*256+4*32(%rbx), %ymm8, %ymm8
+	vpxor	1*256+5*32(%rbx), %ymm9, %ymm9
+	vpxor	1*256+6*32(%rbx), %ymm10, %ymm10
+	vpxor	1*256+7*32(%rbx), %ymm11, %ymm11
+	vpxor	2*256+4*32(%rbx), %ymm12, %ymm12
+	vpxor	2*256+5*32(%rbx), %ymm13, %ymm13
+	vpxor	2*256+6*32(%rbx), %ymm14, %ymm14
+	vpxor	2*256+7*32(%rbx), %ymm15, %ymm15
+	vmovdqa	%ymm0, 0*256+4*32(%rsp)
+	vmovdqa	%ymm1, 0*256+5*32(%rsp)
+	vmovdqa	%ymm2, 0*256+6*32(%rsp)
+	vmovdqa	%ymm3, 0*256+7*32(%rsp)
+	vmovdqa	%ymm8, 1*256+4*32(%rsp)
+	vmovdqa	%ymm9, 1*256+5*32(%rsp)
+	vmovdqa	%ymm10, 1*256+6*32(%rsp)
+	vmovdqa	%ymm11, 1*256+7*32(%rsp)
+	vmovdqa	%ymm12, 2*256+4*32(%rsp)
+	vmovdqa	%ymm13, 2*256+5*32(%rsp)
+	vmovdqa	%ymm14, 2*256+6*32(%rsp)
+	vmovdqa	%ymm15, 2*256+7*32(%rsp)
+	salsa8_core_6way_avx2
+	vpaddd	0*256+4*32(%rsp), %ymm0, %ymm0
+	vpaddd	0*256+5*32(%rsp), %ymm1, %ymm1
+	vpaddd	0*256+6*32(%rsp), %ymm2, %ymm2
+	vpaddd	0*256+7*32(%rsp), %ymm3, %ymm3
+	vpaddd	1*256+4*32(%rsp), %ymm8, %ymm8
+	vpaddd	1*256+5*32(%rsp), %ymm9, %ymm9
+	vpaddd	1*256+6*32(%rsp), %ymm10, %ymm10
+	vpaddd	1*256+7*32(%rsp), %ymm11, %ymm11
+	vpaddd	2*256+4*32(%rsp), %ymm12, %ymm12
+	vpaddd	2*256+5*32(%rsp), %ymm13, %ymm13
+	vpaddd	2*256+6*32(%rsp), %ymm14, %ymm14
+	vpaddd	2*256+7*32(%rsp), %ymm15, %ymm15
+	
+	addq	$6*128, %rbx
+	cmpq	%rax, %rbx
+	jne scrypt_core_6way_avx2_loop1
+	
+	vmovdqa	%ymm0, 0*256+4*32(%rsp)
+	vmovdqa	%ymm1, 0*256+5*32(%rsp)
+	vmovdqa	%ymm2, 0*256+6*32(%rsp)
+	vmovdqa	%ymm3, 0*256+7*32(%rsp)
+	vmovdqa	%ymm8, 1*256+4*32(%rsp)
+	vmovdqa	%ymm9, 1*256+5*32(%rsp)
+	vmovdqa	%ymm10, 1*256+6*32(%rsp)
+	vmovdqa	%ymm11, 1*256+7*32(%rsp)
+	vmovdqa	%ymm12, 2*256+4*32(%rsp)
+	vmovdqa	%ymm13, 2*256+5*32(%rsp)
+	vmovdqa	%ymm14, 2*256+6*32(%rsp)
+	vmovdqa	%ymm15, 2*256+7*32(%rsp)
+	
+	movq	$1024, %rcx
+scrypt_core_6way_avx2_loop2:
+	vmovd	%xmm0, %ebp
+	vmovd	%xmm8, %ebx
+	vmovd	%xmm12, %eax
+	vextracti128	$1, %ymm0, %xmm4
+	vextracti128	$1, %ymm8, %xmm5
+	vextracti128	$1, %ymm12, %xmm6
+	vmovd	%xmm4, %r8d
+	vmovd	%xmm5, %r9d
+	vmovd	%xmm6, %r10d
+	vpxor	0*256+0*32(%rsp), %ymm0, %ymm0
+	vpxor	0*256+1*32(%rsp), %ymm1, %ymm1
+	vpxor	0*256+2*32(%rsp), %ymm2, %ymm2
+	vpxor	0*256+3*32(%rsp), %ymm3, %ymm3
+	vpxor	1*256+0*32(%rsp), %ymm8, %ymm8
+	vpxor	1*256+1*32(%rsp), %ymm9, %ymm9
+	vpxor	1*256+2*32(%rsp), %ymm10, %ymm10
+	vpxor	1*256+3*32(%rsp), %ymm11, %ymm11
+	vpxor	2*256+0*32(%rsp), %ymm12, %ymm12
+	vpxor	2*256+1*32(%rsp), %ymm13, %ymm13
+	vpxor	2*256+2*32(%rsp), %ymm14, %ymm14
+	vpxor	2*256+3*32(%rsp), %ymm15, %ymm15
+	andl	$1023, %ebp
+	leaq	0(%rbp, %rbp, 2), %rbp
+	shll	$8, %ebp
+	andl	$1023, %ebx
+	leaq	1(%rbx, %rbx, 2), %rbx
+	shll	$8, %ebx
+	andl	$1023, %eax
+	leaq	2(%rax, %rax, 2), %rax
+	shll	$8, %eax
+	andl	$1023, %r8d
+	leaq	0(%r8, %r8, 2), %r8
+	shll	$8, %r8d
+	andl	$1023, %r9d
+	leaq	1(%r9, %r9, 2), %r9
+	shll	$8, %r9d
+	andl	$1023, %r10d
+	leaq	2(%r10, %r10, 2), %r10
+	shll	$8, %r10d
+	vmovdqa	0*32(%rsi, %rbp), %xmm4
+	vinserti128	$1, 0*32+16(%rsi, %r8), %ymm4, %ymm4
+	vmovdqa	1*32(%rsi, %rbp), %xmm5
+	vinserti128	$1, 1*32+16(%rsi, %r8), %ymm5, %ymm5
+	vmovdqa	2*32(%rsi, %rbp), %xmm6
+	vinserti128	$1, 2*32+16(%rsi, %r8), %ymm6, %ymm6
+	vmovdqa	3*32(%rsi, %rbp), %xmm7
+	vinserti128	$1, 3*32+16(%rsi, %r8), %ymm7, %ymm7
+	vpxor	%ymm4, %ymm0, %ymm0
+	vpxor	%ymm5, %ymm1, %ymm1
+	vpxor	%ymm6, %ymm2, %ymm2
+	vpxor	%ymm7, %ymm3, %ymm3
+	vmovdqa	0*32(%rsi, %rbx), %xmm4
+	vinserti128	$1, 0*32+16(%rsi, %r9), %ymm4, %ymm4
+	vmovdqa	1*32(%rsi, %rbx), %xmm5
+	vinserti128	$1, 1*32+16(%rsi, %r9), %ymm5, %ymm5
+	vmovdqa	2*32(%rsi, %rbx), %xmm6
+	vinserti128	$1, 2*32+16(%rsi, %r9), %ymm6, %ymm6
+	vmovdqa	3*32(%rsi, %rbx), %xmm7
+	vinserti128	$1, 3*32+16(%rsi, %r9), %ymm7, %ymm7
+	vpxor	%ymm4, %ymm8, %ymm8
+	vpxor	%ymm5, %ymm9, %ymm9
+	vpxor	%ymm6, %ymm10, %ymm10
+	vpxor	%ymm7, %ymm11, %ymm11
+	vmovdqa	0*32(%rsi, %rax), %xmm4
+	vinserti128	$1, 0*32+16(%rsi, %r10), %ymm4, %ymm4
+	vmovdqa	1*32(%rsi, %rax), %xmm5
+	vinserti128	$1, 1*32+16(%rsi, %r10), %ymm5, %ymm5
+	vmovdqa	2*32(%rsi, %rax), %xmm6
+	vinserti128	$1, 2*32+16(%rsi, %r10), %ymm6, %ymm6
+	vmovdqa	3*32(%rsi, %rax), %xmm7
+	vinserti128	$1, 3*32+16(%rsi, %r10), %ymm7, %ymm7
+	vpxor	%ymm4, %ymm12, %ymm12
+	vpxor	%ymm5, %ymm13, %ymm13
+	vpxor	%ymm6, %ymm14, %ymm14
+	vpxor	%ymm7, %ymm15, %ymm15
+	
+	vmovdqa	%ymm0, 0*256+0*32(%rsp)
+	vmovdqa	%ymm1, 0*256+1*32(%rsp)
+	vmovdqa	%ymm2, 0*256+2*32(%rsp)
+	vmovdqa	%ymm3, 0*256+3*32(%rsp)
+	vmovdqa	%ymm8, 1*256+0*32(%rsp)
+	vmovdqa	%ymm9, 1*256+1*32(%rsp)
+	vmovdqa	%ymm10, 1*256+2*32(%rsp)
+	vmovdqa	%ymm11, 1*256+3*32(%rsp)
+	vmovdqa	%ymm12, 2*256+0*32(%rsp)
+	vmovdqa	%ymm13, 2*256+1*32(%rsp)
+	vmovdqa	%ymm14, 2*256+2*32(%rsp)
+	vmovdqa	%ymm15, 2*256+3*32(%rsp)
+	salsa8_core_6way_avx2
+	vpaddd	0*256+0*32(%rsp), %ymm0, %ymm0
+	vpaddd	0*256+1*32(%rsp), %ymm1, %ymm1
+	vpaddd	0*256+2*32(%rsp), %ymm2, %ymm2
+	vpaddd	0*256+3*32(%rsp), %ymm3, %ymm3
+	vpaddd	1*256+0*32(%rsp), %ymm8, %ymm8
+	vpaddd	1*256+1*32(%rsp), %ymm9, %ymm9
+	vpaddd	1*256+2*32(%rsp), %ymm10, %ymm10
+	vpaddd	1*256+3*32(%rsp), %ymm11, %ymm11
+	vpaddd	2*256+0*32(%rsp), %ymm12, %ymm12
+	vpaddd	2*256+1*32(%rsp), %ymm13, %ymm13
+	vpaddd	2*256+2*32(%rsp), %ymm14, %ymm14
+	vpaddd	2*256+3*32(%rsp), %ymm15, %ymm15
+	vmovdqa	%ymm0, 0*256+0*32(%rsp)
+	vmovdqa	%ymm1, 0*256+1*32(%rsp)
+	vmovdqa	%ymm2, 0*256+2*32(%rsp)
+	vmovdqa	%ymm3, 0*256+3*32(%rsp)
+	vmovdqa	%ymm8, 1*256+0*32(%rsp)
+	vmovdqa	%ymm9, 1*256+1*32(%rsp)
+	vmovdqa	%ymm10, 1*256+2*32(%rsp)
+	vmovdqa	%ymm11, 1*256+3*32(%rsp)
+	vmovdqa	%ymm12, 2*256+0*32(%rsp)
+	vmovdqa	%ymm13, 2*256+1*32(%rsp)
+	vmovdqa	%ymm14, 2*256+2*32(%rsp)
+	vmovdqa	%ymm15, 2*256+3*32(%rsp)
+	
+	vmovdqa	4*32(%rsi, %rbp), %xmm4
+	vinserti128	$1, 4*32+16(%rsi, %r8), %ymm4, %ymm4
+	vmovdqa	5*32(%rsi, %rbp), %xmm5
+	vinserti128	$1, 5*32+16(%rsi, %r8), %ymm5, %ymm5
+	vmovdqa	6*32(%rsi, %rbp), %xmm6
+	vinserti128	$1, 6*32+16(%rsi, %r8), %ymm6, %ymm6
+	vmovdqa	7*32(%rsi, %rbp), %xmm7
+	vinserti128	$1, 7*32+16(%rsi, %r8), %ymm7, %ymm7
+	vpxor	%ymm4, %ymm0, %ymm0
+	vpxor	%ymm5, %ymm1, %ymm1
+	vpxor	%ymm6, %ymm2, %ymm2
+	vpxor	%ymm7, %ymm3, %ymm3
+	vmovdqa	4*32(%rsi, %rbx), %xmm4
+	vinserti128	$1, 4*32+16(%rsi, %r9), %ymm4, %ymm4
+	vmovdqa	5*32(%rsi, %rbx), %xmm5
+	vinserti128	$1, 5*32+16(%rsi, %r9), %ymm5, %ymm5
+	vmovdqa	6*32(%rsi, %rbx), %xmm6
+	vinserti128	$1, 6*32+16(%rsi, %r9), %ymm6, %ymm6
+	vmovdqa	7*32(%rsi, %rbx), %xmm7
+	vinserti128	$1, 7*32+16(%rsi, %r9), %ymm7, %ymm7
+	vpxor	%ymm4, %ymm8, %ymm8
+	vpxor	%ymm5, %ymm9, %ymm9
+	vpxor	%ymm6, %ymm10, %ymm10
+	vpxor	%ymm7, %ymm11, %ymm11
+	vmovdqa	4*32(%rsi, %rax), %xmm4
+	vinserti128	$1, 4*32+16(%rsi, %r10), %ymm4, %ymm4
+	vmovdqa	5*32(%rsi, %rax), %xmm5
+	vinserti128	$1, 5*32+16(%rsi, %r10), %ymm5, %ymm5
+	vmovdqa	6*32(%rsi, %rax), %xmm6
+	vinserti128	$1, 6*32+16(%rsi, %r10), %ymm6, %ymm6
+	vmovdqa	7*32(%rsi, %rax), %xmm7
+	vinserti128	$1, 7*32+16(%rsi, %r10), %ymm7, %ymm7
+	vpxor	%ymm4, %ymm12, %ymm12
+	vpxor	%ymm5, %ymm13, %ymm13
+	vpxor	%ymm6, %ymm14, %ymm14
+	vpxor	%ymm7, %ymm15, %ymm15
+	vpxor	0*256+4*32(%rsp), %ymm0, %ymm0
+	vpxor	0*256+5*32(%rsp), %ymm1, %ymm1
+	vpxor	0*256+6*32(%rsp), %ymm2, %ymm2
+	vpxor	0*256+7*32(%rsp), %ymm3, %ymm3
+	vpxor	1*256+4*32(%rsp), %ymm8, %ymm8
+	vpxor	1*256+5*32(%rsp), %ymm9, %ymm9
+	vpxor	1*256+6*32(%rsp), %ymm10, %ymm10
+	vpxor	1*256+7*32(%rsp), %ymm11, %ymm11
+	vpxor	2*256+4*32(%rsp), %ymm12, %ymm12
+	vpxor	2*256+5*32(%rsp), %ymm13, %ymm13
+	vpxor	2*256+6*32(%rsp), %ymm14, %ymm14
+	vpxor	2*256+7*32(%rsp), %ymm15, %ymm15
+	vmovdqa	%ymm0, 0*256+4*32(%rsp)
+	vmovdqa	%ymm1, 0*256+5*32(%rsp)
+	vmovdqa	%ymm2, 0*256+6*32(%rsp)
+	vmovdqa	%ymm3, 0*256+7*32(%rsp)
+	vmovdqa	%ymm8, 1*256+4*32(%rsp)
+	vmovdqa	%ymm9, 1*256+5*32(%rsp)
+	vmovdqa	%ymm10, 1*256+6*32(%rsp)
+	vmovdqa	%ymm11, 1*256+7*32(%rsp)
+	vmovdqa	%ymm12, 2*256+4*32(%rsp)
+	vmovdqa	%ymm13, 2*256+5*32(%rsp)
+	vmovdqa	%ymm14, 2*256+6*32(%rsp)
+	vmovdqa	%ymm15, 2*256+7*32(%rsp)
+	salsa8_core_6way_avx2
+	vpaddd	0*256+4*32(%rsp), %ymm0, %ymm0
+	vpaddd	0*256+5*32(%rsp), %ymm1, %ymm1
+	vpaddd	0*256+6*32(%rsp), %ymm2, %ymm2
+	vpaddd	0*256+7*32(%rsp), %ymm3, %ymm3
+	vpaddd	1*256+4*32(%rsp), %ymm8, %ymm8
+	vpaddd	1*256+5*32(%rsp), %ymm9, %ymm9
+	vpaddd	1*256+6*32(%rsp), %ymm10, %ymm10
+	vpaddd	1*256+7*32(%rsp), %ymm11, %ymm11
+	vpaddd	2*256+4*32(%rsp), %ymm12, %ymm12
+	vpaddd	2*256+5*32(%rsp), %ymm13, %ymm13
+	vpaddd	2*256+6*32(%rsp), %ymm14, %ymm14
+	vpaddd	2*256+7*32(%rsp), %ymm15, %ymm15
+	vmovdqa	%ymm0, 0*256+4*32(%rsp)
+	vmovdqa	%ymm1, 0*256+5*32(%rsp)
+	vmovdqa	%ymm2, 0*256+6*32(%rsp)
+	vmovdqa	%ymm3, 0*256+7*32(%rsp)
+	vmovdqa	%ymm8, 1*256+4*32(%rsp)
+	vmovdqa	%ymm9, 1*256+5*32(%rsp)
+	vmovdqa	%ymm10, 1*256+6*32(%rsp)
+	vmovdqa	%ymm11, 1*256+7*32(%rsp)
+	vmovdqa	%ymm12, 2*256+4*32(%rsp)
+	vmovdqa	%ymm13, 2*256+5*32(%rsp)
+	vmovdqa	%ymm14, 2*256+6*32(%rsp)
+	vmovdqa	%ymm15, 2*256+7*32(%rsp)
+	
+	subq	$1, %rcx
+	ja scrypt_core_6way_avx2_loop2
+	
+	scrypt_shuffle_unpack2 %rsp, 0*128, %rdi, 0*256+0
+	scrypt_shuffle_unpack2 %rsp, 1*128, %rdi, 0*256+64
+	scrypt_shuffle_unpack2 %rsp, 2*128, %rdi, 1*256+0
+	scrypt_shuffle_unpack2 %rsp, 3*128, %rdi, 1*256+64
+	scrypt_shuffle_unpack2 %rsp, 4*128, %rdi, 2*256+0
+	scrypt_shuffle_unpack2 %rsp, 5*128, %rdi, 2*256+64
+	
+	scrypt_core_6way_cleanup
+	ret
+
+#endif /* USE_AVX2 */
 
 #endif
