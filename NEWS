@@ -1,3 +1,9 @@
+Version 2.3.2 - Jul 10, 2013
+
+- Add optimizations for AVX2-capable x86-64 processors
+- Ensure that the output stream is flushed after every log message
+- Fix an undefined-behavior bug in the Stratum code
+
 Version 2.3.1 - Jun 18, 2013
 
 - Add a --cert option for specifying an SSL certificate (martinwguy)
