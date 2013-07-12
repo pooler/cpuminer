@@ -4,7 +4,7 @@
 #include "cpuminer-config.h"
 
 #include <stdbool.h>
-#include <stdint.h>
+#include <inttypes.h>
 #include <sys/time.h>
 #include <pthread.h>
 #include <jansson.h>

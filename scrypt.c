@@ -31,8 +31,8 @@
 #include "miner.h"
 
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
+#include <inttypes.h>
 
 static const uint32_t keypad[12] = {
 	0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000280

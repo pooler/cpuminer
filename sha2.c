@@ -12,7 +12,7 @@
 #include "miner.h"
 
 #include <string.h>
-#include <stdint.h>
+#include <inttypes.h>
 
 #if defined(__arm__) && defined(__APCS_32__)
 #define EXTERN_SHA256
