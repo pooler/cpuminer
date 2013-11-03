@@ -1,0 +1,186 @@
+.TH MINERD 1 "November 2013" "cpuminer 2.3.2"
+.SH NAME
+minerd \- CPU miner for Bitcoin and Litecoin
+.SH SYNOPSIS
+.B minerd
+[\fIOPTION\fR]...
+.SH DESCRIPTION
+.B minerd
+is a multi-threaded CPU miner for Bitcoin, Litecoin and other cryptocurrencies.
+It supports the getwork mining protocol as well as the Stratum mining protocol.
+.PP
+In its normal mode of operation, \fBminerd\fR connects to a mining server
+(specified with the \fB\-o\fR option), receives work from it and starts hashing.
+As soon as a solution is found, it is submitted to the same mining server,
+which can accept or reject it.
+When using the getwork protocol, \fBminerd\fR can take advantage
+of the long polling extension, if the server supports it;
+in any case, fresh work is fetched as needed.
+When using the Stratum protocol this is not possible,
+and the server is responsible for sending fresh work at least every minute;
+if it fails to do so,
+\fBminerd\fR may drop the connection and try reconnecting again.
+.PP
+By default, \fBminerd\fR writes all its messages to standard error.
+On systems that have a syslog, the \fB\-\-syslog\fR option can be used
+to write to it instead.
+.PP
+On start, the nice value of all miner threads is set to 19.
+On Linux, the scheduling policy is also changed to SCHED_IDLE,
+or to SCHED_BATCH if that fails.
+On multiprocessor systems, \fBminerd\fR
+automatically sets the CPU affinity of miner threads
+if the number of threads is a multiple of the number of processors.
+.SH EXAMPLES
+To connect to a Litecoin mining pool that provides a Stratum server
+at example.com on port 3333, authenticating as worker "foo" with password "bar":
+.PP
+.nf
+.RS
+minerd \-o stratum+tcp://example.com:3333 \-O foo:bar
+.RE
+.fi
+.PP
+To mine to a local Bitcoin testnet instance running on port 18332,
+authenticating with username "rpcuser" and password "rpcpass":
+.PP
+.nf
+.RS
+minerd \-a sha256d \-o http://localhost:18332 \-O rpcuser:rpcpass
+.RE
+.fi
+.PP
+To connect to a Litecoin P2Pool node running on my.server on port 9327,
+mining in the background and having output sent to the syslog facility,
+omitting the per-thread hashmeter output:
+.PP
+.nf
+.RS
+minerd \-BSq \-o http://my.server:9327
+.RE
+.fi
+.SH OPTIONS
+.TP
+\fB\-a\fR, \fB\-\-algo\fR=\fIALGORITHM\fR
+Set the hashing algorithm to use.
+Default is scrypt.
+Possible values are:
+.RS 11
+.TP 10
+.B scrypt
+scrypt(1024, 1, 1) (used by Litecoin)
+.TP
+.B sha256d
+SHA-256d (used by Bitcoin)
+.RE
+.TP
+\fB\-\-benchmark\fR
+Run in offline benchmark mode.
+.TP
+\fB\-B\fR, \fB\-\-background\fR
+Fork and run in the background.
+.TP
+\fB\-\-cert\fR=\fIFILE\fR
+Set a SSL certificate to use with the mining server.
+Only supported when using the HTTPS protocol.
+.TP
+\fB\-c\fR, \fB\-\-config\fR=\fIFILE\fR
+Load options from a JSON-format configuration file.
+.TP
+\fB\-D\fR, \fB\-\-debug\fR
+Enable debug output.
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print a help message and exit.
+.TP
+\fB\-\-no\-longpoll\fR
+Do not use long polling.
+.TP
+\fB\-\-no\-stratum\fR
+Do not switch to Stratum, even if the server advertises support for it.
+.TP
+\fB\-o\fR, \fB\-\-url\fR=[\fISCHEME\fR://][\fIUSERNAME\fR[:\fIPASSWORD\fR]@]\fIHOST\fR:\fIPORT\fR[/\fIPATH\fR]
+Set the URL of the mining server to connect to.
+Supported schemes are \fBhttp\fR, \fBhttps\fR and \fBstratum+tcp\fR.
+If no scheme is specified, http is used.
+Specifying a \fIPATH\fR is only supported for HTTP and HTTPS.
+Specifying credentials has the same effect as using the \fB\-O\fR option.
+If no mining server is provided,
+the miner will try to connect to http://127.0.0.1:9332/,
+corresponding to the default settings for a local Litecoin daemon.
+.TP
+\fB\-O\fR, \fB\-\-userpass\fR=\fIUSERNAME\fR:\fIPASSWORD\fR
+Set the credentials to use for connecting to the mining server.
+Any value previously set with \fB\-u\fR or \fB\-p\fR is discarded.
+.TP
+\fB\-p\fR, \fB\-\-pass\fR=\fIPASSWORD\fR
+Set the password to use for connecting to the mining server.
+Any password previously set with \fB\-O\fR is discarded.
+.TP
+\fB\-P\fR, \fB\-\-protocol\-dump\fR
+Enable output of all protocol-level activities.
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+Disable per-thread hashmeter output.
+.TP
+\fB\-r\fR, \fB\-\-retries\fR=\fIN\fR
+Set the maximum number of times to retry if a network call fails.
+If not specified, the miner will retry indefinitely.
+.TP
+\fB\-R\fR, \fB\-\-retry\-pause\fR=\fISECONDS\fR
+Set how long to wait between retries. Default is 30 seconds.
+.TP
+\fB\-s\fR, \fB\-\-scantime\fR=\fISECONDS\fR
+Set an upper bound on the time the miner can go without fetching fresh work.
+This setting has no effect in Stratum mode or when long polling is activated.
+Default is 5 seconds.
+.TP
+\fB\-S\fR, \fB\-\-syslog\fR
+Log to the syslog facility instead of standard error.
+.TP
+\fB\-t\fR, \fB\-\-threads\fR=\fIN\fR
+Set the number of miner threads.
+If not specified, the miner will try to detect the number of available processors
+and use that.
+.TP
+\fB\-T\fR, \fB\-\-timeout\fR=\fISECONDS\fR
+Set the timeout for long polling. Default is 270 seconds.
+.TP
+\fB\-u\fR, \fB\-\-user\fR=\fIUSERNAME\fR
+Set the username to use for connecting to the mining server.
+Any username previously set with \fB\-O\fR is discarded.
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Display version information and quit.
+.TP
+\fB\-x\fR, \fB\-\-proxy\fR=[\fISCHEME\fR://]\fIHOST\fR:\fIPORT\fR
+Connect to the mining server through a proxy.
+Supported schemes are: \fBhttp\fR, \fBsocks4\fR, \fBsocks5\fR.
+Since libcurl 7.18.0, the following are also supported:
+\fBsocks4a\fR, \fBsocks5h\fR (SOCKS5 with remote name resolving).
+If no scheme is specified, the proxy is treated as an HTTP proxy.
+HTTP proxies cannot be used to connect to Stratum servers.
+.SH ENVIRONMENT
+The following environment variables can be specified in lower case or upper case;
+the lower-case version has precedence. \fBhttp_proxy\fR is an exception
+as it is only available in lower case.
+.PP
+.RS
+.TP
+\fBhttp_proxy\fR [\fISCHEME\fR://]\fIHOST\fR:\fIPORT\fR
+Sets the proxy server to use for HTTP.
+.TP
+\fBHTTPS_PROXY\fR [\fISCHEME\fR://]\fIHOST\fR:\fIPORT\fR
+Sets the proxy server to use for HTTPS.
+.TP
+\fBALL_PROXY\fR [\fISCHEME\fR://]\fIHOST\fR:\fIPORT\fR
+Sets the proxy server to use if no protocol-specific proxy is set.
+.RE
+.PP
+Using an environment variable to set the proxy has the same effect as
+using the \fB\-x\fR option.
+.SH AUTHOR
+Most of the code in the current version of minerd was written by
+Pooler <pooler@litecoinpool.org> with contributions from others.
+
+The original minerd was written by Jeff Garzik <jeff@garzik.org>.
