@@ -78,14 +78,27 @@ SHA-256d (used by Bitcoin)
 Run in offline benchmark mode.
 .TP
 \fB\-B\fR, \fB\-\-background\fR
-Fork and run in the background.
+Run in the background as a daemon.
 .TP
 \fB\-\-cert\fR=\fIFILE\fR
 Set a SSL certificate to use with the mining server.
 Only supported when using the HTTPS protocol.
 .TP
 \fB\-c\fR, \fB\-\-config\fR=\fIFILE\fR
-Load options from a JSON-format configuration file.
+Load options from a configuration file.
+\fIFILE\fR must contain a JSON object
+mapping long options to their arguments (as strings),
+or to \fBtrue\fR if no argument is required.
+Sample configuration file:
+
+.nf
+	{
+		"url": "stratum+tcp://example.com:3333",
+		"userpass": "foo:bar",
+		"retry-pause": "10",
+		"quiet": true
+	}
+.fi
 .TP
 \fB\-D\fR, \fB\-\-debug\fR
 Enable debug output.
