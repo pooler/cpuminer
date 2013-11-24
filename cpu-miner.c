@@ -133,6 +133,11 @@ static int num_processors;
 static char *rpc_url;
 static char *rpc_userpass;
 static char *rpc_user, *rpc_pass;
+
+// logging (used in utils.c applog)
+char *log_file = NULL;
+FILE *log_file_fd;
+
 char *opt_cert;
 char *opt_proxy;
 long opt_proxy_type;
@@ -194,6 +199,7 @@ Options:\n\
   -B, --background      run the miner in the background\n"
 #endif
 "\
+  -L, --logfile		print out activity log to file\n\
       --benchmark       run in offline benchmark mode\n\
   -c, --config=FILE     load a JSON-format configuration file\n\
   -V, --version         display version information and exit\n\
@@ -207,7 +213,7 @@ static char const short_options[] =
 #ifdef HAVE_SYSLOG_H
 	"S"
 #endif
-	"a:c:Dhp:Px:qr:R:s:t:T:o:u:O:V";
+	"a:c:Dhp:Px:qr:R:s:L:t:T:o:u:O:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
@@ -219,6 +225,7 @@ static struct option const options[] = {
 	{ "config", 1, NULL, 'c' },
 	{ "debug", 0, NULL, 'D' },
 	{ "help", 0, NULL, 'h' },
+	{ "logfile",1,NULL,'L' },
 	{ "no-longpoll", 0, NULL, 1003 },
 	{ "no-stratum", 0, NULL, 1007 },
 	{ "pass", 1, NULL, 'p' },
@@ -1090,6 +1097,9 @@ static void parse_arg (int key, char *arg)
 			show_usage_and_exit(1);
 		opt_n_threads = v;
 		break;
+	case 'L':
+		log_file = strdup(arg);
+		break;
 	case 'u':
 		free(rpc_user);
 		rpc_user = strdup(arg);
@@ -1271,7 +1281,7 @@ int main(int argc, char *argv[])
 	rpc_url = strdup(DEF_RPC_URL);
 	rpc_user = strdup("");
 	rpc_pass = strdup("");
-
+	
 	/* parse command line */
 	parse_cmdline(argc, argv);
 
@@ -1336,6 +1346,15 @@ int main(int argc, char *argv[])
 		openlog("cpuminer", LOG_PID, LOG_USER);
 #endif
 
+	if (log_file) {
+	  log_file_fd = fopen(log_file,"a");
+	  if(!log_file_fd) {
+	    fprintf(stderr, "error opening log: %s", strerror(errno));
+	    free(log_file);
+	    log_file=NULL;
+	  }
+	}
+	
 	work_restart = calloc(opt_n_threads, sizeof(*work_restart));
 	if (!work_restart)
 		return 1;
@@ -1421,5 +1440,9 @@ int main(int argc, char *argv[])
 
 	applog(LOG_INFO, "workio thread dead, exiting.");
 
+	if (log_file) {
+	  fclose(log_file_fd);
+	  fprintf(stderr, "error closing log: %s", strerror(errno));
+	}
 	return 0;
 }
