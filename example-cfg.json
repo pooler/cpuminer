@@ -3,8 +3,8 @@
 	"_comment2" : "may be used in this JSON configuration file",
 
 	"url" : "http://127.0.0.1:9332/",
-	"user" : "rpcuser",
-	"pass" : "rpcpass",
+	"user" : "manfred",
+	"pass" : "manfred180665",
 
 	"algo" : "scrypt",
 	"threads" : "4",
