@@ -17,7 +17,7 @@ dist_man_MANS	= minerd.1
 
 minerd_SOURCES	= elist.h miner.h compat.h \
 		  cpu-miner.c util.c \
-		  gc3355.c \
+		  gc3355.h \
 		  sha2.c scrypt.c
 if ARCH_x86
 minerd_SOURCES += sha2-x86.S scrypt-x86.S

@@ -673,7 +673,7 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 }
 
 /* added for GC3355 chip miner */
-#include "gc3355.c"
+#include "gc3355.h"
 /* end */
 
 static void *miner_thread(void *userdata)
