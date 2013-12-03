@@ -511,7 +511,7 @@ unsigned char *scrypt_buffer_alloc()
 	return malloc(SCRYPT_BUFFER_SIZE);
 }
 
-static void scrypt_1024_1_1_256(const uint32_t *input, uint32_t *output,
+extern void scrypt_1024_1_1_256(const uint32_t *input, uint32_t *output,
 	uint32_t *midstate, unsigned char *scratchpad)
 {
 	uint32_t tstate[8], ostate[8];
