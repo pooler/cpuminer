@@ -21,7 +21,7 @@
 #include <windows.h>
 #include <io.h>
 typedef unsigned int speed_t;
-#define  B115200  0010002
+#define  B115200  115200
 #endif
 #include <ctype.h>
 
@@ -140,7 +140,7 @@ static void print_hex(unsigned char *data, int len)
 static int gc3355_open(const char *devname, speed_t baud)
 {
 #ifdef WIN32
-	DWORD	timeout = 5;
+	DWORD	timeout = 1;
 
 	HANDLE hSerial = CreateFile(devname, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
 	if (unlikely(hSerial == INVALID_HANDLE_VALUE))
@@ -184,6 +184,8 @@ static int gc3355_open(const char *devname, speed_t baud)
 	PurgeComm(hSerial, PURGE_TXCLEAR);
 
 	gc3355_fd = _open_osfhandle((intptr_t)hSerial, 0);
+	if (gc3355_fd < 0)
+		return -1;
 	return 0;
 
 #else
@@ -259,6 +261,7 @@ static int gc3355_write(const void *buf, size_t buflen)
 }
 
 /* read data from UART */
+#ifndef WIN32
 static int gc3355_gets(unsigned char *buf, int read_count)
 {
 	unsigned char	*bufhead, *p;
@@ -306,6 +309,35 @@ static int gc3355_gets(unsigned char *buf, int read_count)
 		}
 	}
 }
+#else
+static int gc3355_gets(unsigned char *buf, int read_count)
+{
+	ssize_t ret = 0;
+	int rc = 0;
+	int read_amount;
+
+	// Read reply 1 byte at a time
+	read_amount = read_count;
+	while (true) {
+		ret = read(gc3355_fd, buf, 1);
+		if (ret < 0)
+			return 1;
+
+		if (ret >= read_amount)
+			return 0;
+
+		if (ret > 0) {
+			buf += ret;
+			read_amount -= ret;
+			continue;
+		}
+			
+		rc++;
+		if (rc >= 10)
+			return 2;
+	}
+}
+#endif
 
 static void gc3355_send_cmds(const char *cmds[])
 {
