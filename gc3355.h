@@ -9,6 +9,7 @@
  * any later version.  See COPYING for more details.
  */
 
+#ifndef WIN32
 #include <termios.h>
 #include <time.h>
 #include <sys/types.h>
@@ -16,9 +17,15 @@
 #include <sys/time.h>
 #include <fcntl.h>
 #include <errno.h>
+#else
+#include <windows.h>
+#include <io.h>
+typedef unsigned int speed_t;
+#define  B115200  0010002
+#endif
 #include <ctype.h>
 
-static const char *gc3355_version = "v0.8.3.20131201";
+static const char *gc3355_version = "v0.8.4.20131211";
 
 /* local vars */
 static int	gc3355_fd;
@@ -132,6 +139,55 @@ static void print_hex(unsigned char *data, int len)
 /* open UART device */
 static int gc3355_open(const char *devname, speed_t baud)
 {
+#ifdef WIN32
+	DWORD	timeout = 5;
+
+	HANDLE hSerial = CreateFile(devname, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+	if (unlikely(hSerial == INVALID_HANDLE_VALUE))
+	{
+		DWORD e = GetLastError();
+		switch (e) {
+		case ERROR_ACCESS_DENIED:
+			applog(LOG_ERR, "Do not have user privileges required to open %s", devname);
+			break;
+		case ERROR_SHARING_VIOLATION:
+			applog(LOG_ERR, "%s is already in use by another process", devname);
+			break;
+		default:
+			applog(LOG_DEBUG, "Open %s failed, GetLastError:%u", devname, e);
+			break;
+		}
+		return -1;
+	}
+
+	// thanks to af_newbie for pointers about this
+	COMMCONFIG comCfg = {0};
+	comCfg.dwSize = sizeof(COMMCONFIG);
+	comCfg.wVersion = 1;
+	comCfg.dcb.DCBlength = sizeof(DCB);
+	comCfg.dcb.BaudRate = baud;
+	comCfg.dcb.fBinary = 1;
+	comCfg.dcb.fDtrControl = DTR_CONTROL_ENABLE;
+	comCfg.dcb.fRtsControl = RTS_CONTROL_ENABLE;
+	comCfg.dcb.ByteSize = 8;
+
+	SetCommConfig(hSerial, &comCfg, sizeof(comCfg));
+
+	// Code must specify a valid timeout value (0 means don't timeout)
+	const DWORD ctoms = (timeout * 100);
+	COMMTIMEOUTS cto = {ctoms, 0, ctoms, 0, ctoms};
+	SetCommTimeouts(hSerial, &cto);
+
+	PurgeComm(hSerial, PURGE_RXABORT);
+	PurgeComm(hSerial, PURGE_TXABORT);
+	PurgeComm(hSerial, PURGE_RXCLEAR);
+	PurgeComm(hSerial, PURGE_TXCLEAR);
+
+	gc3355_fd = _open_osfhandle((intptr_t)hSerial, 0);
+	return 0;
+
+#else
+
 	struct termios	my_termios;
 
     gc3355_fd = open(devname, O_RDWR | O_CLOEXEC | O_NOCTTY);
@@ -166,6 +222,8 @@ static int gc3355_open(const char *devname, speed_t baud)
 	tcflush(gc3355_fd, TCIOFLUSH);
 
 	return 0;
+
+#endif
 }
 
 /* close UART device */
