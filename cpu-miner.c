@@ -1312,10 +1312,10 @@ int main(int argc, char *argv[])
 	num_processors = sysinfo.dwNumberOfProcessors;
 #elif defined(_SC_NPROCESSORS_CONF)
 	num_processors = sysconf(_SC_NPROCESSORS_CONF);
-#elif defined(HW_NCPU)
+#elif defined(CTL_HW) && defined(HW_NCPU)
 	int req[] = { CTL_HW, HW_NCPU };
 	size_t len = sizeof(num_processors);
-	v = sysctl(req, 2, &num_processors, &len, NULL, 0);
+	sysctl(req, 2, &num_processors, &len, NULL, 0);
 #else
 	num_processors = 1;
 #endif
