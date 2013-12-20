@@ -33,33 +33,6 @@
 #if defined(__i386__)
 	
 .macro scrypt_shuffle src, so, dest
-        movq    \so+0(\src), %mm0
-        movq    \so+8(\src), %mm1
-        movq    \so+16(\src), %mm2
-        movq    \so+24(\src), %mm3
-        pshufw  $0x4e, %mm0, %mm0
-        pshufw  $0x4e, %mm1, %mm1
-        pshufw  $0x4e, %mm2, %mm2
-        pshufw  $0x4e, %mm3, %mm3
-        movq    \so+32(\src), %mm4
-        movq    \so+40(\src), %mm5
-        movq    \so+48(\src), %mm6
-        movq    \so+56(\src), %mm7
-        pshufw  $0x4e, %mm4, %mm4
-        pshufw  $0x4e, %mm5, %mm5
-        pshufw  $0x4e, %mm6, %mm6
-        pshufw  $0x4e, %mm7, %mm7
-        movq    %mm0, \so+0(\dest)
-        movq    %mm1, \so+8(\dest)
-        movq    %mm2, \so+16(\dest)
-        movq    %mm3, \so+24(\dest)
-        movq    %mm4, \so+32(\dest)
-        movq    %mm5, \so+40(\dest)
-        movq    %mm6, \so+48(\dest)
-        movq    %mm7, \so+56(\dest)
-.endm
-
-.macro scrypt_shuffle2 src, so, dest
         movdqa  \so+0(\src), %xmm6
         movdqa  \so+16(\src), %xmm7
         shufps  $0x1b, %xmm6, %xmm6
@@ -688,10 +661,10 @@ scrypt_core_sse2:
 	subl	$128, %esp
 	andl	$-16, %esp
 	
-        scrypt_shuffle2 %edi, 0, %esp
-        scrypt_shuffle2 %edi, 32, %esp
-        scrypt_shuffle2 %edi, 64, %esp
-        scrypt_shuffle2 %edi, 96, %esp
+        scrypt_shuffle %edi, 0, %esp
+        scrypt_shuffle %edi, 32, %esp
+        scrypt_shuffle %edi, 64, %esp
+        scrypt_shuffle %edi, 96, %esp
 	
 	//already done in last scrypt_shuffle2 loop
 	//movdqa	96(%esp), %xmm6
@@ -812,9 +785,13 @@ scrypt_core_sse2_loop2:
 	movdqa	%xmm6, 96(%esp)
 	movdqa	%xmm7, 112(%esp)
 	
-        scrypt_shuffle %esp, 0, %edi
-        scrypt_shuffle %esp, 64, %edi
-        emms // clear MMX state
+        //scrypt_shuffle %esp, 0, %edi
+        //scrypt_shuffle %esp, 64, %edi
+
+	scrypt_shuffle %esp, 0, %edi
+	scrypt_shuffle %esp, 32, %edi
+	scrypt_shuffle %esp, 64, %edi
+	scrypt_shuffle %esp, 96, %edi
 	
 	movl	%ebp, %esp
 	popl	%esi
