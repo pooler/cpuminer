@@ -47,6 +47,7 @@
 static inline void drop_policy(void)
 {
 	struct sched_param param;
+	param.sched_priority = 0;
 
 #ifdef SCHED_IDLE
 	if (unlikely(sched_setscheduler(0, SCHED_IDLE, &param) == -1))
