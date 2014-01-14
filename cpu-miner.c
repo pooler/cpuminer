@@ -124,7 +124,7 @@ static bool opt_quiet = false;
 static int opt_retries = -1;
 static int opt_fail_pause = 30;
 int opt_timeout = 270;
-int opt_scantime = 5;
+static int opt_scantime = 5;
 static json_t *opt_config;
 static const bool opt_time = true;
 static enum sha256_algos opt_algo = ALGO_SCRYPT;
@@ -144,11 +144,11 @@ struct work_restart *work_restart = NULL;
 static struct stratum_ctx stratum;
 
 pthread_mutex_t applog_lock;
-pthread_mutex_t stats_lock;
+static pthread_mutex_t stats_lock;
 
 static unsigned long accepted_count = 0L;
 static unsigned long rejected_count = 0L;
-double *thr_hashrates;
+static double *thr_hashrates;
 
 #ifdef HAVE_GETOPT_LONG
 #include <getopt.h>
@@ -1244,7 +1244,7 @@ static void parse_cmdline(int argc, char *argv[])
 }
 
 #ifndef WIN32
-void signal_handler(int sig)
+static void signal_handler(int sig)
 {
 	switch (sig) {
 	case SIGHUP:
