@@ -344,8 +344,6 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 		uint32_t ntime, nonce;
 		char *ntimestr, *noncestr, *xnonce2str;
 
-		if (!work->job_id)
-			return true;
 		le32enc(&ntime, work->data[17]);
 		le32enc(&nonce, work->data[19]);
 		ntimestr = bin2hex((const unsigned char *)(&ntime), 4);
@@ -703,7 +701,7 @@ static void *miner_thread(void *userdata)
 		int rc;
 
 		if (have_stratum) {
-			while (!*g_work.job_id || time(NULL) >= g_work_time + 120)
+			while (time(NULL) >= g_work_time + 120)
 				sleep(1);
 			pthread_mutex_lock(&g_work_lock);
 			if (work.data[19] >= end_nonce)
@@ -711,16 +709,16 @@ static void *miner_thread(void *userdata)
 		} else {
 			/* obtain new work from internal workio thread */
 			pthread_mutex_lock(&g_work_lock);
-			if (!(have_longpoll || have_stratum) ||
+			if (!have_stratum && (!have_longpoll ||
 					time(NULL) >= g_work_time + LP_SCANTIME*3/4 ||
-					work.data[19] >= end_nonce) {
+					work.data[19] >= end_nonce)) {
 				if (unlikely(!get_work(mythr, &g_work))) {
 					applog(LOG_ERR, "work retrieval failed, exiting "
 						"mining thread %d", mythr->id);
 					pthread_mutex_unlock(&g_work_lock);
 					goto out;
 				}
-				time(&g_work_time);
+				g_work_time = have_stratum ? 0 : time(NULL);
 			}
 			if (have_stratum) {
 				pthread_mutex_unlock(&g_work_lock);
