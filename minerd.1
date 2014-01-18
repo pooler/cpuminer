@@ -1,4 +1,4 @@
-.TH MINERD 1 "November 2013" "cpuminer 2.3.2"
+.TH MINERD 1 "January 2014" "cpuminer 2.3.2"
 .SH NAME
 minerd \- CPU miner for Bitcoin and Litecoin
 .SH SYNOPSIS
@@ -81,7 +81,7 @@ Run in offline benchmark mode.
 Run in the background as a daemon.
 .TP
 \fB\-\-cert\fR=\fIFILE\fR
-Set a SSL certificate to use with the mining server.
+Set an SSL certificate to use with the mining server.
 Only supported when using the HTTPS protocol.
 .TP
 \fB\-c\fR, \fB\-\-config\fR=\fIFILE\fR
@@ -115,12 +115,9 @@ Do not switch to Stratum, even if the server advertises support for it.
 \fB\-o\fR, \fB\-\-url\fR=[\fISCHEME\fR://][\fIUSERNAME\fR[:\fIPASSWORD\fR]@]\fIHOST\fR:\fIPORT\fR[/\fIPATH\fR]
 Set the URL of the mining server to connect to.
 Supported schemes are \fBhttp\fR, \fBhttps\fR and \fBstratum+tcp\fR.
-If no scheme is specified, http is used.
+If no scheme is specified, http is assumed.
 Specifying a \fIPATH\fR is only supported for HTTP and HTTPS.
 Specifying credentials has the same effect as using the \fB\-O\fR option.
-If no mining server is provided,
-the miner will try to connect to http://127.0.0.1:9332/,
-corresponding to the default settings for a local Litecoin daemon.
 .TP
 \fB\-O\fR, \fB\-\-userpass\fR=\fIUSERNAME\fR:\fIPASSWORD\fR
 Set the credentials to use for connecting to the mining server.
@@ -166,7 +163,7 @@ Any username previously set with \fB\-O\fR is discarded.
 \fB\-V\fR, \fB\-\-version\fR
 Display version information and quit.
 .TP
-\fB\-x\fR, \fB\-\-proxy\fR=[\fISCHEME\fR://]\fIHOST\fR:\fIPORT\fR
+\fB\-x\fR, \fB\-\-proxy\fR=[\fISCHEME\fR://][\fIUSERNAME\fR:\fIPASSWORD\fR@]\fIHOST\fR:\fIPORT\fR
 Connect to the mining server through a proxy.
 Supported schemes are: \fBhttp\fR, \fBsocks4\fR, \fBsocks5\fR.
 Since libcurl 7.18.0, the following are also supported:

@@ -39,7 +39,6 @@
 #include "miner.h"
 
 #define PROGRAM_NAME		"minerd"
-#define DEF_RPC_URL		"http://127.0.0.1:9332/"
 #define LP_SCANTIME		60
 
 #ifdef __linux /* Linux specific policy and affinity management */
@@ -168,7 +167,7 @@ Options:\n\
   -a, --algo=ALGO       specify the algorithm to use\n\
                           scrypt    scrypt(1024, 1, 1) (default)\n\
                           sha256d   SHA-256d\n\
-  -o, --url=URL         URL of mining server (default: " DEF_RPC_URL ")\n\
+  -o, --url=URL         URL of mining server\n\
   -O, --userpass=U:P    username:password pair for mining server\n\
   -u, --user=USERNAME   username for mining server\n\
   -p, --pass=PASSWORD   password for mining server\n\
@@ -1267,12 +1266,23 @@ int main(int argc, char *argv[])
 	long flags;
 	int i;
 
-	rpc_url = strdup(DEF_RPC_URL);
 	rpc_user = strdup("");
 	rpc_pass = strdup("");
 
 	/* parse command line */
 	parse_cmdline(argc, argv);
+
+	if (!opt_benchmark && !rpc_url) {
+		fprintf(stderr, "%s: no URL supplied\n", argv[0]);
+		show_usage_and_exit(1);
+	}
+
+	if (!rpc_userpass) {
+		rpc_userpass = malloc(strlen(rpc_user) + strlen(rpc_pass) + 2);
+		if (!rpc_userpass)
+			return 1;
+		sprintf(rpc_userpass, "%s:%s", rpc_user, rpc_pass);
+	}
 
 	pthread_mutex_init(&applog_lock, NULL);
 	pthread_mutex_init(&stats_lock, NULL);
@@ -1280,7 +1290,7 @@ int main(int argc, char *argv[])
 	pthread_mutex_init(&stratum.sock_lock, NULL);
 	pthread_mutex_init(&stratum.work_lock, NULL);
 
-	flags = strncmp(rpc_url, "https:", 6)
+	flags = !opt_benchmark && strncmp(rpc_url, "https:", 6)
 	      ? (CURL_GLOBAL_ALL & ~CURL_GLOBAL_SSL)
 	      : CURL_GLOBAL_ALL;
 	if (curl_global_init(flags)) {
@@ -1322,13 +1332,6 @@ int main(int argc, char *argv[])
 		num_processors = 1;
 	if (!opt_n_threads)
 		opt_n_threads = num_processors;
-
-	if (!rpc_userpass) {
-		rpc_userpass = malloc(strlen(rpc_user) + strlen(rpc_pass) + 2);
-		if (!rpc_userpass)
-			return 1;
-		sprintf(rpc_userpass, "%s:%s", rpc_user, rpc_pass);
-	}
 
 #ifdef HAVE_SYSLOG_H
 	if (use_syslog)
