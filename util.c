@@ -377,7 +377,8 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 
 	/* If X-Stratum was found, activate Stratum */
 	if (want_stratum && hi.stratum_url &&
-	    !strncasecmp(hi.stratum_url, "stratum+tcp://", 14)) {
+	    !strncasecmp(hi.stratum_url, "stratum+tcp://", 14) &&
+	    !(opt_proxy && opt_proxy_type == CURLPROXY_HTTP)) {
 		have_stratum = true;
 		tq_push(thr_info[stratum_thr_id].q, hi.stratum_url);
 		hi.stratum_url = NULL;
