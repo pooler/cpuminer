@@ -113,6 +113,7 @@ static const char *algo_names[] = {
 bool opt_debug = false;
 bool opt_protocol = false;
 static bool opt_benchmark = false;
+static uint32_t opt_benchmark_rounds = 0;
 bool want_longpoll = true;
 bool have_longpoll = false;
 bool want_stratum = true;
@@ -195,6 +196,7 @@ Options:\n\
 #endif
 "\
       --benchmark       run in offline benchmark mode\n\
+      --benchmark-rounds=N  quit after N benchmark rounds (default: 0, never)\n\
   -c, --config=FILE     load a JSON-format configuration file\n\
   -V, --version         display version information and exit\n\
   -h, --help            display this help text and exit\n\
@@ -215,6 +217,7 @@ static struct option const options[] = {
 	{ "background", 0, NULL, 'B' },
 #endif
 	{ "benchmark", 0, NULL, 1005 },
+	{ "benchmark-rounds", 1, NULL, 1006 },
 	{ "cert", 1, NULL, 1001 },
 	{ "config", 1, NULL, 'c' },
 	{ "debug", 0, NULL, 'D' },
@@ -782,12 +785,28 @@ static void *miner_thread(void *userdata)
 				thr_id, hashes_done, s);
 		}
 		if (opt_benchmark && thr_id == opt_n_threads - 1) {
-			double hashrate = 0.;
+			static double hashrate = 0.;
+			static unsigned rounds = 0;
+
+			if (!opt_benchmark_rounds) {
+				hashrate = 0.;
+			}
+
 			for (i = 0; i < opt_n_threads && thr_hashrates[i]; i++)
 				hashrate += thr_hashrates[i];
 			if (i == opt_n_threads) {
-				sprintf(s, hashrate >= 1e6 ? "%.0f" : "%.2f", 1e-3 * hashrate);
-				applog(LOG_INFO, "Total: %s khash/s", s);
+				rounds++;
+
+				if (!opt_benchmark_rounds) {
+					sprintf(s, hashrate >= 1e6 ? "%.0f" : "%.2f",
+						1e-3 * hashrate);
+					applog(LOG_INFO, "Total: %s khash/s", s);
+				} else if (opt_benchmark_rounds == rounds) {
+					sprintf(s, hashrate >= 1e6 ? "%.0f" : "%.2f",
+						1e-3 * hashrate / rounds);
+					applog(LOG_INFO, "Total: %s khash/s", s);
+					exit(0);
+				}
 			}
 		}
 
@@ -1161,6 +1180,9 @@ static void parse_arg (int key, char *arg)
 		free(opt_cert);
 		opt_cert = strdup(arg);
 		break;
+	case 1006:
+		opt_benchmark_rounds = atoi(arg);
+		/* Fallthrough, benchmark rounds implies benchmark */
 	case 1005:
 		opt_benchmark = true;
 		want_longpoll = false;
