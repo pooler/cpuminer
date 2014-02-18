@@ -75,7 +75,7 @@ static inline void affine_to_cpu(int id, int cpu)
 	cpuset_t set;
 	CPU_ZERO(&set);
 	CPU_SET(cpu, &set);
-	cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_CPUSET, -1, sizeof(cpuset_t), &set);
+	cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1, sizeof(cpuset_t), &set);
 }
 #else
 static inline void drop_policy(void)
