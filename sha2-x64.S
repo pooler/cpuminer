@@ -209,7 +209,7 @@ sha256d_8preext2_30:
 	.globl _sha256_init_4way
 sha256_init_4way:
 _sha256_init_4way:
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	pushq	%rdi
 	movq	%rcx, %rdi
 #endif
@@ -229,7 +229,7 @@ _sha256_init_4way:
 	movdqu	%xmm1, 80(%rdi)
 	movdqu	%xmm2, 96(%rdi)
 	movdqu	%xmm3, 112(%rdi)
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	popq	%rdi
 #endif
 	ret
@@ -242,7 +242,7 @@ _sha256_init_4way:
 	.globl _sha256_init_8way
 sha256_init_8way:
 _sha256_init_8way:
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	pushq	%rdi
 	movq	%rcx, %rdi
 #endif
@@ -262,7 +262,7 @@ _sha256_init_8way:
 	vmovdqu	%ymm1, 5*32(%rdi)
 	vmovdqu	%ymm2, 6*32(%rdi)
 	vmovdqu	%ymm3, 7*32(%rdi)
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	popq	%rdi
 #endif
 	ret
@@ -1114,7 +1114,7 @@ sha256_transform_4way_core_addr:
 	.globl _sha256_transform_4way
 sha256_transform_4way:
 _sha256_transform_4way:
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	pushq	%rdi
 	subq	$96, %rsp
 	movdqa	%xmm6, 0(%rsp)
@@ -1210,7 +1210,7 @@ sha256_transform_4way_finish:
 	movdqu	%xmm10, 112(%rdi)
 	
 	movq	%r8, %rsp
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	popq	%rsi
 	movdqa	0(%rsp), %xmm6
 	movdqa	16(%rsp), %xmm7
@@ -1307,7 +1307,7 @@ sha256_transform_8way_core_avx2:
 	.globl _sha256_transform_8way
 sha256_transform_8way:
 _sha256_transform_8way:
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	pushq	%rdi
 	subq	$96, %rsp
 	vmovdqa	%xmm6, 0(%rsp)
@@ -1403,7 +1403,7 @@ sha256_transform_8way_finish:
 	vmovdqu	%ymm10, 7*32(%rdi)
 	
 	movq	%r8, %rsp
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	popq	%rsi
 	vmovdqa	0(%rsp), %xmm6
 	vmovdqa	16(%rsp), %xmm7
@@ -1435,7 +1435,7 @@ _sha256d_ms_4way:
 	
 	.p2align 6
 sha256d_ms_4way_sse2:
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	pushq	%rdi
 	subq	$32, %rsp
 	movdqa	%xmm6, 0(%rsp)
@@ -2031,7 +2031,7 @@ sha256d_ms_4way_sse2_finish:
 	movdqa	%xmm0, 112(%rdi)
 	
 	addq	$8+67*16, %rsp
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	popq	%rsi
 	movdqa	0(%rsp), %xmm6
 	movdqa	16(%rsp), %xmm7
@@ -2045,7 +2045,7 @@ sha256d_ms_4way_sse2_finish:
 	
 	.p2align 6
 sha256d_ms_4way_avx:
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	pushq	%rdi
 	subq	$80, %rsp
 	movdqa	%xmm6, 0(%rsp)
@@ -2568,7 +2568,7 @@ sha256d_ms_4way_avx_finish:
 	movdqa	%xmm10, 112(%rdi)
 	
 	addq	$1032, %rsp
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	popq	%rsi
 	movdqa	0(%rsp), %xmm6
 	movdqa	16(%rsp), %xmm7
@@ -2587,7 +2587,7 @@ sha256d_ms_4way_avx_finish:
 	
 	.p2align 6
 sha256d_ms_4way_xop:
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	pushq	%rdi
 	subq	$80, %rsp
 	movdqa	%xmm6, 0(%rsp)
@@ -2996,7 +2996,7 @@ sha256d_ms_4way_xop_finish:
 	movdqa	%xmm10, 112(%rdi)
 	
 	addq	$1032, %rsp
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	popq	%rsi
 	movdqa	0(%rsp), %xmm6
 	movdqa	16(%rsp), %xmm7
@@ -3076,7 +3076,7 @@ sha256_use_4way_done:
 sha256d_ms_8way:
 _sha256d_ms_8way:
 sha256d_ms_8way_avx2:
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	pushq	%rdi
 	subq	$80, %rsp
 	vmovdqa	%xmm6, 0(%rsp)
@@ -3604,7 +3604,7 @@ sha256d_ms_8way_avx2_finish:
 	
 	movq	%rbp, %rsp
 	popq	%rbp
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	popq	%rsi
 	vmovdqa	0(%rsp), %xmm6
 	vmovdqa	16(%rsp), %xmm7

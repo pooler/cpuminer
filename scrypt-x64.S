@@ -368,7 +368,7 @@ _scrypt_core:
 	pushq	%r13
 	pushq	%r14
 	pushq	%r15
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	subq	$176, %rsp
 	movdqa	%xmm6, 8(%rsp)
 	movdqa	%xmm7, 24(%rsp)
@@ -387,7 +387,7 @@ _scrypt_core:
 #endif
 
 .macro scrypt_core_cleanup
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	popq	%rsi
 	popq	%rdi
 	movdqa	8(%rsp), %xmm6
@@ -1003,7 +1003,7 @@ scrypt_core_3way:
 _scrypt_core_3way:
 	pushq	%rbx
 	pushq	%rbp
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	subq	$176, %rsp
 	movdqa	%xmm6, 8(%rsp)
 	movdqa	%xmm7, 24(%rsp)
@@ -1024,7 +1024,7 @@ _scrypt_core_3way:
 	
 .macro scrypt_core_3way_cleanup
 	addq	$392, %rsp
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	popq	%rsi
 	popq	%rdi
 	movdqa	8(%rsp), %xmm6
@@ -2429,7 +2429,7 @@ scrypt_core_6way:
 _scrypt_core_6way:
 	pushq	%rbx
 	pushq	%rbp
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	subq	$176, %rsp
 	vmovdqa	%xmm6, 8(%rsp)
 	vmovdqa	%xmm7, 24(%rsp)
@@ -2452,7 +2452,7 @@ _scrypt_core_6way:
 	
 .macro scrypt_core_6way_cleanup
 	movq	%rdx, %rsp
-#if defined(WIN64)
+#if defined(_WIN64) || defined(__CYGWIN__)
 	popq	%rsi
 	popq	%rdi
 	vmovdqa	8(%rsp), %xmm6
