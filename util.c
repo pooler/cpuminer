@@ -851,8 +851,10 @@ start:
 	else
 		sprintf(s, "{\"id\": 1, \"method\": \"mining.subscribe\", \"params\": [\"" USER_AGENT "\"]}");
 
-	if (!stratum_send_line(sctx, s))
+	if (!stratum_send_line(sctx, s)) {
+		applog(LOG_ERR, "stratum_subscribe send failed");
 		goto out;
+	}
 
 	if (!socket_full(sctx->sock, 30)) {
 		applog(LOG_ERR, "stratum_subscribe timed out");
