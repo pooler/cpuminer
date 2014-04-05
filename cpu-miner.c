@@ -997,7 +997,47 @@ out:
 
 static void show_version_and_exit(void)
 {
-	printf("%s\n%s\n", PACKAGE_STRING, curl_version());
+	printf(PACKAGE_STRING "\n built on " __DATE__ "\n features:"
+#if defined(__i386__)
+		" i386"
+#endif
+#if defined(__x86_64__)
+		" x86_64"
+#endif
+#if defined(__i386__) || defined(__x86_64__)
+		" SSE2"
+#endif
+#if defined(__x86_64__) && defined(USE_AVX)
+		" AVX"
+#endif
+#if defined(__x86_64__) && defined(USE_AVX2)
+		" AVX2"
+#endif
+#if defined(__x86_64__) && defined(USE_XOP)
+		" XOP"
+#endif
+#if defined(__arm__) && defined(__APCS_32__)
+		" ARM"
+#if defined(__ARM_ARCH_5E__) || defined(__ARM_ARCH_5TE__) || \
+	defined(__ARM_ARCH_5TEJ__) || defined(__ARM_ARCH_6__) || \
+	defined(__ARM_ARCH_6J__) || defined(__ARM_ARCH_6K__) || \
+	defined(__ARM_ARCH_6M__) || defined(__ARM_ARCH_6T2__) || \
+	defined(__ARM_ARCH_6Z__) || defined(__ARM_ARCH_6ZK__) || \
+	defined(__ARM_ARCH_7__) || \
+	defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7R__) || \
+	defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
+		" ARMv5E"
+#endif
+#if defined(__ARM_NEON__)
+		" NEON"
+#endif
+#endif
+		"\n");
+
+	printf("%s\n", curl_version());
+#ifdef JANSSON_VERSION
+	printf("libjansson %s\n", JANSSON_VERSION);
+#endif
 	exit(0);
 }
 
