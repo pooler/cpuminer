@@ -244,14 +244,31 @@ struct work {
 	uint32_t data[32];
 	uint32_t target[8];
 
-	char job_id[128];
+	char *job_id;
 	size_t xnonce2_len;
-	unsigned char xnonce2[32];
+	unsigned char *xnonce2;
 };
 
 static struct work g_work;
 static time_t g_work_time;
 static pthread_mutex_t g_work_lock;
+
+static inline void work_free(struct work *w)
+{
+	free(w->job_id);
+	free(w->xnonce2);
+}
+
+static inline void work_copy(struct work *dest, const struct work *src)
+{
+	memcpy(dest, src, sizeof(struct work));
+	if (src->job_id)
+		dest->job_id = strdup(src->job_id);
+	if (src->xnonce2) {
+		dest->xnonce2 = malloc(src->xnonce2_len);
+		memcpy(dest->xnonce2, src->xnonce2, src->xnonce2_len);
+	}
+}
 
 static bool jobj_binary(const json_t *obj, const char *key,
 			void *buf, size_t buflen)
@@ -438,6 +455,7 @@ static void workio_cmd_free(struct workio_cmd *wc)
 
 	switch (wc->cmd) {
 	case WC_SUBMIT_WORK:
+		work_free(wc->u.work);
 		free(wc->u.work);
 		break;
 	default: /* do nothing */
@@ -599,7 +617,7 @@ static bool submit_work(struct thr_info *thr, const struct work *work_in)
 
 	wc->cmd = WC_SUBMIT_WORK;
 	wc->thr = thr;
-	memcpy(wc->u.work, work_in, sizeof(*work_in));
+	work_copy(wc->u.work, work_in);
 
 	/* send solution to workio thread */
 	if (!tq_push(thr_info[work_thr_id].q, wc))
@@ -619,8 +637,10 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 
 	pthread_mutex_lock(&sctx->work_lock);
 
-	strcpy(work->job_id, sctx->job.job_id);
+	free(work->job_id);
+	work->job_id = strdup(sctx->job.job_id);
 	work->xnonce2_len = sctx->xnonce2_size;
+	work->xnonce2 = realloc(work->xnonce2, sctx->xnonce2_size);
 	memcpy(work->xnonce2, sctx->job.xnonce2, sctx->xnonce2_size);
 
 	/* Generate merkle root */
@@ -648,7 +668,7 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 	pthread_mutex_unlock(&sctx->work_lock);
 
 	if (opt_debug) {
-		char *xnonce2str = bin2hex(work->xnonce2, sctx->xnonce2_size);
+		char *xnonce2str = bin2hex(work->xnonce2, work->xnonce2_len);
 		applog(LOG_DEBUG, "DEBUG: job_id='%s' extranonce2=%s ntime=%08x",
 		       work->job_id, xnonce2str, swab32(work->data[17]));
 		free(xnonce2str);
@@ -725,7 +745,8 @@ static void *miner_thread(void *userdata)
 			}
 		}
 		if (memcmp(work.data, g_work.data, 76)) {
-			memcpy(&work, &g_work, sizeof(struct work));
+			work_free(&work);
+			work_copy(&work, &g_work);
 			work.data[19] = 0xffffffffU / opt_n_threads * thr_id;
 		} else
 			work.data[19]++;
@@ -965,7 +986,7 @@ static void *stratum_thread(void *userdata)
 		}
 
 		if (stratum.job.job_id &&
-		    (strcmp(stratum.job.job_id, g_work.job_id) || !g_work_time)) {
+		    (!g_work_time || strcmp(stratum.job.job_id, g_work.job_id))) {
 			pthread_mutex_lock(&g_work_lock);
 			stratum_gen_work(&stratum, &g_work);
 			time(&g_work_time);
