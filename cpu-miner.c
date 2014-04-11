@@ -1094,6 +1094,7 @@ static void parse_arg (int key, char *arg)
 	case 'p':
 		free(rpc_pass);
 		rpc_pass = strdup(arg);
+		while (*arg) *arg++= 'x'; /* hide password */
 		break;
 	case 'P':
 		opt_protocol = true;
