@@ -296,19 +296,19 @@ static int sockopt_keepalive_cb(void *userdata, curl_socket_t fd,
 
 json_t *json_rpc_call(CURL *curl, const char *url,
 		      const char *userpass, const char *rpc_req,
-		      bool longpoll_scan, bool longpoll, int *curl_err)
+		      int *curl_err, int flags)
 {
 	json_t *val, *err_val, *res_val;
 	int rc;
+	long http_rc;
 	struct data_buffer all_data = {0};
 	struct upload_buffer upload_data;
 	json_error_t err;
 	struct curl_slist *headers = NULL;
 	char len_hdr[64];
 	char curl_err_str[CURL_ERROR_SIZE];
-	long timeout = longpoll ? opt_timeout : 30;
+	long timeout = (flags & JSON_RPC_LONGPOLL) ? opt_timeout : 30;
 	struct header_info hi = {0};
-	bool lp_scanning = longpoll_scan && !have_longpoll;
 
 	/* it is assumed that 'curl' is freshly [re]initialized at this pt */
 
@@ -343,7 +343,7 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 		curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
 	}
 #if LIBCURL_VERSION_NUM >= 0x070f06
-	if (longpoll)
+	if (flags & JSON_RPC_LONGPOLL)
 		curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_keepalive_cb);
 #endif
 	curl_easy_setopt(curl, CURLOPT_POST, 1);
@@ -370,7 +370,9 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	if (curl_err != NULL)
 		*curl_err = rc;
 	if (rc) {
-		if (!(longpoll && rc == CURLE_OPERATION_TIMEDOUT))
+		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_rc);
+		if (!((flags & JSON_RPC_LONGPOLL) && rc == CURLE_OPERATION_TIMEDOUT) &&
+		    !((flags & JSON_RPC_QUIET_404) && http_rc == 404))
 			applog(LOG_ERR, "HTTP request failed: %s", curl_err_str);
 		goto err_out;
 	}
@@ -385,7 +387,7 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	}
 
 	/* If X-Long-Polling was found, activate long polling */
-	if (lp_scanning && hi.lp_path && !have_stratum) {
+	if (!have_longpoll && want_longpoll && hi.lp_path && !have_stratum) {
 		have_longpoll = true;
 		tq_push(thr_info[longpoll_thr_id].q, hi.lp_path);
 		hi.lp_path = NULL;

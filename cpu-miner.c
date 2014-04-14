@@ -392,7 +392,7 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 			str);
 
 		/* issue JSON-RPC request */
-		val = json_rpc_call(curl, rpc_url, rpc_userpass, s, false, false, NULL);
+		val = json_rpc_call(curl, rpc_url, rpc_userpass, s, NULL, 0);
 		if (unlikely(!val)) {
 			applog(LOG_ERR, "submit_upstream_work json_rpc_call failed");
 			goto out;
@@ -422,8 +422,7 @@ static bool get_upstream_work(CURL *curl, struct work *work)
 	struct timeval tv_start, tv_end, diff;
 
 	gettimeofday(&tv_start, NULL);
-	val = json_rpc_call(curl, rpc_url, rpc_userpass, rpc_req,
-			    want_longpoll, false, NULL);
+	val = json_rpc_call(curl, rpc_url, rpc_userpass, rpc_req, NULL, 0);
 	gettimeofday(&tv_end, NULL);
 
 	if (have_stratum) {
@@ -874,8 +873,8 @@ start:
 		json_t *val, *soval;
 		int err;
 
-		val = json_rpc_call(curl, lp_url, rpc_userpass, rpc_req,
-				    false, true, &err);
+		val = json_rpc_call(curl, lp_url, rpc_userpass, rpc_req, &err,
+				    JSON_RPC_LONGPOLL);
 		if (have_stratum) {
 			if (val)
 				json_decref(val);
