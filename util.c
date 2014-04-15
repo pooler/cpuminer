@@ -330,7 +330,8 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	curl_easy_setopt(curl, CURLOPT_SEEKDATA, &upload_data);
 #endif
 	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curl_err_str);
-	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+	if (opt_redirect)
+		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
 	curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, resp_hdr_cb);
 	curl_easy_setopt(curl, CURLOPT_HEADERDATA, &hi);
@@ -1080,6 +1081,7 @@ static bool stratum_set_difficulty(struct stratum_ctx *sctx, json_t *params)
 static bool stratum_reconnect(struct stratum_ctx *sctx, json_t *params)
 {
 	json_t *port_val;
+	char *url;
 	const char *host;
 	int port;
 
@@ -1091,13 +1093,20 @@ static bool stratum_reconnect(struct stratum_ctx *sctx, json_t *params)
 		port = json_integer_value(port_val);
 	if (!host || !port)
 		return false;
-	
+
+	url = malloc(32 + strlen(host));
+	sprintf(url, "stratum+tcp://%s:%d", host, port);
+
+	if (!opt_redirect) {
+		applog(LOG_INFO, "Ignoring request to reconnect to %s", url);
+		free(url);
+		return true;
+	}
+
+	applog(LOG_NOTICE, "Server requested reconnection to %s", url);
+
 	free(sctx->url);
-	sctx->url = malloc(32 + strlen(host));
-	sprintf(sctx->url, "stratum+tcp://%s:%d", host, port);
-
-	applog(LOG_NOTICE, "Server requested reconnection to %s", sctx->url);
-
+	sctx->url = url;
 	stratum_disconnect(sctx);
 
 	return true;

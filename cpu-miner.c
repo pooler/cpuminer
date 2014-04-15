@@ -113,6 +113,7 @@ static const char *algo_names[] = {
 bool opt_debug = false;
 bool opt_protocol = false;
 static bool opt_benchmark = false;
+bool opt_redirect = true;
 bool want_longpoll = true;
 bool have_longpoll = false;
 bool want_stratum = true;
@@ -182,6 +183,7 @@ Options:\n\
                           long polling is unavailable, in seconds (default: 5)\n\
       --no-longpoll     disable X-Long-Polling support\n\
       --no-stratum      disable X-Stratum support\n\
+      --no-redirect     ignore requests to change the URL of the mining server\n\
   -q, --quiet           disable per-thread hashmeter output\n\
   -D, --debug           enable debug output\n\
   -P, --protocol-dump   verbose dump of protocol-level activities\n"
@@ -220,6 +222,7 @@ static struct option const options[] = {
 	{ "debug", 0, NULL, 'D' },
 	{ "help", 0, NULL, 'h' },
 	{ "no-longpoll", 0, NULL, 1003 },
+	{ "no-redirect", 0, NULL, 1009 },
 	{ "no-stratum", 0, NULL, 1007 },
 	{ "pass", 1, NULL, 'p' },
 	{ "protocol-dump", 0, NULL, 'P' },
@@ -1232,6 +1235,9 @@ static void parse_arg (int key, char *arg)
 		break;
 	case 1007:
 		want_stratum = false;
+		break;
+	case 1009:
+		opt_redirect = false;
 		break;
 	case 'S':
 		use_syslog = true;
