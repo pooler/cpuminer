@@ -379,8 +379,7 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 
 	/* If X-Stratum was found, activate Stratum */
 	if (want_stratum && hi.stratum_url &&
-	    !strncasecmp(hi.stratum_url, "stratum+tcp://", 14) &&
-	    !(opt_proxy && opt_proxy_type == CURLPROXY_HTTP)) {
+	    !strncasecmp(hi.stratum_url, "stratum+tcp://", 14)) {
 		have_stratum = true;
 		tq_push(thr_info[stratum_thr_id].q, hi.stratum_url);
 		hi.stratum_url = NULL;
@@ -764,16 +763,11 @@ bool stratum_connect(struct stratum_ctx *sctx, const char *url)
 	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, sctx->curl_err_str);
 	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 	curl_easy_setopt(curl, CURLOPT_TCP_NODELAY, 1);
-	if (opt_proxy && opt_proxy_type != CURLPROXY_HTTP) {
+	if (opt_proxy) {
 		curl_easy_setopt(curl, CURLOPT_PROXY, opt_proxy);
 		curl_easy_setopt(curl, CURLOPT_PROXYTYPE, opt_proxy_type);
-	} else if (getenv("http_proxy")) {
-		if (getenv("all_proxy"))
-			curl_easy_setopt(curl, CURLOPT_PROXY, getenv("all_proxy"));
-		else if (getenv("ALL_PROXY"))
-			curl_easy_setopt(curl, CURLOPT_PROXY, getenv("ALL_PROXY"));
-		else
-			curl_easy_setopt(curl, CURLOPT_PROXY, "");
+		if (opt_proxy_type == CURLPROXY_HTTP)
+			curl_easy_setopt(curl, CURLOPT_HTTPPROXYTUNNEL, 1);
 	}
 #if LIBCURL_VERSION_NUM >= 0x070f06
 	curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_keepalive_cb);
