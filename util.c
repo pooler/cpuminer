@@ -767,9 +767,8 @@ bool stratum_connect(struct stratum_ctx *sctx, const char *url)
 	if (opt_proxy) {
 		curl_easy_setopt(curl, CURLOPT_PROXY, opt_proxy);
 		curl_easy_setopt(curl, CURLOPT_PROXYTYPE, opt_proxy_type);
-		if (opt_proxy_type == CURLPROXY_HTTP)
-			curl_easy_setopt(curl, CURLOPT_HTTPPROXYTUNNEL, 1);
 	}
+	curl_easy_setopt(curl, CURLOPT_HTTPPROXYTUNNEL, 1);
 #if LIBCURL_VERSION_NUM >= 0x070f06
 	curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_keepalive_cb);
 #endif
