@@ -1,5 +1,6 @@
 /*
  * Copyright 2010 Jeff Garzik
+ * Copyright 2012 Luke Dashjr
  * Copyright 2012-2014 pooler
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -18,6 +19,8 @@
 #include <string.h>
 #include <stdbool.h>
 #include <inttypes.h>
+#include <limits.h>
+#include <errno.h>
 #include <unistd.h>
 #include <jansson.h>
 #include <curl/curl.h>
@@ -26,7 +29,6 @@
 #include <winsock2.h>
 #include <mstcpip.h>
 #else
-#include <errno.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -117,6 +119,57 @@ void applog(int prio, const char *fmt, ...)
 		pthread_mutex_unlock(&applog_lock);
 	}
 	va_end(ap);
+}
+
+/* Modify the representation of integer numbers which would cause an overflow
+ * so that they are treated as floating-point numbers.
+ * This is a hack to overcome the limitations of some versions of Jansson. */
+static char *hack_json_numbers(const char *in)
+{
+	char *out;
+	int i, off, intoff;
+	bool in_str, in_int;
+
+	out = calloc(2 * strlen(in) + 1, 1);
+	if (!out)
+		return NULL;
+	off = intoff = 0;
+	in_str = in_int = false;
+	for (i = 0; in[i]; i++) {
+		char c = in[i];
+		if (c == '"') {
+			in_str = !in_str;
+		} else if (c == '\\') {
+			out[off++] = c;
+			if (!in[++i])
+				break;
+		} else if (!in_str && !in_int && isdigit(c)) {
+			intoff = off;
+			in_int = true;
+		} else if (in_int && !isdigit(c)) {
+			if (c != '.' && c != 'e' && c != 'E' && c != '+' && c != '-') {
+				in_int = false;
+				if (off - intoff > 4) {
+					char *end;
+#if JSON_INTEGER_IS_LONG_LONG
+					errno = 0;
+					strtoll(out + intoff, &end, 10);
+					if (!*end && errno == ERANGE) {
+#else
+					long l;
+					errno = 0;
+					l = strtol(out + intoff, &end, 10);
+					if (!*end && (errno == ERANGE || l > INT_MAX)) {
+#endif
+						out[off++] = '.';
+						out[off++] = '0';
+					}
+				}
+			}
+		}
+		out[off++] = in[i];
+	}
+	return out;
 }
 
 static void databuf_free(struct data_buffer *db)
@@ -303,6 +356,7 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	long http_rc;
 	struct data_buffer all_data = {0};
 	struct upload_buffer upload_data;
+	char *json_buf;
 	json_error_t err;
 	struct curl_slist *headers = NULL;
 	char len_hdr[64];
@@ -375,6 +429,8 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 		if (!((flags & JSON_RPC_LONGPOLL) && rc == CURLE_OPERATION_TIMEDOUT) &&
 		    !((flags & JSON_RPC_QUIET_404) && http_rc == 404))
 			applog(LOG_ERR, "HTTP request failed: %s", curl_err_str);
+		if (curl_err && (flags & JSON_RPC_QUIET_404) && http_rc == 404)
+			*curl_err = CURLE_OK;
 		goto err_out;
 	}
 
@@ -387,7 +443,8 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	}
 
 	/* If X-Long-Polling was found, activate long polling */
-	if (!have_longpoll && want_longpoll && hi.lp_path && !have_stratum) {
+	if (!have_longpoll && want_longpoll && hi.lp_path && !have_gbt &&
+	    allow_getwork && !have_stratum) {
 		have_longpoll = true;
 		tq_push(thr_info[longpoll_thr_id].q, hi.lp_path);
 		hi.lp_path = NULL;
@@ -398,7 +455,10 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 		goto err_out;
 	}
 
-	val = JSON_LOADS(all_data.buf, &err);
+	json_buf = hack_json_numbers(all_data.buf);
+	errno = 0; /* needed for Jansson < 2.1 */
+	val = JSON_LOADS(json_buf, &err);
+	free(json_buf);
 	if (!val) {
 		applog(LOG_ERR, "JSON decode failed(%d): %s", err.line, err.text);
 		goto err_out;
@@ -410,13 +470,11 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 		free(s);
 	}
 
-	/* JSON-RPC valid response returns a non-null 'result',
-	 * and a null 'error'. */
+	/* JSON-RPC valid response returns a 'result' and a null 'error'. */
 	res_val = json_object_get(val, "result");
 	err_val = json_object_get(val, "error");
 
-	if (!res_val || json_is_null(res_val) ||
-	    (err_val && !json_is_null(err_val))) {
+	if (!res_val || (err_val && !json_is_null(err_val))) {
 		char *s;
 
 		if (err_val)
@@ -449,16 +507,19 @@ err_out:
 	return NULL;
 }
 
-char *bin2hex(const unsigned char *p, size_t len)
+void bin2hex(char *s, const unsigned char *p, size_t len)
 {
 	int i;
+	for (i = 0; i < len; i++)
+		sprintf(s + (i * 2), "%02x", (unsigned int) p[i]);
+}
+
+char *abin2hex(const unsigned char *p, size_t len)
+{
 	char *s = malloc((len * 2) + 1);
 	if (!s)
 		return NULL;
-
-	for (i = 0; i < len; i++)
-		sprintf(s + (i * 2), "%02x", (unsigned int) p[i]);
-
+	bin2hex(s, p, len);
 	return s;
 }
 
@@ -487,6 +548,139 @@ bool hex2bin(unsigned char *p, const char *hexstr, size_t len)
 	}
 
 	return (len == 0 && *hexstr == 0) ? true : false;
+}
+
+int varint_encode(unsigned char *p, uint64_t n)
+{
+	int i;
+	if (n < 0xfd) {
+		p[0] = n;
+		return 1;
+	}
+	if (n <= 0xffff) {
+		p[0] = 0xfd;
+		p[1] = n & 0xff;
+		p[2] = n >> 8;
+		return 3;
+	}
+	if (n <= 0xffffffff) {
+		p[0] = 0xfe;
+		for (i = 1; i < 5; i++) {
+			p[i] = n & 0xff;
+			n >>= 8;
+		}
+		return 5;
+	}
+	p[0] = 0xff;
+	for (i = 1; i < 9; i++) {
+		p[i] = n & 0xff;
+		n >>= 8;
+	}
+	return 9;
+}
+
+static const char b58digits[] = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+static bool b58dec(unsigned char *bin, size_t binsz, const char *b58)
+{
+	size_t i, j;
+	uint64_t t;
+	uint32_t c;
+	uint32_t *outi;
+	size_t outisz = (binsz + 3) / 4;
+	int rem = binsz % 4;
+	uint32_t remmask = 0xffffffff << (8 * rem);
+	size_t b58sz = strlen(b58);
+	bool rc = false;
+
+	outi = calloc(outisz, sizeof(*outi));
+
+	for (i = 0; i < b58sz; ++i) {
+		for (c = 0; b58digits[c] != b58[i]; c++)
+			if (!b58digits[c])
+				goto out;
+		for (j = outisz; j--; ) {
+			t = (uint64_t)outi[j] * 58 + c;
+			c = t >> 32;
+			outi[j] = t & 0xffffffff;
+		}
+		if (c || outi[0] & remmask)
+			goto out;
+	}
+
+	j = 0;
+	switch (rem) {
+		case 3:
+			*(bin++) = (outi[0] >> 16) & 0xff;
+		case 2:
+			*(bin++) = (outi[0] >> 8) & 0xff;
+		case 1:
+			*(bin++) = outi[0] & 0xff;
+			++j;
+		default:
+			break;
+	}
+	for (; j < outisz; ++j) {
+		be32enc((uint32_t *)bin, outi[j]);
+		bin += sizeof(uint32_t);
+	}
+
+	rc = true;
+out:
+	free(outi);
+	return rc;
+}
+
+static int b58check(unsigned char *bin, size_t binsz, const char *b58)
+{
+	unsigned char buf[32];
+	int i;
+
+	sha256d(buf, bin, binsz - 4);
+	if (memcmp(&bin[binsz - 4], buf, 4))
+		return -1;
+
+	/* Check number of zeros is correct AFTER verifying checksum
+	 * (to avoid possibility of accessing the string beyond the end) */
+	for (i = 0; bin[i] == '\0' && b58[i] == '1'; ++i);
+	if (bin[i] == '\0' || b58[i] == '1')
+		return -3;
+
+	return bin[0];
+}
+
+size_t address_to_script(unsigned char *out, size_t outsz, const char *addr)
+{
+	unsigned char addrbin[25];
+	int addrver;
+	size_t rv;
+
+	if (!b58dec(addrbin, sizeof(addrbin), addr))
+		return 0;
+	addrver = b58check(addrbin, sizeof(addrbin), addr);
+	if (addrver < 0)
+		return 0;
+	switch (addrver) {
+		case 5:    /* Bitcoin script hash */
+		case 196:  /* Testnet script hash */
+			if (outsz < (rv = 23))
+				return rv;
+			out[ 0] = 0xa9;  /* OP_HASH160 */
+			out[ 1] = 0x14;  /* push 20 bytes */
+			memcpy(&out[2], &addrbin[1], 20);
+			out[22] = 0x87;  /* OP_EQUAL */
+			return rv;
+		default:
+			if (outsz < (rv = 25))
+				return rv;
+			out[ 0] = 0x76;  /* OP_DUP */
+			out[ 1] = 0xa9;  /* OP_HASH160 */
+			out[ 2] = 0x14;  /* push 20 bytes */
+			memcpy(&out[3], &addrbin[1], 20);
+			out[23] = 0x88;  /* OP_EQUALVERIFY */
+			out[24] = 0xac;  /* OP_CHECKSIG */
+			return rv;
+	}
 }
 
 /* Subtract the `struct timeval' values X and Y,
@@ -534,23 +728,20 @@ bool fulltest(const uint32_t *hash, const uint32_t *target)
 
 	if (opt_debug) {
 		uint32_t hash_be[8], target_be[8];
-		char *hash_str, *target_str;
+		char hash_str[65], target_str[65];
 		
 		for (i = 0; i < 8; i++) {
 			be32enc(hash_be + i, hash[7 - i]);
 			be32enc(target_be + i, target[7 - i]);
 		}
-		hash_str = bin2hex((unsigned char *)hash_be, 32);
-		target_str = bin2hex((unsigned char *)target_be, 32);
+		bin2hex(hash_str, (unsigned char *)hash_be, 32);
+		bin2hex(target_str, (unsigned char *)target_be, 32);
 
 		applog(LOG_DEBUG, "DEBUG: %s\nHash:   %s\nTarget: %s",
 			rc ? "hash <= target"
 			   : "hash > target (false positive)",
 			hash_str,
 			target_str);
-
-		free(hash_str);
-		free(target_str);
 	}
 
 	return rc;

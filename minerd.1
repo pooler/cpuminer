@@ -1,4 +1,4 @@
-.TH MINERD 1 "February 2014" "cpuminer 2.3.3"
+.TH MINERD 1 "April 2014" "cpuminer 2.3.3"
 .SH NAME
 minerd \- CPU miner for Bitcoin and Litecoin
 .SH SYNOPSIS
@@ -7,7 +7,8 @@ minerd \- CPU miner for Bitcoin and Litecoin
 .SH DESCRIPTION
 .B minerd
 is a multi-threaded CPU miner for Bitcoin, Litecoin and other cryptocurrencies.
-It supports the getwork mining protocol as well as the Stratum mining protocol.
+It supports the getwork and getblocktemplate (BIP 22) methods,
+as well as the Stratum mining protocol.
 .PP
 In its normal mode of operation, \fBminerd\fR connects to a mining server
 (specified with the \fB\-o\fR option), receives work from it and starts hashing.
@@ -46,7 +47,8 @@ authenticating with username "rpcuser" and password "rpcpass":
 .PP
 .nf
 .RS
-minerd \-a sha256d \-o http://localhost:18332 \-O rpcuser:rpcpass
+minerd \-a sha256d \-o http://localhost:18332 \-O rpcuser:rpcpass \\
+	\-\-coinbase\-addr=mpXwg4jMtRhuSpVq4xS3HFHmCmWp9NyGKt
 .RE
 .fi
 .PP
@@ -84,6 +86,11 @@ Run in the background as a daemon.
 Set an SSL certificate to use with the mining server.
 Only supported when using the HTTPS protocol.
 .TP
+\fB\-\-coinbase\-addr\fR=\fIADDRESS\fR
+Set a payout address for solo mining.
+This is only used in getblocktemplate mode,
+and only if the server does not provide a coinbase transaction.
+.TP
 \fB\-c\fR, \fB\-\-config\fR=\fIFILE\fR
 Load options from a configuration file.
 \fIFILE\fR must contain a JSON object
@@ -106,6 +113,12 @@ Enable debug output.
 \fB\-h\fR, \fB\-\-help\fR
 Print a help message and exit.
 .TP
+\fB\-\-no\-gbt\fR
+Do not use the getblocktemplate RPC method.
+.TP
+\fB\-\-no\-getwork\fR
+Do not use the getwork RPC method.
+.TP
 \fB\-\-no\-longpoll\fR
 Do not use long polling.
 .TP
@@ -121,6 +134,12 @@ Supported schemes are \fBhttp\fR, \fBhttps\fR and \fBstratum+tcp\fR.
 If no scheme is specified, http is assumed.
 Specifying a \fIPATH\fR is only supported for HTTP and HTTPS.
 Specifying credentials has the same effect as using the \fB\-O\fR option.
+
+By default, on HTTP and HTTPS,
+the miner tries to use the getblocktemplate RPC method,
+and falls back to using getwork if getblocktemplate is unavailable.
+This behavior can be modified by using the \fB\-\-no\-gbt\fR
+and \fB\-\-no\-getwork\fR options.
 .TP
 \fB\-O\fR, \fB\-\-userpass\fR=\fIUSERNAME\fR:\fIPASSWORD\fR
 Set the credentials to use for connecting to the mining server.
