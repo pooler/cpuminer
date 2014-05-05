@@ -350,8 +350,19 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 	int tx_count, tx_size;
 	unsigned char txc_vi[9];
 	unsigned char (*merkle_tree)[32] = NULL;
+	bool submit_coinbase = false;
 	json_t *tmp, *txa;
 	bool rc = false;
+
+	tmp = json_object_get(val, "mutable");
+	if (tmp && json_is_array(tmp)) {
+		n = json_array_size(tmp);
+		for (i = 0; i < n; i++) {
+			const char *s = json_string_value(json_array_get(tmp, i));
+			if (s && !strcmp(s, "submit/coinbase"))
+				submit_coinbase = true;
+		}
+	}
 
 	tmp = json_object_get(val, "height");
 	if (!tmp || !json_is_integer(tmp)) {
@@ -487,8 +498,9 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 			free(tx);
 			goto out;
 		}
-		strcat(work->txs, tx_hex);
 		sha256d(merkle_tree[1 + i], tx, tx_size);
+		if (!submit_coinbase)
+			strcat(work->txs, tx_hex);
 	}
 	n = 1 + tx_count;
 	while (n > 1) {
