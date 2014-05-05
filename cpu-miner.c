@@ -120,7 +120,6 @@ bool have_gbt = true;
 bool allow_getwork = true;
 bool want_stratum = true;
 bool have_stratum = false;
-static bool submit_old = false;
 bool use_syslog = false;
 static bool opt_background = false;
 static bool opt_quiet = false;
@@ -186,7 +185,7 @@ Options:\n\
   -s, --scantime=N      upper bound on time spent scanning current work when\n\
                           long polling is unavailable, in seconds (default: 5)\n\
       --coinbase-addr=ADDR  payout address for solo mining\n\
-      --no-longpoll     disable X-Long-Polling support\n\
+      --no-longpoll     disable long polling support\n\
       --no-getwork      disable getwork support\n\
       --no-gbt          disable getblocktemplate support\n\
       --no-stratum      disable X-Stratum support\n\
@@ -269,6 +268,8 @@ struct work {
 static struct work g_work;
 static time_t g_work_time;
 static pthread_mutex_t g_work_lock;
+static bool submit_old = false;
+static char *lp_id;
 
 static inline void work_free(struct work *w)
 {
@@ -541,6 +542,20 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		work->workid = strdup(json_string_value(tmp));
 	}
 
+	/* Long polling */
+	tmp = json_object_get(val, "longpollid");
+	if (want_longpoll && json_is_string(tmp)) {
+		free(lp_id);
+		lp_id = strdup(json_string_value(tmp));
+		if (!have_longpoll) {
+			char *lp_uri;
+			tmp = json_object_get(val, "longpolluri");
+			lp_uri = json_is_string(tmp) ? strdup(json_string_value(tmp)) : rpc_url;
+			have_longpoll = true;
+			tq_push(thr_info[longpoll_thr_id].q, lp_uri);
+		}
+	}
+
 	rc = true;
 
 out:
@@ -690,9 +705,14 @@ out:
 static const char *getwork_req =
 	"{\"method\": \"getwork\", \"params\": [], \"id\":0}\r\n";
 
+#define GBT_CAPABILITIES "[\"coinbasetxn\", \"coinbasevalue\", \"longpoll\", \"workid\"]"
+
 static const char *gbt_req =
-	"{\"method\": \"getblocktemplate\", \"params\": [{\"capabilities\":"
-	" [\"coinbasetxn\", \"coinbasevalue\", \"workid\"]}], \"id\":0}\r\n";
+	"{\"method\": \"getblocktemplate\", \"params\": [{\"capabilities\": "
+	GBT_CAPABILITIES "}], \"id\":0}\r\n";
+static const char *gbt_lp_req =
+	"{\"method\": \"getblocktemplate\", \"params\": [{\"capabilities\": "
+	GBT_CAPABILITIES ", \"longpollid\": \"%s\"}], \"id\":0}\r\n";
 
 static bool get_upstream_work(CURL *curl, struct work *work)
 {
@@ -1170,22 +1190,35 @@ start:
 	applog(LOG_INFO, "Long-polling activated for %s", lp_url);
 
 	while (1) {
-		json_t *val, *soval;
+		json_t *val, *res, *soval;
+		char *req = NULL;
 		int err;
 
-		val = json_rpc_call(curl, lp_url, rpc_userpass, getwork_req, &err,
+		if (have_gbt) {
+			req = malloc(strlen(gbt_lp_req) + strlen(lp_id) + 1);
+			sprintf(req, gbt_lp_req, lp_id);
+		}
+		val = json_rpc_call(curl, lp_url, rpc_userpass,
+				    req ? req : getwork_req, &err,
 				    JSON_RPC_LONGPOLL);
+		free(req);
 		if (have_stratum) {
 			if (val)
 				json_decref(val);
 			goto out;
 		}
 		if (likely(val)) {
+			bool rc;
 			applog(LOG_INFO, "LONGPOLL detected new block");
-			soval = json_object_get(json_object_get(val, "result"), "submitold");
+			res = json_object_get(val, "result");
+			soval = json_object_get(res, "submitold");
 			submit_old = soval ? json_is_true(soval) : false;
 			pthread_mutex_lock(&g_work_lock);
-			if (work_decode(json_object_get(val, "result"), &g_work)) {
+			if (have_gbt)
+				rc = gbt_work_decode(res, &g_work);
+			else
+				rc = work_decode(res, &g_work);
+			if (rc) {
 				if (opt_debug)
 					applog(LOG_DEBUG, "DEBUG: got new work");
 				time(&g_work_time);

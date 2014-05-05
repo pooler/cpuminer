@@ -14,8 +14,8 @@ In its normal mode of operation, \fBminerd\fR connects to a mining server
 (specified with the \fB\-o\fR option), receives work from it and starts hashing.
 As soon as a solution is found, it is submitted to the same mining server,
 which can accept or reject it.
-When using the getwork protocol, \fBminerd\fR can take advantage
-of the long polling extension, if the server supports it;
+When using getwork or getblocktemplate,
+\fBminerd\fR can take advantage of long polling, if the server supports it;
 in any case, fresh work is fetched as needed.
 When using the Stratum protocol this is not possible,
 and the server is responsible for sending fresh work at least every minute;
