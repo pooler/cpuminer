@@ -1209,7 +1209,7 @@ start:
 		}
 		if (likely(val)) {
 			bool rc;
-			applog(LOG_INFO, "LONGPOLL detected new block");
+			applog(LOG_INFO, "LONGPOLL pushed new work");
 			res = json_object_get(val, "result");
 			soval = json_object_get(res, "submitold");
 			submit_old = soval ? json_is_true(soval) : false;
@@ -1219,8 +1219,6 @@ start:
 			else
 				rc = work_decode(res, &g_work);
 			if (rc) {
-				if (opt_debug)
-					applog(LOG_DEBUG, "DEBUG: got new work");
 				time(&g_work_time);
 				restart_threads();
 			}
@@ -1324,7 +1322,7 @@ static void *stratum_thread(void *userdata)
 			time(&g_work_time);
 			pthread_mutex_unlock(&g_work_lock);
 			if (stratum.job.clean) {
-				applog(LOG_INFO, "Stratum detected new block");
+				applog(LOG_INFO, "Stratum requested work restart");
 				restart_threads();
 			}
 		}
