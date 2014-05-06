@@ -1784,6 +1784,8 @@ int main(int argc, char *argv[])
 		sprintf(rpc_userpass, "%s:%s", rpc_user, rpc_pass);
 	}
 
+	if (opt_algo==ALGO_X) init_Xhash_contexts();
+
 	pthread_mutex_init(&applog_lock, NULL);
 	pthread_mutex_init(&stats_lock, NULL);
 	pthread_mutex_init(&g_work_lock, NULL);
