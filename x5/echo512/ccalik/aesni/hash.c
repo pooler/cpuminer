@@ -16,10 +16,12 @@
  */
 
 #include <memory.h>
+#include "cpuminer-config.h"
 #include "hash_api.h"
 #include "vperm.h"
+
 //define in hash_api or defs_x5.h
-#ifdef AES_NI
+#if HAVE_AES_NI
 #include <wmmintrin.h>
 #else
 #include <tmmintrin.h>
@@ -107,7 +109,7 @@ void DumpState(__m128i *ps)
 
 
 
-#ifdef AES_NI
+#if HAVE_AES_NI
 #define ECHO_SUBBYTES(state, i, j) \
 				state[i][j] = _mm_aesenc_si128(state[i][j], k1);\
 				state[i][j] = _mm_aesenc_si128(state[i][j], M128(zero));\
@@ -254,7 +256,7 @@ void Compress(hashState_echo *ctx, const unsigned char *pmsg, unsigned int uBloc
 			_state[i][j] = ctx->state[i][j];
 
 
-#ifndef AES_NI
+#if HAVE_AES_NI
 	// transform cv
 	for(i = 0; i < 4; i++)
 		for(j = 0; j < ctx->uHashSize / 256; j++)
@@ -274,7 +276,7 @@ void Compress(hashState_echo *ctx, const unsigned char *pmsg, unsigned int uBloc
 			{
 				_state[i][j] = _mm_loadu_si128((__m128i*)pmsg + 4 * (j - (ctx->uHashSize / 256)) + i);
 
-#ifndef AES_NI
+#if HAVE_AES_NI
 				// transform message
 				TRANSFORM(_state[i][j], _k_ipt, t1, t2);
 #endif
@@ -287,7 +289,7 @@ void Compress(hashState_echo *ctx, const unsigned char *pmsg, unsigned int uBloc
 
 		k1 = ctx->k;
 
-#ifdef AES_NI
+#if HAVE_AES_NI
 		for(r = 0; r < ctx->uRounds / 2; r++)
 		{
 			ECHO_ROUND_UNROLL2;
@@ -376,7 +378,7 @@ void Compress(hashState_echo *ctx, const unsigned char *pmsg, unsigned int uBloc
 		pmsg += ctx->uBlockLength;
 	}
 
-#ifndef AES_NI
+#if HAVE_AES_NI
 	// transform state
 	for(i = 0; i < 4; i++)
 		for(j = 0; j < 4; j++)
