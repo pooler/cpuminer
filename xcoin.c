@@ -15,10 +15,8 @@
 #include "x5/vect128/nist.h"
 //-----------
 
-#define AES_NI
+#if HAVE_AES_NI
 #define AES_NI_GR
-
-#ifdef AES_NI
 #include "x5/echo512/ccalik/aesni/hash_api.h"
 #else
 #include "x5/sph_echo.h"
@@ -54,7 +52,7 @@
 #define DATA_ALIGNXY(x,y) __declspec(align(y)) x
 #endif
 
-#ifdef AES_NI
+#if HAVE_AES_NI
 #ifdef AES_NI_GR
 typedef struct {
 	sph_shavite512_context  shavite1;
@@ -81,7 +79,6 @@ typedef struct {
 	hashState_luffa	luffa;
 	cubehashParam	cubehash;
 	hashState_sd ctx_simd1;
-	hashState_groestl groestl;
 //	hashState_blake	blake1;
 } Xhash_context_holder;
 #endif
@@ -98,7 +95,7 @@ void init_Xhash_contexts(){
 	//-------
 	sph_shavite512_init(&base_contexts.shavite1);
 	//---echo sphlib or AESNI-----------
-	#ifdef AES_NI
+	#if HAVE_AES_NI
   	init_echo(&base_contexts.echo1, 512);
 	#else
 	sph_echo512_init(&base_contexts.echo1);
@@ -195,7 +192,7 @@ inline void Xhash(void *state, const void *input)
 	update_sd(&ctx.ctx_simd1,(const BitSequence *)hash+64,512);
 	final_sd(&ctx.ctx_simd1,(BitSequence *)hash);
 	//---echo---
-	#ifdef AES_NI
+	#if HAVE_AES_NI
 	update_echo (&ctx.echo1,(const BitSequence *) hash, 512);
 	final_echo(&ctx.echo1, (BitSequence *) hash+64);
 	#else

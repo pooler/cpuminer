@@ -89,6 +89,18 @@ then
   )
 fi
 
+AC_MSG_CHECKING(whether we can compile AES_NI code)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([#include<wmmintrin.h>], [ __m128i a, k; __m128i res = _mm_aesenc_si128( a, k);] )],
+   AC_DEFINE(HAVE_AES_NI, 1, [Define to 1 if AES_NI assembly is available.])
+   have_aes_ni=true
+   AC_MSG_RESULT(yes)
+   ,
+   AC_MSG_RESULT(no)
+   have_aes_ni=false
+   AC_MSG_WARN([The assembler does not support the AES-NI instruction set.])
+)
+
+
 AC_CHECK_LIB(jansson, json_loads, request_jansson=false, request_jansson=true)
 AC_CHECK_LIB([pthread], [pthread_create], PTHREAD_LIBS="-lpthread",
   AC_CHECK_LIB([pthreadGC2], [pthread_create], PTHREAD_LIBS="-lpthreadGC2",
@@ -101,6 +113,7 @@ AM_CONDITIONAL([HAVE_WINDOWS], [test x$have_win32 = xtrue])
 AM_CONDITIONAL([ARCH_x86], [test x$have_x86 = xtrue])
 AM_CONDITIONAL([ARCH_x86_64], [test x$have_x86_64 = xtrue])
 AM_CONDITIONAL([ARCH_ARM], [test x$have_arm = xtrue])
+AM_CONDITIONAL([HAVE_AES_NI], [test x$have_aes_ni = xtrue])
 
 if test x$request_jansson = xtrue
 then
