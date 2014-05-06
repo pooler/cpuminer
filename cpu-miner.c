@@ -352,6 +352,8 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 	unsigned char txc_vi[9];
 	unsigned char (*merkle_tree)[32] = NULL;
 	bool submit_coinbase = false;
+	bool version_force = false;
+	bool version_reduce = false;
 	json_t *tmp, *txa;
 	bool rc = false;
 
@@ -360,8 +362,14 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		n = json_array_size(tmp);
 		for (i = 0; i < n; i++) {
 			const char *s = json_string_value(json_array_get(tmp, i));
-			if (s && !strcmp(s, "submit/coinbase"))
+			if (!s)
+				continue;
+			if (!strcmp(s, "submit/coinbase"))
 				submit_coinbase = true;
+			else if (!strcmp(s, "version/force"))
+				version_force = true;
+			else if (!strcmp(s, "version/reduce"))
+				version_reduce = true;
 		}
 	}
 
@@ -378,16 +386,27 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		goto out;
 	}
 	version = json_integer_value(tmp);
+	if (version > 2) {
+		if (version_reduce) {
+			version = 2;
+		} else if (!version_force) {
+			applog(LOG_ERR, "Unrecognized block version: %u", version);
+			goto out;
+		}
+	}
+
 	if (unlikely(!jobj_binary(val, "previousblockhash", prevhash, sizeof(prevhash)))) {
 		applog(LOG_ERR, "JSON invalid previousblockhash");
 		goto out;
 	}
+
 	tmp = json_object_get(val, "curtime");
 	if (!tmp || !json_is_integer(tmp)) {
 		applog(LOG_ERR, "JSON invalid curtime");
 		goto out;
 	}
 	curtime = json_integer_value(tmp);
+
 	if (unlikely(!jobj_binary(val, "bits", &bits, sizeof(bits)))) {
 		applog(LOG_ERR, "JSON invalid bits");
 		goto out;
