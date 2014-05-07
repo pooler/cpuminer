@@ -137,6 +137,7 @@ static char *rpc_userpass;
 static char *rpc_user, *rpc_pass;
 static int pk_script_size;
 static unsigned char pk_script[25];
+static char coinbase_sig[101] = "";
 char *opt_cert;
 char *opt_proxy;
 long opt_proxy_type;
@@ -185,6 +186,7 @@ Options:\n\
   -s, --scantime=N      upper bound on time spent scanning current work when\n\
                           long polling is unavailable, in seconds (default: 5)\n\
       --coinbase-addr=ADDR  payout address for solo mining\n\
+      --coinbase-sig=TEXT  data to insert in the coinbase when possible\n\
       --no-longpoll     disable long polling support\n\
       --no-getwork      disable getwork support\n\
       --no-gbt          disable getblocktemplate support\n\
@@ -225,6 +227,7 @@ static struct option const options[] = {
 	{ "benchmark", 0, NULL, 1005 },
 	{ "cert", 1, NULL, 1001 },
 	{ "coinbase-addr", 1, NULL, 1013 },
+	{ "coinbase-sig", 1, NULL, 1015 },
 	{ "config", 1, NULL, 'c' },
 	{ "debug", 0, NULL, 'D' },
 	{ "help", 0, NULL, 'h' },
@@ -351,6 +354,7 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 	int tx_count, tx_size;
 	unsigned char txc_vi[9];
 	unsigned char (*merkle_tree)[32] = NULL;
+	bool coinbase_append = false;
 	bool submit_coinbase = false;
 	bool version_force = false;
 	bool version_reduce = false;
@@ -364,7 +368,9 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 			const char *s = json_string_value(json_array_get(tmp, i));
 			if (!s)
 				continue;
-			if (!strcmp(s, "submit/coinbase"))
+			if (!strcmp(s, "coinbase/append"))
+				coinbase_append = true;
+			else if (!strcmp(s, "submit/coinbase"))
 				submit_coinbase = true;
 			else if (!strcmp(s, "version/force"))
 				version_force = true;
@@ -435,12 +441,13 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 	if (tmp) {
 		const char *cbtx_hex = json_string_value(json_object_get(tmp, "data"));
 		cbtx_size = cbtx_hex ? strlen(cbtx_hex) / 2 : 0;
-		cbtx = malloc(cbtx_size);
-		if (!cbtx_hex || !hex2bin(cbtx, cbtx_hex, cbtx_size)) {
+		cbtx = malloc(cbtx_size + 100);
+		if (cbtx_size < 60 || !hex2bin(cbtx, cbtx_hex, cbtx_size)) {
 			applog(LOG_ERR, "JSON invalid coinbasetxn");
 			goto out;
 		}
 	} else {
+		int64_t cbvalue;
 		if (!pk_script_size) {
 			applog(LOG_ERR, "No payout address provided");
 			goto out;
@@ -450,43 +457,18 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 			applog(LOG_ERR, "JSON invalid coinbasevalue");
 			goto out;
 		}
-		int64_t cbvalue = json_is_integer(tmp) ? json_integer_value(tmp) : json_number_value(tmp);
+		cbvalue = json_is_integer(tmp) ? json_integer_value(tmp) : json_number_value(tmp);
 		cbtx = malloc(256);
 		le32enc((uint32_t *)cbtx, 1); /* version */
 		cbtx[4] = 1; /* in-counter */
 		memset(cbtx+5, 0x00, 32); /* prev txout hash */
 		le32enc((uint32_t *)(cbtx+37), 0xffffffff); /* prev txout index */
+		cbtx_size = 43;
 		/* BIP 34: height in coinbase */
-		int h = work->height;
-		for (i = 0; h; i++) {
-			cbtx[43 + i] = h & 0xff;
-			h >>= 8;
-		}
-		cbtx[42] = i;
-		cbtx_size = 43 + i;
-		tmp = json_object_get(val, "coinbaseaux");
-		if (tmp && json_is_object(tmp)) {
-			void *iter = json_object_iter(tmp);
-			while (iter) {
-				unsigned char buf[100];
-				const char *s = json_string_value(json_object_iter_value(iter));
-				n = s ? strlen(s) / 2 : 0;
-				if (!s || n > 100 || !hex2bin(buf, s, n)) {
-					applog(LOG_ERR, "JSON invalid coinbaseaux");
-					break;
-				}
-				if (cbtx_size - 42 + (n > 75 ? 2 : 1) + n <= 100) {
-					if (n > 75)
-						cbtx[cbtx_size++] = 0x4c; /* OP_PUSHDATA1 */
-					cbtx[cbtx_size++] = n;
-					memcpy(cbtx+cbtx_size, buf, n);
-					cbtx_size += n;
-				}
-				iter = json_object_iter_next(tmp, iter);
-			}
-			
-		}
-		cbtx[41] = cbtx_size - 42; /* txin-script length */
+		for (n = work->height; n; n >>= 8)
+			cbtx[cbtx_size++] = n & 0xff;
+		cbtx[42] = cbtx_size - 43;
+		cbtx[41] = cbtx_size - 42; /* scriptsig length */
 		le32enc((uint32_t *)(cbtx+cbtx_size), 0xffffffff); /* sequence */
 		cbtx_size += 4;
 		cbtx[cbtx_size++] = 1; /* out-counter */
@@ -498,6 +480,52 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		cbtx_size += pk_script_size;
 		le32enc((uint32_t *)(cbtx+cbtx_size), 0); /* lock time */
 		cbtx_size += 4;
+		coinbase_append = true;
+	}
+	if (coinbase_append) {
+		unsigned char xsig[100];
+		int xsig_len = 0;
+		if (*coinbase_sig) {
+			n = strlen(coinbase_sig);
+			if (cbtx[41] + xsig_len + n <= 100) {
+				memcpy(xsig+xsig_len, coinbase_sig, n);
+				xsig_len += n;
+			} else {
+				applog(LOG_WARNING, "Signature does not fit in coinbase, skipping");
+			}
+		}
+		tmp = json_object_get(val, "coinbaseaux");
+		if (tmp && json_is_object(tmp)) {
+			void *iter = json_object_iter(tmp);
+			while (iter) {
+				unsigned char buf[100];
+				const char *s = json_string_value(json_object_iter_value(iter));
+				n = s ? strlen(s) / 2 : 0;
+				if (!s || n > 100 || !hex2bin(buf, s, n)) {
+					applog(LOG_ERR, "JSON invalid coinbaseaux");
+					break;
+				}
+				if (cbtx[41] + xsig_len + n <= 100) {
+					memcpy(xsig+xsig_len, buf, n);
+					xsig_len += n;
+				}
+				iter = json_object_iter_next(tmp, iter);
+			}
+		}
+		if (xsig_len) {
+			unsigned char *ssig_end = cbtx + 42 + cbtx[41];
+			int push_len = cbtx[41] + xsig_len < 76 ? 1 :
+			               cbtx[41] + 2 + xsig_len > 100 ? 0 : 2;
+			n = xsig_len + push_len;
+			memmove(ssig_end + n, ssig_end, cbtx_size - 42 - cbtx[41]);
+			cbtx[41] += n;
+			if (push_len == 2)
+				*(ssig_end++) = 0x4c; /* OP_PUSHDATA1 */
+			if (push_len)
+				*(ssig_end++) = xsig_len;
+			memcpy(ssig_end, xsig, xsig_len);
+			cbtx_size += n;
+		}
 	}
 
 	n = varint_encode(txc_vi, 1 + tx_count);
@@ -1596,6 +1624,11 @@ static void parse_arg (int key, char *arg)
 		pk_script_size = address_to_script(pk_script, sizeof(pk_script), arg);
 		if (!pk_script_size)
 			show_usage_and_exit(1);
+		break;
+	case 1015:			/* --coinbase-sig */
+		if (strlen(arg) + 1 > sizeof(coinbase_sig))
+			show_usage_and_exit(1);
+		strcpy(coinbase_sig, arg);
 		break;
 	case 'S':
 		use_syslog = true;
