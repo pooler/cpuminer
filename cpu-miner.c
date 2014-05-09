@@ -1448,7 +1448,7 @@ static void show_usage_and_exit(int status)
 	exit(status);
 }
 
-static void parse_arg (int key, char *arg)
+static void parse_arg(int key, char *arg, char *pname)
 {
 	char *p;
 	int v, i;
@@ -1462,8 +1462,11 @@ static void parse_arg (int key, char *arg)
 				break;
 			}
 		}
-		if (i == ARRAY_SIZE(algo_names))
+		if (i == ARRAY_SIZE(algo_names)) {
+			fprintf(stderr, "%s: unknown algorithm -- '%s'\n",
+				pname, arg);
 			show_usage_and_exit(1);
+		}
 		break;
 	case 'B':
 		opt_background = true;
@@ -1478,7 +1481,11 @@ static void parse_arg (int key, char *arg)
 		opt_config = json_load_file(arg, &err);
 #endif
 		if (!json_is_object(opt_config)) {
-			applog(LOG_ERR, "JSON decode of %s failed", arg);
+			if (err.line < 0)
+				fprintf(stderr, "%s: %s\n", pname, err.text);
+			else
+				fprintf(stderr, "%s: %s:%d: %s\n",
+					pname, arg, err.line, err.text);
 			exit(1);
 		}
 		break;
@@ -1533,14 +1540,21 @@ static void parse_arg (int key, char *arg)
 	case 'o':			/* --url */
 		p = strstr(arg, "://");
 		if (p) {
-			if (strncasecmp(arg, "http://", 7) && strncasecmp(arg, "https://", 8) &&
-					strncasecmp(arg, "stratum+tcp://", 14))
+			if (strncasecmp(arg, "http://", 7) &&
+			    strncasecmp(arg, "https://", 8) &&
+			    strncasecmp(arg, "stratum+tcp://", 14)) {
+				fprintf(stderr, "%s: unknown protocol -- '%s'\n",
+					pname, arg);
 				show_usage_and_exit(1);
+			}
 			free(rpc_url);
 			rpc_url = strdup(arg);
 		} else {
-			if (!strlen(arg) || *arg == '/')
+			if (!strlen(arg) || *arg == '/') {
+				fprintf(stderr, "%s: invalid URL -- '%s'\n",
+					pname, arg);
 				show_usage_and_exit(1);
+			}
 			free(rpc_url);
 			rpc_url = malloc(strlen(arg) + 8);
 			sprintf(rpc_url, "http://%s", arg);
@@ -1569,8 +1583,11 @@ static void parse_arg (int key, char *arg)
 		break;
 	case 'O':			/* --userpass */
 		p = strchr(arg, ':');
-		if (!p)
+		if (!p) {
+			fprintf(stderr, "%s: invalid username:password pair -- '%s'\n",
+				pname, arg);
 			show_usage_and_exit(1);
+		}
 		free(rpc_userpass);
 		rpc_userpass = strdup(arg);
 		free(rpc_user);
@@ -1622,12 +1639,17 @@ static void parse_arg (int key, char *arg)
 		break;
 	case 1013:			/* --coinbase-addr */
 		pk_script_size = address_to_script(pk_script, sizeof(pk_script), arg);
-		if (!pk_script_size)
+		if (!pk_script_size) {
+			fprintf(stderr, "%s: invalid address -- '%s'\n",
+				pname, arg);
 			show_usage_and_exit(1);
+		}
 		break;
 	case 1015:			/* --coinbase-sig */
-		if (strlen(arg) + 1 > sizeof(coinbase_sig))
+		if (strlen(arg) + 1 > sizeof(coinbase_sig)) {
+			fprintf(stderr, "%s: coinbase signature too long\n", pname);
 			show_usage_and_exit(1);
+		}
 		strcpy(coinbase_sig, arg);
 		break;
 	case 'S':
@@ -1642,7 +1664,7 @@ static void parse_arg (int key, char *arg)
 	}
 }
 
-static void parse_config(void)
+static void parse_config(char *pname)
 {
 	int i;
 	json_t *val;
@@ -1664,13 +1686,15 @@ static void parse_config(void)
 			char *s = strdup(json_string_value(val));
 			if (!s)
 				break;
-			parse_arg(options[i].val, s);
+			parse_arg(options[i].val, s, pname);
 			free(s);
 		} else if (!options[i].has_arg && json_is_true(val))
-			parse_arg(options[i].val, "");
-		else
-			applog(LOG_ERR, "JSON option %s invalid",
-				options[i].name);
+			parse_arg(options[i].val, "", pname);
+		else {
+			fprintf(stderr, "%s: invalid argument for option '%s'\n",
+				pname, options[i].name);
+			exit(1);
+		}
 	}
 }
 
@@ -1687,15 +1711,15 @@ static void parse_cmdline(int argc, char *argv[])
 		if (key < 0)
 			break;
 
-		parse_arg(key, optarg);
+		parse_arg(key, optarg, argv[0]);
 	}
 	if (optind < argc) {
-		fprintf(stderr, "%s: unsupported non-option argument '%s'\n",
+		fprintf(stderr, "%s: unsupported non-option argument -- '%s'\n",
 			argv[0], argv[optind]);
 		show_usage_and_exit(1);
 	}
 
-	parse_config();
+	parse_config(argv[0]);
 }
 
 #ifndef WIN32
