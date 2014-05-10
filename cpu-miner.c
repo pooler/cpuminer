@@ -1447,6 +1447,12 @@ static void show_usage_and_exit(int status)
 	exit(status);
 }
 
+static void strhide(char *s)
+{
+	if (*s) *s++ = 'x';
+	while (*s) *s++ = '\0';
+}
+
 static void parse_config(json_t *config, char *pname, char *ref);
 
 static void parse_arg(int key, char *arg, char *pname)
@@ -1496,6 +1502,7 @@ static void parse_arg(int key, char *arg, char *pname)
 	case 'p':
 		free(rpc_pass);
 		rpc_pass = strdup(arg);
+		strhide(arg);
 		break;
 	case 'P':
 		opt_protocol = true;
@@ -1534,9 +1541,35 @@ static void parse_arg(int key, char *arg, char *pname)
 		free(rpc_user);
 		rpc_user = strdup(arg);
 		break;
-	case 'o':			/* --url */
-		p = strstr(arg, "://");
-		if (p) {
+	case 'o': {			/* --url */
+		char *ap, *hp;
+		ap = strstr(arg, "://");
+		ap = ap ? ap + 3 : arg;
+		hp = strrchr(arg, '@');
+		if (hp) {
+			*hp = '\0';
+			p = strchr(ap, ':');
+			if (p) {
+				free(rpc_userpass);
+				rpc_userpass = strdup(ap);
+				free(rpc_user);
+				rpc_user = calloc(p - ap + 1, 1);
+				strncpy(rpc_user, ap, p - ap);
+				free(rpc_pass);
+				rpc_pass = strdup(++p);
+				if (*p) *p++ = 'x';
+				v = strlen(hp + 1) + 1;
+				memmove(p + 1, hp + 1, v);
+				memset(p + v, 0, hp - p);
+				hp = p;
+			} else {
+				free(rpc_user);
+				rpc_user = strdup(ap);
+			}
+			*hp++ = '@';
+		} else
+			hp = ap;
+		if (ap != arg) {
 			if (strncasecmp(arg, "http://", 7) &&
 			    strncasecmp(arg, "https://", 8) &&
 			    strncasecmp(arg, "stratum+tcp://", 14)) {
@@ -1546,38 +1579,20 @@ static void parse_arg(int key, char *arg, char *pname)
 			}
 			free(rpc_url);
 			rpc_url = strdup(arg);
+			strcpy(rpc_url + (ap - arg), hp);
 		} else {
-			if (!strlen(arg) || *arg == '/') {
+			if (*hp == '\0' || *hp == '/') {
 				fprintf(stderr, "%s: invalid URL -- '%s'\n",
 					pname, arg);
 				show_usage_and_exit(1);
 			}
 			free(rpc_url);
-			rpc_url = malloc(strlen(arg) + 8);
-			sprintf(rpc_url, "http://%s", arg);
-		}
-		p = strrchr(rpc_url, '@');
-		if (p) {
-			char *sp, *ap;
-			*p = '\0';
-			ap = strstr(rpc_url, "://") + 3;
-			sp = strchr(ap, ':');
-			if (sp) {
-				free(rpc_userpass);
-				rpc_userpass = strdup(ap);
-				free(rpc_user);
-				rpc_user = calloc(sp - ap + 1, 1);
-				strncpy(rpc_user, ap, sp - ap);
-				free(rpc_pass);
-				rpc_pass = strdup(sp + 1);
-			} else {
-				free(rpc_user);
-				rpc_user = strdup(ap);
-			}
-			memmove(ap, p + 1, strlen(p + 1) + 1);
+			rpc_url = malloc(strlen(hp) + 8);
+			sprintf(rpc_url, "http://%s", hp);
 		}
 		have_stratum = !opt_benchmark && !strncasecmp(rpc_url, "stratum", 7);
 		break;
+	}
 	case 'O':			/* --userpass */
 		p = strchr(arg, ':');
 		if (!p) {
@@ -1591,7 +1606,8 @@ static void parse_arg(int key, char *arg, char *pname)
 		rpc_user = calloc(p - arg + 1, 1);
 		strncpy(rpc_user, arg, p - arg);
 		free(rpc_pass);
-		rpc_pass = strdup(p + 1);
+		rpc_pass = strdup(++p);
+		strhide(p);
 		break;
 	case 'x':			/* --proxy */
 		if (!strncasecmp(arg, "socks4://", 9))
