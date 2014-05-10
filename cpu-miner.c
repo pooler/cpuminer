@@ -127,7 +127,6 @@ static int opt_retries = -1;
 static int opt_fail_pause = 30;
 int opt_timeout = 0;
 static int opt_scantime = 5;
-static json_t *opt_config;
 static const bool opt_time = true;
 static enum sha256_algos opt_algo = ALGO_SCRYPT;
 static int opt_n_threads;
@@ -1448,6 +1447,8 @@ static void show_usage_and_exit(int status)
 	exit(status);
 }
 
+static void parse_config(json_t *config, char *pname, char *ref);
+
 static void parse_arg(int key, char *arg, char *pname)
 {
 	char *p;
@@ -1473,14 +1474,8 @@ static void parse_arg(int key, char *arg, char *pname)
 		break;
 	case 'c': {
 		json_error_t err;
-		if (opt_config)
-			json_decref(opt_config);
-#if JANSSON_VERSION_HEX >= 0x020000
-		opt_config = json_load_file(arg, 0, &err);
-#else
-		opt_config = json_load_file(arg, &err);
-#endif
-		if (!json_is_object(opt_config)) {
+		json_t *config = JSON_LOAD_FILE(arg, &err);
+		if (!json_is_object(config)) {
 			if (err.line < 0)
 				fprintf(stderr, "%s: %s\n", pname, err.text);
 			else
@@ -1488,6 +1483,8 @@ static void parse_arg(int key, char *arg, char *pname)
 					pname, arg, err.line, err.text);
 			exit(1);
 		}
+		parse_config(config, pname, arg);
+		json_decref(config);
 		break;
 	}
 	case 'q':
@@ -1664,33 +1661,34 @@ static void parse_arg(int key, char *arg, char *pname)
 	}
 }
 
-static void parse_config(char *pname)
+static void parse_config(json_t *config, char *pname, char *ref)
 {
 	int i;
+	char *s;
 	json_t *val;
-
-	if (!json_is_object(opt_config))
-		return;
 
 	for (i = 0; i < ARRAY_SIZE(options); i++) {
 		if (!options[i].name)
 			break;
-		if (!strcmp(options[i].name, "config"))
-			continue;
 
-		val = json_object_get(opt_config, options[i].name);
+		val = json_object_get(config, options[i].name);
 		if (!val)
 			continue;
 
 		if (options[i].has_arg && json_is_string(val)) {
-			char *s = strdup(json_string_value(val));
+			if (!strcmp(options[i].name, "config")) {
+				fprintf(stderr, "%s: %s: option '%s' not allowed here\n",
+					pname, ref, options[i].name);
+				exit(1);
+			}
+			s = strdup(json_string_value(val));
 			if (!s)
 				break;
 			parse_arg(options[i].val, s, pname);
 			free(s);
-		} else if (!options[i].has_arg && json_is_true(val))
+		} else if (!options[i].has_arg && json_is_true(val)) {
 			parse_arg(options[i].val, "", pname);
-		else {
+		} else {
 			fprintf(stderr, "%s: invalid argument for option '%s'\n",
 				pname, options[i].name);
 			exit(1);
@@ -1718,8 +1716,6 @@ static void parse_cmdline(int argc, char *argv[])
 			argv[0], argv[optind]);
 		show_usage_and_exit(1);
 	}
-
-	parse_config(argv[0]);
 }
 
 #ifndef WIN32
