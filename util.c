@@ -1417,7 +1417,7 @@ void tq_free(struct thread_q *tq)
 	if (!tq)
 		return;
 
-	list_for_each_entry_safe(ent, iter, &tq->q, q_node) {
+	list_for_each_entry_safe(ent, iter, &tq->q, q_node, struct tq_ent) {
 		list_del(&ent->q_node);
 		free(ent);
 	}

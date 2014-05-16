@@ -215,11 +215,12 @@ static inline void list_splice_init(struct list_head *list,
  * @pos:	the type * to use as a loop counter.
  * @head:	the head for your list.
  * @member:	the name of the list_struct within the struct.
+ * @type:	the type of the struct.
  */
-#define list_for_each_entry(pos, head, member)				\
-	for (pos = list_entry((head)->next, typeof(*pos), member);	\
+#define list_for_each_entry(pos, head, member, type)			\
+	for (pos = list_entry((head)->next, type, member);	\
 	     &pos->member != (head); 					\
-	     pos = list_entry(pos->member.next, typeof(*pos), member))
+	     pos = list_entry(pos->member.next, type, member))
 
 /**
  * list_for_each_entry_safe - iterate over list of given type safe against removal of list entry
@@ -227,12 +228,13 @@ static inline void list_splice_init(struct list_head *list,
  * @n:		another type * to use as temporary storage
  * @head:	the head for your list.
  * @member:	the name of the list_struct within the struct.
+ * @type:	the type of the struct.
  */
-#define list_for_each_entry_safe(pos, n, head, member)			\
-	for (pos = list_entry((head)->next, typeof(*pos), member),	\
-		n = list_entry(pos->member.next, typeof(*pos), member);	\
+#define list_for_each_entry_safe(pos, n, head, member, type)		\
+	for (pos = list_entry((head)->next, type, member),	\
+		n = list_entry(pos->member.next, type, member);	\
 	     &pos->member != (head); 					\
-	     pos = n, n = list_entry(n->member.next, typeof(*n), member))
+	     pos = n, n = list_entry(n->member.next, type, member))
 
 /**
  * list_for_each_entry_continue -       iterate over list of given type
@@ -240,12 +242,13 @@ static inline void list_splice_init(struct list_head *list,
  * @pos:        the type * to use as a loop counter.
  * @head:       the head for your list.
  * @member:     the name of the list_struct within the struct.
+ * @type:       the type of the struct.
  */
-#define list_for_each_entry_continue(pos, head, member)			\
-	for (pos = list_entry(pos->member.next, typeof(*pos), member),	\
+#define list_for_each_entry_continue(pos, head, member, type)		\
+	for (pos = list_entry(pos->member.next, type, member),	\
 		     prefetch(pos->member.next);			\
 	     &pos->member != (head);					\
-	     pos = list_entry(pos->member.next, typeof(*pos), member),	\
+	     pos = list_entry(pos->member.next, type, member),	\
 		     prefetch(pos->member.next))
 
 #endif
