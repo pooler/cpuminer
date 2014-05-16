@@ -9,7 +9,7 @@
 
 #include "cpuminer-config.h"
 
-#if defined(__arm__) && defined(__APCS_32__)
+#if defined(USE_ASM) && defined(__arm__) && defined(__APCS_32__)
 
 .macro sha256_k
 	.align 2

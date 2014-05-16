@@ -378,7 +378,7 @@ static inline void PBKDF2_SHA256_128_32_8way(uint32_t *tstate,
 #endif /* HAVE_SHA256_8WAY */
 
 
-#if defined(__x86_64__)
+#if defined(USE_ASM) && defined(__x86_64__)
 
 #define SCRYPT_MAX_WAYS 12
 #define HAVE_SCRYPT_3WAY 1
@@ -392,13 +392,13 @@ void scrypt_core_3way(uint32_t *X, uint32_t *V);
 void scrypt_core_6way(uint32_t *X, uint32_t *V);
 #endif
 
-#elif defined(__i386__)
+#elif defined(USE_ASM) && defined(__i386__)
 
 #define SCRYPT_MAX_WAYS 4
 #define scrypt_best_throughput() 1
 void scrypt_core(uint32_t *X, uint32_t *V);
 
-#elif defined(__arm__) && defined(__APCS_32__)
+#elif defined(USE_ASM) && defined(__arm__) && defined(__APCS_32__)
 
 void scrypt_core(uint32_t *X, uint32_t *V);
 #if defined(__ARM_NEON__)

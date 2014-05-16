@@ -1395,13 +1395,13 @@ out:
 static void show_version_and_exit(void)
 {
 	printf(PACKAGE_STRING "\n built on " __DATE__ "\n features:"
-#if defined(__i386__)
+#if defined(USE_ASM) && defined(__i386__)
 		" i386"
 #endif
-#if defined(__x86_64__)
+#if defined(USE_ASM) && defined(__x86_64__)
 		" x86_64"
 #endif
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(USE_ASM) && (defined(__i386__) || defined(__x86_64__))
 		" SSE2"
 #endif
 #if defined(__x86_64__) && defined(USE_AVX)
@@ -1413,7 +1413,7 @@ static void show_version_and_exit(void)
 #if defined(__x86_64__) && defined(USE_XOP)
 		" XOP"
 #endif
-#if defined(__arm__) && defined(__APCS_32__)
+#if defined(USE_ASM) && defined(__arm__) && defined(__APCS_32__)
 		" ARM"
 #if defined(__ARM_ARCH_5E__) || defined(__ARM_ARCH_5TE__) || \
 	defined(__ARM_ARCH_5TEJ__) || defined(__ARM_ARCH_6__) || \

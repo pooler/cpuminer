@@ -30,7 +30,7 @@
 	.section .note.GNU-stack,"",%progbits
 #endif
 
-#if defined(__i386__)
+#if defined(USE_ASM) && defined(__i386__)
 	
 .macro scrypt_shuffle src, so, dest, do
 	movl	\so+60(\src), %eax
