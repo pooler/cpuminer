@@ -86,7 +86,7 @@ typedef struct {
 Xhash_context_holder base_contexts;
 
 
-void init_Xhash_contexts(){
+int init_X11(){
 
 	//---luffa---
 	init_luffa(&base_contexts.luffa,512);
@@ -102,6 +102,13 @@ void init_Xhash_contexts(){
 	#endif
 	//---local simd var ---
 	init_sd(&base_contexts.ctx_simd1,512);
+
+	return 0; // 0 == success
+}
+
+void* thread_init_X11(int* error) {
+	*error = 0;	// 0 == no error
+	return NULL;
 }
 
 inline void Xhash(void *state, const void *input)
@@ -203,7 +210,8 @@ inline void Xhash(void *state, const void *input)
 	memcpy(state, hash+64, 32);
 }
 
-int scanhash_X(int thr_id, uint32_t *pdata, const uint32_t *ptarget, uint32_t max_nonce, unsigned long *hashes_done){
+// plugin entry func
+int scanhash_X11(int thr_id, uint32_t *pdata, void *scratchbuf, const uint32_t *ptarget, uint32_t max_nonce, unsigned long *hashes_done){
 
 	uint32_t n = pdata[19] - 1;
 	const uint32_t first_nonce = pdata[19];

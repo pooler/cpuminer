@@ -581,7 +581,20 @@ static inline int scanhash_sha256d_8way(int thr_id, uint32_t *pdata,
 
 #endif /* HAVE_SHA256_8WAY */
 
-int scanhash_sha256d(int thr_id, uint32_t *pdata, const uint32_t *ptarget,
+
+int init_SHA256D(){
+	// Nothing to do...
+	return 0; // 0 == success
+}
+
+void* thread_init_SHA256D(int* error) {
+	*error = 0; // 0 == no error
+	return NULL;
+}
+
+
+// plugin entry func
+int scanhash_SHA256D(int thr_id, uint32_t *pdata, void *scratchbuf, const uint32_t *ptarget,
 	uint32_t max_nonce, unsigned long *hashes_done)
 {
 	uint32_t data[64] __attribute__((aligned(128)));
