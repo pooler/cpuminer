@@ -1,3 +1,13 @@
+Version 2.4 - May 20, 2014
+
+- Add support for the getblocktemplate RPC method (BIP 22)
+- Allow tunnelling Stratum through HTTP proxies
+- Add a --no-redirect option to ignore redirection requests
+- Timeout for long polling is now disabled by default
+- Fix CPU affinity on Linux (kiyominer)
+- Add support for building under 64-bit Cygwin
+- Expand version information with build details
+
 Version 2.3.3 - Feb 27, 2014
 
 - The --url option is now mandatory
