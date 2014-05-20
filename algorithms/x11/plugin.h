@@ -2,7 +2,7 @@
 #define X11_PLUGIN_H
 
 #define PLUGIN_NAME_X11 "X11"
-#define PLUGIN_DESC_X11 "X11 algorithm"
+#define PLUGIN_DESC_X11 "\tX11 algorithm"
 
 int init_X11();
 void* thread_init_X11(int* error);

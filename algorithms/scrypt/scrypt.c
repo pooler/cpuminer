@@ -506,9 +506,14 @@ static inline void scrypt_core(uint32_t *X, uint32_t *V)
 
 #define SCRYPT_BUFFER_SIZE (SCRYPT_MAX_WAYS * 131072 + 63)
 
-unsigned char *scrypt_buffer_alloc()
-{
-	return malloc(SCRYPT_BUFFER_SIZE);
+int init_SCRYPT() {
+	return 0; // 0 == success
+}
+
+void* thread_init_SCRYPT(int* error) {
+	void *buff = malloc(SCRYPT_BUFFER_SIZE);
+	*error = (buff == NULL);
+	return buff;
 }
 
 static void scrypt_1024_1_1_256(const uint32_t *input, uint32_t *output,
@@ -695,7 +700,7 @@ static void scrypt_1024_1_1_256_24way(const uint32_t *input,
 }
 #endif /* HAVE_SCRYPT_6WAY */
 
-int scanhash_scrypt(int thr_id, uint32_t *pdata,
+int scanhash_SCRYPT(int thr_id, uint32_t *pdata,
 	unsigned char *scratchbuf, const uint32_t *ptarget,
 	uint32_t max_nonce, unsigned long *hashes_done)
 {
