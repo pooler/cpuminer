@@ -3,6 +3,7 @@ noinst_LIBRARIES= libsha256d.a
 
 libsha256d_a_SOURCES	= sha2.c
 
+if USE_ASM
 if ARCH_x86
 libsha256d_a_SOURCES += sha2-x86.S
 endif
@@ -12,5 +13,4 @@ endif
 if ARCH_ARM
 libsha256d_a_SOURCES += sha2-arm.S
 endif
-
-
+endif
