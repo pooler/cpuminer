@@ -14,4 +14,3 @@ if ARCH_ARM
 libscrypt_a_SOURCES += scrypt-arm.S
 endif
 endif
-

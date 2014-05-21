@@ -1,3 +1,4 @@
+AUTOMAKE_OPTIONS = subdir-objects
 
 if WANT_JANSSON
 JANSSON_INCLUDES= -I$(top_srcdir)/compat/jansson

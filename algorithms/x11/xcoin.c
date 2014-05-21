@@ -52,7 +52,7 @@
 #define DATA_ALIGNXY(x,y) __declspec(align(y)) x
 #endif
 
-#if  HAVE_AES_NI
+#if HAVE_AES_NI
 #ifdef AES_NI_GR
 typedef struct {
 	sph_shavite512_context  shavite1;
