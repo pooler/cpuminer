@@ -448,7 +448,11 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 	} else {
 		int64_t cbvalue;
 		if (!pk_script_size) {
-			applog(LOG_ERR, "No payout address provided");
+			if (allow_getwork) {
+				applog(LOG_INFO, "No payout address provided, switching to getwork");
+				have_gbt = false;
+			} else
+				applog(LOG_ERR, "No payout address provided");
 			goto out;
 		}
 		tmp = json_object_get(val, "coinbasevalue");
@@ -796,9 +800,13 @@ start:
 	if (!val)
 		return false;
 
-	if (have_gbt)
+	if (have_gbt) {
 		rc = gbt_work_decode(json_object_get(val, "result"), work);
-	else
+		if (!have_gbt) {
+			json_decref(val);
+			goto start;
+		}
+	} else
 		rc = work_decode(json_object_get(val, "result"), work);
 
 	if (opt_debug && rc) {
