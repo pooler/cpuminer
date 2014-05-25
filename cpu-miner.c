@@ -100,7 +100,7 @@ struct workio_cmd {
 	} u;
 };
 
-enum sha256_algos {
+enum algos {
 	ALGO_SCRYPT,		/* scrypt(1024,1,1) */
 	ALGO_SHA256D,		/* SHA-256d */
 };
@@ -128,7 +128,8 @@ static int opt_fail_pause = 30;
 int opt_timeout = 0;
 static int opt_scantime = 5;
 static const bool opt_time = true;
-static enum sha256_algos opt_algo = ALGO_SCRYPT;
+static enum algos opt_algo = ALGO_SCRYPT;
+static int opt_scrypt_n = 1024;
 static int opt_n_threads;
 static int num_processors;
 static char *rpc_url;
@@ -170,6 +171,7 @@ Usage: " PROGRAM_NAME " [OPTIONS]\n\
 Options:\n\
   -a, --algo=ALGO       specify the algorithm to use\n\
                           scrypt    scrypt(1024, 1, 1) (default)\n\
+                          scrypt:N  scrypt(N, 1, 1)\n\
                           sha256d   SHA-256d\n\
   -o, --url=URL         URL of mining server\n\
   -O, --userpass=U:P    username:password pair for mining server\n\
@@ -1080,9 +1082,13 @@ static void *miner_thread(void *userdata)
 		affine_to_cpu(thr_id, thr_id % num_processors);
 	}
 	
-	if (opt_algo == ALGO_SCRYPT)
-	{
-		scratchbuf = scrypt_buffer_alloc();
+	if (opt_algo == ALGO_SCRYPT) {
+		scratchbuf = scrypt_buffer_alloc(opt_scrypt_n);
+		if (!scratchbuf) {
+			applog(LOG_ERR, "scrypt buffer allocation failed");
+			pthread_mutex_lock(&applog_lock);
+			exit(1);
+		}
 	}
 
 	while (1) {
@@ -1133,8 +1139,16 @@ static void *miner_thread(void *userdata)
 			max64 = g_work_time + (have_longpoll ? LP_SCANTIME : opt_scantime)
 			      - time(NULL);
 		max64 *= thr_hashrates[thr_id];
-		if (max64 <= 0)
-			max64 = opt_algo == ALGO_SCRYPT ? 0xfffLL : 0x1fffffLL;
+		if (max64 <= 0) {
+			switch (opt_algo) {
+			case ALGO_SCRYPT:
+				max64 = opt_scrypt_n < 16 ? 0x3ffff : 0x3fffff / opt_scrypt_n;
+				break;
+			case ALGO_SHA256D:
+				max64 = 0x1fffff;
+				break;
+			}
+		}
 		if (work.data[19] + max64 > end_nonce)
 			max_nonce = end_nonce;
 		else
@@ -1147,7 +1161,7 @@ static void *miner_thread(void *userdata)
 		switch (opt_algo) {
 		case ALGO_SCRYPT:
 			rc = scanhash_scrypt(thr_id, work.data, scratchbuf, work.target,
-			                     max_nonce, &hashes_done);
+			                     max_nonce, &hashes_done, opt_scrypt_n);
 			break;
 
 		case ALGO_SHA256D:
@@ -1471,10 +1485,21 @@ static void parse_arg(int key, char *arg, char *pname)
 	switch(key) {
 	case 'a':
 		for (i = 0; i < ARRAY_SIZE(algo_names); i++) {
-			if (algo_names[i] &&
-			    !strcmp(arg, algo_names[i])) {
-				opt_algo = i;
-				break;
+			v = strlen(algo_names[i]);
+			if (!strncmp(arg, algo_names[i], v)) {
+				if (arg[v] == '\0') {
+					opt_algo = i;
+					break;
+				}
+				if (arg[v] == ':' && i == ALGO_SCRYPT) {
+					char *ep;
+					v = strtol(arg+v+1, &ep, 10);
+					if (*ep || v & (v-1) || v < 2)
+						continue;
+					opt_algo = i;
+					opt_scrypt_n = v;
+					break;
+				}
 			}
 		}
 		if (i == ARRAY_SIZE(algo_names)) {

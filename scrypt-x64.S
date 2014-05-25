@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2013 pooler@litecoinpool.org
+ * Copyright 2011-2014 pooler@litecoinpool.org
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -113,38 +113,38 @@ scrypt_best_throughput_exit:
 	
 	
 .macro scrypt_shuffle src, so, dest, do
-	movl	\so+60(\src), %r8d
-	movl	\so+44(\src), %r9d
-	movl	\so+28(\src), %r10d
-	movl	\so+12(\src), %r11d
-	movl	%r8d, \do+12(\dest)
-	movl	%r9d, \do+28(\dest)
-	movl	%r10d, \do+44(\dest)
-	movl	%r11d, \do+60(\dest)
-	movl	\so+40(\src), %r8d
-	movl	\so+8(\src), %r9d
-	movl	\so+48(\src), %r10d
-	movl	\so+16(\src), %r11d
-	movl	%r8d, \do+8(\dest)
-	movl	%r9d, \do+40(\dest)
-	movl	%r10d, \do+16(\dest)
-	movl	%r11d, \do+48(\dest)
-	movl	\so+20(\src), %r8d
-	movl	\so+4(\src), %r9d
-	movl	\so+52(\src), %r10d
-	movl	\so+36(\src), %r11d
-	movl	%r8d, \do+4(\dest)
-	movl	%r9d, \do+20(\dest)
-	movl	%r10d, \do+36(\dest)
-	movl	%r11d, \do+52(\dest)
-	movl	\so+0(\src), %r8d
-	movl	\so+24(\src), %r9d
-	movl	\so+32(\src), %r10d
-	movl	\so+56(\src), %r11d
-	movl	%r8d, \do+0(\dest)
-	movl	%r9d, \do+24(\dest)
-	movl	%r10d, \do+32(\dest)
-	movl	%r11d, \do+56(\dest)
+	movl	\so+60(\src), %eax
+	movl	\so+44(\src), %ebx
+	movl	\so+28(\src), %ecx
+	movl	\so+12(\src), %edx
+	movl	%eax, \do+12(\dest)
+	movl	%ebx, \do+28(\dest)
+	movl	%ecx, \do+44(\dest)
+	movl	%edx, \do+60(\dest)
+	movl	\so+40(\src), %eax
+	movl	\so+8(\src), %ebx
+	movl	\so+48(\src), %ecx
+	movl	\so+16(\src), %edx
+	movl	%eax, \do+8(\dest)
+	movl	%ebx, \do+40(\dest)
+	movl	%ecx, \do+16(\dest)
+	movl	%edx, \do+48(\dest)
+	movl	\so+20(\src), %eax
+	movl	\so+4(\src), %ebx
+	movl	\so+52(\src), %ecx
+	movl	\so+36(\src), %edx
+	movl	%eax, \do+4(\dest)
+	movl	%ebx, \do+20(\dest)
+	movl	%ecx, \do+36(\dest)
+	movl	%edx, \do+52(\dest)
+	movl	\so+0(\src), %eax
+	movl	\so+24(\src), %ebx
+	movl	\so+32(\src), %ecx
+	movl	\so+56(\src), %edx
+	movl	%eax, \do+0(\dest)
+	movl	%ebx, \do+24(\dest)
+	movl	%ecx, \do+32(\dest)
+	movl	%edx, \do+56(\dest)
 .endm
 
 
@@ -384,6 +384,8 @@ _scrypt_core:
 	pushq	%rsi
 	movq	%rcx, %rdi
 	movq	%rdx, %rsi
+#else
+	movq	%rdx, %r8
 #endif
 
 .macro scrypt_core_cleanup
@@ -432,7 +434,10 @@ scrypt_core_gen:
 	movdqa	96(%rdi), %xmm14
 	movdqa	112(%rdi), %xmm15
 	
-	leaq	131072(%rsi), %rcx
+	movq	%r8, %rcx
+	shlq	$7, %rcx
+	addq	%rsi, %rcx
+	movq	%r8, 96(%rsp)
 	movq	%rdi, 104(%rsp)
 	movq	%rsi, 112(%rsp)
 	movq	%rcx, 120(%rsp)
@@ -481,11 +486,14 @@ scrypt_core_gen_loop1:
 	cmpq	%rcx, %rsi
 	jne scrypt_core_gen_loop1
 	
-	movq	$1024, %rcx
+	movq	96(%rsp), %r8
+	movq	%r8, %rcx
+	subl	$1, %r8d
+	movq	%r8, 96(%rsp)
 	movd	%xmm12, %edx
 scrypt_core_gen_loop2:
 	movq	112(%rsp), %rsi
-	andl	$1023, %edx
+	andl	%r8d, %edx
 	shll	$7, %edx
 	addq	%rsi, %rdx
 	movdqa	0(%rdx), %xmm0
@@ -529,6 +537,7 @@ scrypt_core_gen_loop2:
 	movdqa	%xmm14, 32(%rsp)
 	movdqa	%xmm15, 48(%rsp)
 	call salsa8_core_gen
+	movq	96(%rsp), %r8
 	movq	128(%rsp), %rcx
 	addl	0(%rsp), %edx
 	paddd	%xmm0, %xmm12
@@ -691,7 +700,9 @@ scrypt_core_xmm:
 	punpckhqdq	%xmm0, %xmm13
 	
 	movq	%rsi, %rdx
-	leaq	131072(%rsi), %rcx
+	movq	%r8, %rcx
+	shlq	$7, %rcx
+	addq	%rsi, %rcx
 scrypt_core_xmm_loop1:
 	pxor	%xmm12, %xmm8
 	pxor	%xmm13, %xmm9
@@ -734,10 +745,11 @@ scrypt_core_xmm_loop1:
 	cmpq	%rcx, %rdx
 	jne scrypt_core_xmm_loop1
 	
-	movq	$1024, %rcx
+	movq	%r8, %rcx
+	subl	$1, %r8d
 scrypt_core_xmm_loop2:
 	movd	%xmm12, %edx
-	andl	$1023, %edx
+	andl	%r8d, %edx
 	shll	$7, %edx
 	pxor	0(%rsi, %rdx), %xmm8
 	pxor	16(%rsi, %rdx), %xmm9
@@ -1019,6 +1031,8 @@ _scrypt_core_3way:
 	pushq	%rsi
 	movq	%rcx, %rdi
 	movq	%rdx, %rsi
+#else
+	movq	%rdx, %r8
 #endif
 	subq	$392, %rsp
 	
@@ -1088,7 +1102,9 @@ scrypt_core_3way_avx:
 	movdqa	256+112(%rsp), %xmm15
 	
 	movq	%rsi, %rbx
-	leaq	3*131072(%rsi), %rax
+	leaq	(%r8, %r8, 2), %rax
+	shlq	$7, %rax
+	addq	%rsi, %rax
 scrypt_core_3way_avx_loop1:
 	movdqa	%xmm0, 64(%rbx)
 	movdqa	%xmm1, 80(%rbx)
@@ -1208,7 +1224,8 @@ scrypt_core_3way_avx_loop1:
 	movdqa	%xmm14, 256+96(%rsp)
 	movdqa	%xmm15, 256+112(%rsp)
 	
-	movq	$1024, %rcx
+	movq	%r8, %rcx
+	subq	$1, %r8
 scrypt_core_3way_avx_loop2:
 	movd	%xmm0, %ebp
 	movd	%xmm8, %ebx
@@ -1225,13 +1242,13 @@ scrypt_core_3way_avx_loop2:
 	pxor	256+16(%rsp), %xmm13
 	pxor	256+32(%rsp), %xmm14
 	pxor	256+48(%rsp), %xmm15
-	andl	$1023, %ebp
+	andl	%r8d, %ebp
 	leaq	(%rbp, %rbp, 2), %rbp
 	shll	$7, %ebp
-	andl	$1023, %ebx
+	andl	%r8d, %ebx
 	leaq	1(%rbx, %rbx, 2), %rbx
 	shll	$7, %ebx
-	andl	$1023, %eax
+	andl	%r8d, %eax
 	leaq	2(%rax, %rax, 2), %rax
 	shll	$7, %eax
 	pxor	0(%rsi, %rbp), %xmm0
@@ -1491,7 +1508,9 @@ scrypt_core_3way_xop:
 	movdqa	256+112(%rsp), %xmm15
 	
 	movq	%rsi, %rbx
-	leaq	3*131072(%rsi), %rax
+	leaq	(%r8, %r8, 2), %rax
+	shlq	$7, %rax
+	addq	%rsi, %rax
 scrypt_core_3way_xop_loop1:
 	movdqa	%xmm0, 64(%rbx)
 	movdqa	%xmm1, 80(%rbx)
@@ -1611,7 +1630,8 @@ scrypt_core_3way_xop_loop1:
 	movdqa	%xmm14, 256+96(%rsp)
 	movdqa	%xmm15, 256+112(%rsp)
 	
-	movq	$1024, %rcx
+	movq	%r8, %rcx
+	subq	$1, %r8
 scrypt_core_3way_xop_loop2:
 	movd	%xmm0, %ebp
 	movd	%xmm8, %ebx
@@ -1628,13 +1648,13 @@ scrypt_core_3way_xop_loop2:
 	pxor	256+16(%rsp), %xmm13
 	pxor	256+32(%rsp), %xmm14
 	pxor	256+48(%rsp), %xmm15
-	andl	$1023, %ebp
+	andl	%r8d, %ebp
 	leaq	(%rbp, %rbp, 2), %rbp
 	shll	$7, %ebp
-	andl	$1023, %ebx
+	andl	%r8d, %ebx
 	leaq	1(%rbx, %rbx, 2), %rbx
 	shll	$7, %ebx
-	andl	$1023, %eax
+	andl	%r8d, %eax
 	leaq	2(%rax, %rax, 2), %rax
 	shll	$7, %eax
 	pxor	0(%rsi, %rbp), %xmm0
@@ -1991,7 +2011,9 @@ scrypt_core_3way_xmm:
 	movdqa	256+112(%rsp), %xmm15
 	
 	movq	%rsi, %rbx
-	leaq	3*131072(%rsi), %rax
+	leaq	(%r8, %r8, 2), %rax
+	shlq	$7, %rax
+	addq	%rsi, %rax
 scrypt_core_3way_xmm_loop1:
 	movdqa	%xmm0, 64(%rbx)
 	movdqa	%xmm1, 80(%rbx)
@@ -2111,7 +2133,8 @@ scrypt_core_3way_xmm_loop1:
 	movdqa	%xmm14, 256+96(%rsp)
 	movdqa	%xmm15, 256+112(%rsp)
 	
-	movq	$1024, %rcx
+	movq	%r8, %rcx
+	subq	$1, %r8
 scrypt_core_3way_xmm_loop2:
 	movd	%xmm0, %ebp
 	movd	%xmm8, %ebx
@@ -2128,13 +2151,13 @@ scrypt_core_3way_xmm_loop2:
 	pxor	256+16(%rsp), %xmm13
 	pxor	256+32(%rsp), %xmm14
 	pxor	256+48(%rsp), %xmm15
-	andl	$1023, %ebp
+	andl	%r8d, %ebp
 	leaq	(%rbp, %rbp, 2), %rbp
 	shll	$7, %ebp
-	andl	$1023, %ebx
+	andl	%r8d, %ebx
 	leaq	1(%rbx, %rbx, 2), %rbx
 	shll	$7, %ebx
-	andl	$1023, %eax
+	andl	%r8d, %eax
 	leaq	2(%rax, %rax, 2), %rax
 	shll	$7, %eax
 	pxor	0(%rsi, %rbp), %xmm0
@@ -2445,6 +2468,8 @@ _scrypt_core_6way:
 	pushq	%rsi
 	movq	%rcx, %rdi
 	movq	%rdx, %rsi
+#else
+	movq	%rdx, %r8
 #endif
 	movq	%rsp, %rdx
 	subq	$768, %rsp
@@ -2539,7 +2564,9 @@ scrypt_core_6way_avx2:
 	vmovdqa	2*256+7*32(%rsp), %ymm15
 	
 	movq	%rsi, %rbx
-	leaq	6*131072(%rsi), %rax
+	leaq	(%r8, %r8, 2), %rax
+	shlq	$8, %rax
+	addq	%rsi, %rax
 scrypt_core_6way_avx2_loop1:
 	vmovdqa	%ymm0, 0*256+4*32(%rbx)
 	vmovdqa	%ymm1, 0*256+5*32(%rbx)
@@ -2659,7 +2686,8 @@ scrypt_core_6way_avx2_loop1:
 	vmovdqa	%ymm14, 2*256+6*32(%rsp)
 	vmovdqa	%ymm15, 2*256+7*32(%rsp)
 	
-	movq	$1024, %rcx
+	movq	%r8, %rcx
+	leaq	-1(%r8), %r11
 scrypt_core_6way_avx2_loop2:
 	vmovd	%xmm0, %ebp
 	vmovd	%xmm8, %ebx
@@ -2682,22 +2710,22 @@ scrypt_core_6way_avx2_loop2:
 	vpxor	2*256+1*32(%rsp), %ymm13, %ymm13
 	vpxor	2*256+2*32(%rsp), %ymm14, %ymm14
 	vpxor	2*256+3*32(%rsp), %ymm15, %ymm15
-	andl	$1023, %ebp
+	andl	%r11d, %ebp
 	leaq	0(%rbp, %rbp, 2), %rbp
 	shll	$8, %ebp
-	andl	$1023, %ebx
+	andl	%r11d, %ebx
 	leaq	1(%rbx, %rbx, 2), %rbx
 	shll	$8, %ebx
-	andl	$1023, %eax
+	andl	%r11d, %eax
 	leaq	2(%rax, %rax, 2), %rax
 	shll	$8, %eax
-	andl	$1023, %r8d
+	andl	%r11d, %r8d
 	leaq	0(%r8, %r8, 2), %r8
 	shll	$8, %r8d
-	andl	$1023, %r9d
+	andl	%r11d, %r9d
 	leaq	1(%r9, %r9, 2), %r9
 	shll	$8, %r9d
-	andl	$1023, %r10d
+	andl	%r11d, %r10d
 	leaq	2(%r10, %r10, 2), %r10
 	shll	$8, %r10d
 	vmovdqa	0*32(%rsi, %rbp), %xmm4

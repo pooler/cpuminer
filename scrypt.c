@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Colin Percival, 2011 ArtForz, 2011-2013 pooler
+ * Copyright 2009 Colin Percival, 2011 ArtForz, 2011-2014 pooler
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -383,30 +383,30 @@ static inline void PBKDF2_SHA256_128_32_8way(uint32_t *tstate,
 #define SCRYPT_MAX_WAYS 12
 #define HAVE_SCRYPT_3WAY 1
 int scrypt_best_throughput();
-void scrypt_core(uint32_t *X, uint32_t *V);
-void scrypt_core_3way(uint32_t *X, uint32_t *V);
+void scrypt_core(uint32_t *X, uint32_t *V, int N);
+void scrypt_core_3way(uint32_t *X, uint32_t *V, int N);
 #if defined(USE_AVX2)
 #undef SCRYPT_MAX_WAYS
 #define SCRYPT_MAX_WAYS 24
 #define HAVE_SCRYPT_6WAY 1
-void scrypt_core_6way(uint32_t *X, uint32_t *V);
+void scrypt_core_6way(uint32_t *X, uint32_t *V, int N);
 #endif
 
 #elif defined(USE_ASM) && defined(__i386__)
 
 #define SCRYPT_MAX_WAYS 4
 #define scrypt_best_throughput() 1
-void scrypt_core(uint32_t *X, uint32_t *V);
+void scrypt_core(uint32_t *X, uint32_t *V, int N);
 
 #elif defined(USE_ASM) && defined(__arm__) && defined(__APCS_32__)
 
-void scrypt_core(uint32_t *X, uint32_t *V);
+void scrypt_core(uint32_t *X, uint32_t *V, int N);
 #if defined(__ARM_NEON__)
 #undef HAVE_SHA256_4WAY
 #define SCRYPT_MAX_WAYS 3
 #define HAVE_SCRYPT_3WAY 1
 #define scrypt_best_throughput() 3
-void scrypt_core_3way(uint32_t *X, uint32_t *V);
+void scrypt_core_3way(uint32_t *X, uint32_t *V, int N);
 #endif
 
 #else
@@ -479,17 +479,17 @@ static inline void xor_salsa8(uint32_t B[16], const uint32_t Bx[16])
 	B[15] += x15;
 }
 
-static inline void scrypt_core(uint32_t *X, uint32_t *V)
+static inline void scrypt_core(uint32_t *X, uint32_t *V, int N)
 {
 	uint32_t i, j, k;
 	
-	for (i = 0; i < 1024; i++) {
+	for (i = 0; i < N; i++) {
 		memcpy(&V[i * 32], X, 128);
 		xor_salsa8(&X[0], &X[16]);
 		xor_salsa8(&X[16], &X[0]);
 	}
-	for (i = 0; i < 1024; i++) {
-		j = 32 * (X[16] & 1023);
+	for (i = 0; i < N; i++) {
+		j = 32 * (X[16] & (N - 1));
 		for (k = 0; k < 32; k++)
 			X[k] ^= V[j + k];
 		xor_salsa8(&X[0], &X[16]);
@@ -504,15 +504,13 @@ static inline void scrypt_core(uint32_t *X, uint32_t *V)
 #define scrypt_best_throughput() 1
 #endif
 
-#define SCRYPT_BUFFER_SIZE (SCRYPT_MAX_WAYS * 131072 + 63)
-
-unsigned char *scrypt_buffer_alloc()
+unsigned char *scrypt_buffer_alloc(int N)
 {
-	return malloc(SCRYPT_BUFFER_SIZE);
+	return malloc((size_t)N * SCRYPT_MAX_WAYS * 128 + 63);
 }
 
 static void scrypt_1024_1_1_256(const uint32_t *input, uint32_t *output,
-	uint32_t *midstate, unsigned char *scratchpad)
+	uint32_t *midstate, unsigned char *scratchpad, int N)
 {
 	uint32_t tstate[8], ostate[8];
 	uint32_t X[32];
@@ -524,14 +522,14 @@ static void scrypt_1024_1_1_256(const uint32_t *input, uint32_t *output,
 	HMAC_SHA256_80_init(input, tstate, ostate);
 	PBKDF2_SHA256_80_128(tstate, ostate, input, X);
 
-	scrypt_core(X, V);
+	scrypt_core(X, V, N);
 
 	PBKDF2_SHA256_128_32(tstate, ostate, X, output);
 }
 
 #ifdef HAVE_SHA256_4WAY
 static void scrypt_1024_1_1_256_4way(const uint32_t *input,
-	uint32_t *output, uint32_t *midstate, unsigned char *scratchpad)
+	uint32_t *output, uint32_t *midstate, unsigned char *scratchpad, int N)
 {
 	uint32_t tstate[4 * 8] __attribute__((aligned(128)));
 	uint32_t ostate[4 * 8] __attribute__((aligned(128)));
@@ -553,10 +551,10 @@ static void scrypt_1024_1_1_256_4way(const uint32_t *input,
 	for (i = 0; i < 32; i++)
 		for (k = 0; k < 4; k++)
 			X[k * 32 + i] = W[4 * i + k];
-	scrypt_core(X + 0 * 32, V);
-	scrypt_core(X + 1 * 32, V);
-	scrypt_core(X + 2 * 32, V);
-	scrypt_core(X + 3 * 32, V);
+	scrypt_core(X + 0 * 32, V, N);
+	scrypt_core(X + 1 * 32, V, N);
+	scrypt_core(X + 2 * 32, V, N);
+	scrypt_core(X + 3 * 32, V, N);
 	for (i = 0; i < 32; i++)
 		for (k = 0; k < 4; k++)
 			W[4 * i + k] = X[k * 32 + i];
@@ -570,7 +568,7 @@ static void scrypt_1024_1_1_256_4way(const uint32_t *input,
 #ifdef HAVE_SCRYPT_3WAY
 
 static void scrypt_1024_1_1_256_3way(const uint32_t *input,
-	uint32_t *output, uint32_t *midstate, unsigned char *scratchpad)
+	uint32_t *output, uint32_t *midstate, unsigned char *scratchpad, int N)
 {
 	uint32_t tstate[3 * 8], ostate[3 * 8];
 	uint32_t X[3 * 32] __attribute__((aligned(64)));
@@ -588,7 +586,7 @@ static void scrypt_1024_1_1_256_3way(const uint32_t *input,
 	PBKDF2_SHA256_80_128(tstate +  8, ostate +  8, input + 20, X + 32);
 	PBKDF2_SHA256_80_128(tstate + 16, ostate + 16, input + 40, X + 64);
 
-	scrypt_core_3way(X, V);
+	scrypt_core_3way(X, V, N);
 
 	PBKDF2_SHA256_128_32(tstate +  0, ostate +  0, X +  0, output +  0);
 	PBKDF2_SHA256_128_32(tstate +  8, ostate +  8, X + 32, output +  8);
@@ -597,7 +595,7 @@ static void scrypt_1024_1_1_256_3way(const uint32_t *input,
 
 #ifdef HAVE_SHA256_4WAY
 static void scrypt_1024_1_1_256_12way(const uint32_t *input,
-	uint32_t *output, uint32_t *midstate, unsigned char *scratchpad)
+	uint32_t *output, uint32_t *midstate, unsigned char *scratchpad, int N)
 {
 	uint32_t tstate[12 * 8] __attribute__((aligned(128)));
 	uint32_t ostate[12 * 8] __attribute__((aligned(128)));
@@ -626,10 +624,10 @@ static void scrypt_1024_1_1_256_12way(const uint32_t *input,
 		for (i = 0; i < 32; i++)
 			for (k = 0; k < 4; k++)
 				X[128 * j + k * 32 + i] = W[128 * j + 4 * i + k];
-	scrypt_core_3way(X + 0 * 96, V);
-	scrypt_core_3way(X + 1 * 96, V);
-	scrypt_core_3way(X + 2 * 96, V);
-	scrypt_core_3way(X + 3 * 96, V);
+	scrypt_core_3way(X + 0 * 96, V, N);
+	scrypt_core_3way(X + 1 * 96, V, N);
+	scrypt_core_3way(X + 2 * 96, V, N);
+	scrypt_core_3way(X + 3 * 96, V, N);
 	for (j = 0; j < 3; j++)
 		for (i = 0; i < 32; i++)
 			for (k = 0; k < 4; k++)
@@ -648,7 +646,7 @@ static void scrypt_1024_1_1_256_12way(const uint32_t *input,
 
 #ifdef HAVE_SCRYPT_6WAY
 static void scrypt_1024_1_1_256_24way(const uint32_t *input,
-	uint32_t *output, uint32_t *midstate, unsigned char *scratchpad)
+	uint32_t *output, uint32_t *midstate, unsigned char *scratchpad, int N)
 {
 	uint32_t tstate[24 * 8] __attribute__((aligned(128)));
 	uint32_t ostate[24 * 8] __attribute__((aligned(128)));
@@ -677,10 +675,10 @@ static void scrypt_1024_1_1_256_24way(const uint32_t *input,
 		for (i = 0; i < 32; i++)
 			for (k = 0; k < 8; k++)
 				X[8 * 32 * j + k * 32 + i] = W[8 * 32 * j + 8 * i + k];
-	scrypt_core_6way(X + 0 * 32, V);
-	scrypt_core_6way(X + 6 * 32, V);
-	scrypt_core_6way(X + 12 * 32, V);
-	scrypt_core_6way(X + 18 * 32, V);
+	scrypt_core_6way(X + 0 * 32, V, N);
+	scrypt_core_6way(X + 6 * 32, V, N);
+	scrypt_core_6way(X + 12 * 32, V, N);
+	scrypt_core_6way(X + 18 * 32, V, N);
 	for (j = 0; j < 3; j++)
 		for (i = 0; i < 32; i++)
 			for (k = 0; k < 8; k++)
@@ -697,7 +695,7 @@ static void scrypt_1024_1_1_256_24way(const uint32_t *input,
 
 int scanhash_scrypt(int thr_id, uint32_t *pdata,
 	unsigned char *scratchbuf, const uint32_t *ptarget,
-	uint32_t max_nonce, unsigned long *hashes_done)
+	uint32_t max_nonce, unsigned long *hashes_done, int N)
 {
 	uint32_t data[SCRYPT_MAX_WAYS * 20], hash[SCRYPT_MAX_WAYS * 8];
 	uint32_t midstate[8];
@@ -723,25 +721,25 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 		
 #if defined(HAVE_SHA256_4WAY)
 		if (throughput == 4)
-			scrypt_1024_1_1_256_4way(data, hash, midstate, scratchbuf);
+			scrypt_1024_1_1_256_4way(data, hash, midstate, scratchbuf, N);
 		else
 #endif
 #if defined(HAVE_SCRYPT_3WAY) && defined(HAVE_SHA256_4WAY)
 		if (throughput == 12)
-			scrypt_1024_1_1_256_12way(data, hash, midstate, scratchbuf);
+			scrypt_1024_1_1_256_12way(data, hash, midstate, scratchbuf, N);
 		else
 #endif
 #if defined(HAVE_SCRYPT_6WAY)
 		if (throughput == 24)
-			scrypt_1024_1_1_256_24way(data, hash, midstate, scratchbuf);
+			scrypt_1024_1_1_256_24way(data, hash, midstate, scratchbuf, N);
 		else
 #endif
 #if defined(HAVE_SCRYPT_3WAY)
 		if (throughput == 3)
-			scrypt_1024_1_1_256_3way(data, hash, midstate, scratchbuf);
+			scrypt_1024_1_1_256_3way(data, hash, midstate, scratchbuf, N);
 		else
 #endif
-		scrypt_1024_1_1_256(data, hash, midstate, scratchbuf);
+		scrypt_1024_1_1_256(data, hash, midstate, scratchbuf, N);
 		
 		for (i = 0; i < throughput; i++) {
 			if (hash[i * 8 + 7] <= Htarg && fulltest(hash + i * 8, ptarget)) {

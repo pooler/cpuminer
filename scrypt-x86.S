@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2012 pooler@litecoinpool.org
+ * Copyright 2011-2012, 2014 pooler@litecoinpool.org
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -415,6 +415,7 @@ _scrypt_core:
 scrypt_core_gen:
 	movl	20(%esp), %edi
 	movl	24(%esp), %esi
+	movl	28(%esp), %ecx
 	subl	$72, %esp
 	
 .macro scrypt_core_macro1a p, q
@@ -453,7 +454,8 @@ scrypt_core_gen:
 	movl	%eax, \q(%edi)
 .endm
 	
-	leal	131072(%esi), %ecx
+	shll	$7, %ecx
+	addl	%esi, %ecx
 scrypt_core_gen_loop1:
 	movl	%esi, 64(%esp)
 	movl	%ecx, 68(%esp)
@@ -522,12 +524,15 @@ scrypt_core_gen_loop1:
 	jne scrypt_core_gen_loop1
 
 	movl	96(%esp), %esi
-	movl	$1024, %ecx
+	movl	100(%esp), %ecx
+	movl	%ecx, %eax
+	subl	$1, %eax
+	movl	%eax, 100(%esp)
 scrypt_core_gen_loop2:
 	movl	%ecx, 68(%esp)
 	
 	movl	64(%edi), %edx
-	andl	$1023, %edx
+	andl	100(%esp), %edx
 	shll	$7, %edx
 	
 	scrypt_core_macro1b	0, 64
@@ -694,7 +699,9 @@ scrypt_core_sse2:
 	movdqa	112(%esp), %xmm7
 	
 	movl	%esi, %edx
-	leal	131072(%esi), %ecx
+	movl	28(%ebp), %ecx
+	shll	$7, %ecx
+	addl	%esi, %ecx
 scrypt_core_sse2_loop1:
 	movdqa	0(%esp), %xmm0
 	movdqa	16(%esp), %xmm1
@@ -748,14 +755,16 @@ scrypt_core_sse2_loop1:
 	movdqa	64(%esp), %xmm4
 	movdqa	80(%esp), %xmm5
 	
-	movl	$1024, %ecx
+	movl	28(%ebp), %ecx
+	movl	%ecx, %eax
+	subl	$1, %eax
 scrypt_core_sse2_loop2:
 	movd	%xmm4, %edx
 	movdqa	0(%esp), %xmm0
 	movdqa	16(%esp), %xmm1
 	movdqa	32(%esp), %xmm2
 	movdqa	48(%esp), %xmm3
-	andl	$1023, %edx
+	andl	%eax, %edx
 	shll	$7, %edx
 	pxor	0(%esi, %edx), %xmm0
 	pxor	16(%esi, %edx), %xmm1
