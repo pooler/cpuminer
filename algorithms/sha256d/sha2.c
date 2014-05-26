@@ -581,8 +581,8 @@ static inline int scanhash_sha256d_8way(int thr_id, uint32_t *pdata,
 
 #endif /* HAVE_SHA256_8WAY */
 
-int scanhash_sha256d(int thr_id, uint32_t *pdata, const uint32_t *ptarget,
-	uint32_t max_nonce, unsigned long *hashes_done)
+int scanhash_SHA256D(int thr_id, uint32_t *pdata, const uint32_t *ptarget,
+	uint32_t max_nonce, unsigned long *hashes_done, void *extra_param)
 {
 	uint32_t data[64] __attribute__((aligned(128)));
 	uint32_t hash[8] __attribute__((aligned(32)));
@@ -628,3 +628,24 @@ int scanhash_sha256d(int thr_id, uint32_t *pdata, const uint32_t *ptarget,
 	pdata[19] = n;
 	return 0;
 }
+
+
+int init_SHA256D(){
+	// Nothing to do...
+	return 0; // 0 == success
+}
+
+void* thread_init_SHA256D(int* error, void *param) {
+	*error = 0; // 0 == no error
+	return NULL;
+}
+
+void *param_default_SHA256D() {
+	return NULL;
+}
+
+void *param_parse_SHA256D( const char *str, int *error) {
+	*error = 0;
+	return NULL;
+}
+

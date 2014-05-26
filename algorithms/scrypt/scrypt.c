@@ -504,9 +504,15 @@ static inline void scrypt_core(uint32_t *X, uint32_t *V, int N)
 #define scrypt_best_throughput() 1
 #endif
 
-unsigned char *scrypt_buffer_alloc(int N)
-{
-	return malloc((size_t)N * SCRYPT_MAX_WAYS * 128 + 63);
+int init_SCRYPT() {
+	return 0; // 0 == success
+}
+
+void* thread_init_SCRYPT(int* error, void *param) {
+    size_t N = (size_t) param;
+	void *buff = malloc((size_t)N * SCRYPT_MAX_WAYS * 128 + 63);
+	*error = (buff == NULL);
+	return buff;
 }
 
 static void scrypt_1024_1_1_256(const uint32_t *input, uint32_t *output,
@@ -693,9 +699,9 @@ static void scrypt_1024_1_1_256_24way(const uint32_t *input,
 }
 #endif /* HAVE_SCRYPT_6WAY */
 
-int scanhash_scrypt(int thr_id, uint32_t *pdata,
+int scanhash_SCRYPT(int thr_id, uint32_t *pdata,
 	unsigned char *scratchbuf, const uint32_t *ptarget,
-	uint32_t max_nonce, unsigned long *hashes_done, int N)
+	uint32_t max_nonce, unsigned long *hashes_done, void *extra_param)
 {
 	uint32_t data[SCRYPT_MAX_WAYS * 20], hash[SCRYPT_MAX_WAYS * 8];
 	uint32_t midstate[8];
@@ -703,6 +709,7 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 	const uint32_t Htarg = ptarget[7];
 	int throughput = scrypt_best_throughput();
 	int i;
+    size_t N = (size_t) extra_param;
 	
 #ifdef HAVE_SHA256_4WAY
 	if (sha256_use_4way())
@@ -753,4 +760,20 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 	*hashes_done = n - pdata[19] + 1;
 	pdata[19] = n;
 	return 0;
+}
+
+void *param_default_SCRYPT() {
+	return (void*) 1024;
+}
+
+void *param_parse_SCRYPT( const char *str, int *error) {
+	char *ep;
+	size_t v = strtol(str, &ep, 10);
+
+	if (*ep || v & (v-1) || v < 2) {
+		*error = 1;
+		return NULL;
+	}
+	*error = 0;
+	return (void*) v;
 }

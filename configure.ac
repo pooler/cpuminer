@@ -16,6 +16,15 @@ AM_PROG_CC_C_O
 AM_PROG_AS
 AC_PROG_RANLIB
 
+dnl Use the following algorithms (subdirs in algorithms/)
+dnl Also add a new algorithm to AC_CONFIG_FILES below
+ALGOS="scrypt sha256d"
+AC_SUBST(ALGOS)
+
+dnl TODO: autogenerate this from the variable ALGOS using m4 magic
+ALGO_LIBS="algorithms/scrypt/libscrypt.a algorithms/sha256d/libsha256d.a"
+AC_SUBST(ALGO_LIBS)
+
 dnl Checks for header files
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/endian.h sys/param.h syslog.h])
@@ -128,5 +137,8 @@ AC_CONFIG_FILES([
 	Makefile
 	compat/Makefile
 	compat/jansson/Makefile
+	algorithms/Makefile
+	algorithms/scrypt/Makefile
+	algorithms/sha256d/Makefile
 	])
 AC_OUTPUT

@@ -2,7 +2,7 @@
 #define SCRYPT_PLUGIN_H
 
 #define PLUGIN_NAME_SCRYPT "scrypt"
-#define PLUGIN_DESC_SCRYPT "Scrypt algorithm"
+#define PLUGIN_DESC_SCRYPT "scrypt(N, 1, 1), default: N=1024"
 
 int init_SCRYPT();
 void* thread_init_SCRYPT(int* error, void *extra_param);
