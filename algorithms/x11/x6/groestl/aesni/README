@@ -1,0 +1,14 @@
+This package contains an implementation of the Groestl-512 hash
+function optimized for the Intel AES instructions.
+
+Authors are Krystian Matusiewicz, Günther A. Roland, Martin Schläffer
+
+There are no known present or future claims by a copyright holder that
+the distribution of this software infringes the copyright. In
+particular, the author of the software is not making such claims and
+does not intend to make such claims.
+
+Moreover, there are no known present or future claims by a patent
+holder that the use of this software infringes the patent. In
+particular, the author of the software is not making such claims and
+does not intend to make such claims.
