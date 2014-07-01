@@ -2,7 +2,7 @@ AUTOMAKE_OPTIONS = subdir-objects
 
 noinst_LIBRARIES= libx11.a
 
-
+libx11_a_CFLAGS		= ${CFLAGS} -DALGO_NAME=_X11
 libx11_a_SOURCES	= xcoin.c \
 			  x5/aes_helper.c x5/shavite.c x5/vect128/nist.c x5/vect128/vector.c \
 			  x5/echo.c x6/blake.c 
