@@ -793,7 +793,7 @@ static const sph_u64 RC[] = {
 /* load initial constants */
 #define KEC_I 
 
-unsigned char keczword[8] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80 }; \
+static const unsigned char keczword[8] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80 }; \
 /* load hash for loop */
 #define KEC_U \
 do { \

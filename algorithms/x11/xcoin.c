@@ -35,9 +35,9 @@
 #include "x6/groestl/aesni/hash-groestl.h"
 #else
 #if 1
-#include "x6/grso.c"
+#include "x6/grso.h"
 #ifndef PROFILERUN
-#include "x6/grso-asm.c"
+#include "x6/grso-asm.h"
 #endif
 #else
 #include "x6/grss_api.h"
