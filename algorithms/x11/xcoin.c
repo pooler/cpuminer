@@ -152,7 +152,11 @@ int INIT_ALGO() {
 #ifdef X13
     sph_hamsi512_init(&base_contexts.hamsi1);
     sph_fugue512_init(&base_contexts.fugue1);
-#endif
+#ifdef X15
+    sph_shabal512_init(&base_contexts.shabal);
+    sph_whirlpool_init(&base_contexts.whirlpool);
+#endif // X15
+#endif // X13
     return 0; // 0 == success
 }
 
@@ -161,7 +165,7 @@ void* THREAD_INIT_ALGO (int* error) {
     return NULL;
 }
 
-inline void XHASH_ALGO (void *state, const void *input)
+void XHASH_ALGO (void *state, const void *input)
 {
     Xhash_context_holder ctx;
 
@@ -264,16 +268,13 @@ inline void XHASH_ALGO (void *state, const void *input)
     sph_fugue512(&ctx.fugue1, hash, 64);
     sph_fugue512_close(&ctx.fugue1, hash+64);
 #ifdef X15
-    sph_shabal512_init(&ctx.shabal);
-    sph_shabal512(&ctx.shabal, hash, 64);
-    sph_shabal512_close(&ctx.shabal, hash + 64);
+    sph_shabal512(&ctx.shabal, hash+64, 64);
+    sph_shabal512_close(&ctx.shabal, hash);
 
-    sph_whirlpool_init(&ctx.whirlpool);
-    sph_whirlpool(&ctx.whirlpool, hash + 64, 64);
-    sph_whirlpool_close(&ctx.whirlpool, hash);
-#endif
-#endif
-
+    sph_whirlpool(&ctx.whirlpool, hash, 64);
+    sph_whirlpool_close(&ctx.whirlpool, hash+64);
+#endif // X15
+#endif // X13
 
     memcpy(state, hash+64, 32);
 }
@@ -295,7 +296,7 @@ int SCANHASH_ALGO(int thr_id, uint32_t *pdata, void *scratchbuf, const uint32_t 
     for (; kk < 32; kk++) {
         be32enc(&endiandata[kk], ((uint32_t*)pdata)[kk]);
     };
-#ifndef X15
+
     if (ptarget[7]==0) {
         do {
             pdata[19] = ++n;
@@ -374,19 +375,6 @@ int SCANHASH_ALGO(int thr_id, uint32_t *pdata, void *scratchbuf, const uint32_t 
             }
         } while (n < max_nonce && !work_restart[thr_id].restart);
     }
-#else // X15
-	// TODO: find out, why this part isn't the same as for the other XCoin classes
-    do {
-	      pdata[19] = ++n;
-	      be32enc(&endiandata[19], n); 
-	      XHASH_ALGO(hash64, &endiandata);
-            if (((hash64[7]&0xFFFFFF00)==0) && 
-			      fulltest(hash64, ptarget)) {
-                *hashes_done = n - first_nonce + 1;
-		      return true;
-	      }
-    } while (n < max_nonce && !work_restart[thr_id].restart);
-#endif // X15
     *hashes_done = n - first_nonce + 1;
     pdata[19] = n;
     return 0;
