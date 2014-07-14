@@ -18,11 +18,11 @@ AC_PROG_RANLIB
 
 dnl Use the following algorithms (subdirs in algorithms/)
 dnl Also add a new algorithm to AC_CONFIG_FILES below
-ALGOS="scrypt sha256d x11 x13 x15"
+ALGOS="scrypt sha256d x11 x13 x15 nist5"
 AC_SUBST(ALGOS)
 
 dnl TODO: autogenerate this from the variable ALGOS using m4 magic
-ALGO_LIBS="algorithms/scrypt/libscrypt.a algorithms/sha256d/libsha256d.a algorithms/x11/libx11.a algorithms/x13/libx13.a algorithms/x15/libx15.a"
+ALGO_LIBS="algorithms/scrypt/libscrypt.a algorithms/sha256d/libsha256d.a algorithms/x11/libx11.a algorithms/x13/libx13.a algorithms/x15/libx15.a algorithms/nist5/libnist5.a"
 AC_SUBST(ALGO_LIBS)
 
 dnl Checks for header files
@@ -156,5 +156,6 @@ AC_CONFIG_FILES([
 	algorithms/x11/Makefile
 	algorithms/x13/Makefile
 	algorithms/x15/Makefile
+	algorithms/nist5/Makefile
 	])
 AC_OUTPUT
