@@ -1,6 +1,7 @@
 /*
  * Copyright 2010 Jeff Garzik
  * Copyright 2012-2014 pooler
+ * Copyright 2014 John Doering <ghostlander@phoenixcoin.org>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -37,6 +38,8 @@
 #include <curl/curl.h>
 #include "compat.h"
 #include "miner.h"
+
+#include "neoscrypt.h"
 
 #define PROGRAM_NAME		"minerd"
 #define LP_SCANTIME		60
@@ -100,12 +103,16 @@ struct workio_cmd {
 	} u;
 };
 
-enum sha256_algos {
-	ALGO_SCRYPT,		/* scrypt(1024,1,1) */
+enum algos {
+	ALGO_NEOSCRYPT,		/* NeoScrypt(128, 2, 1) with Salsa20/20 and ChaCha20/20 */
+	ALGO_ALTSCRYPT,		/* Scrypt(1024, 1, 1) with Salsa20/8 through NeoScrypt */
+	ALGO_SCRYPT,		/* Scrypt(1024, 1, 1) with Salsa20/8 */
 	ALGO_SHA256D,		/* SHA-256d */
 };
 
 static const char *algo_names[] = {
+	[ALGO_NEOSCRYPT]	= "neoscrypt",
+	[ALGO_ALTSCRYPT]	= "altscrypt",
 	[ALGO_SCRYPT]		= "scrypt",
 	[ALGO_SHA256D]		= "sha256d",
 };
@@ -128,7 +135,8 @@ static int opt_fail_pause = 30;
 int opt_timeout = 0;
 static int opt_scantime = 5;
 static const bool opt_time = true;
-static enum sha256_algos opt_algo = ALGO_SCRYPT;
+static enum algos opt_algo = ALGO_NEOSCRYPT;
+static unsigned int opt_nfactor = 6;
 static int opt_n_threads;
 static int num_processors;
 static char *rpc_url;
@@ -169,8 +177,10 @@ static char const usage[] = "\
 Usage: " PROGRAM_NAME " [OPTIONS]\n\
 Options:\n\
   -a, --algo=ALGO       specify the algorithm to use\n\
-                          scrypt    scrypt(1024, 1, 1) (default)\n\
-                          sha256d   SHA-256d\n\
+      neoscrypt  NeoScrypt(128, 2, 1) with Salsa20/20 and ChaCha20/20 (default)\n\
+      altscrypt  Scrypt(1024, 1, 1) with Salsa20/8 through NeoScrypt\n\
+      scrypt     Scrypt(1024, 1, 1) with Salsa20/8\n\
+      sha256d    SHA-256d\n\
   -o, --url=URL         URL of mining server\n\
   -O, --userpass=U:P    username:password pair for mining server\n\
   -u, --user=USERNAME   username for mining server\n\
@@ -318,28 +328,29 @@ static bool jobj_binary(const json_t *obj, const char *key,
 	return true;
 }
 
-static bool work_decode(const json_t *val, struct work *work)
-{
-	int i;
+static bool work_decode(const json_t *val, struct work *work) {
+    uint data_size = 80, target_size = 32, i;
 
-	if (unlikely(!jobj_binary(val, "data", work->data, sizeof(work->data)))) {
-		applog(LOG_ERR, "JSON invalid data");
-		goto err_out;
-	}
-	if (unlikely(!jobj_binary(val, "target", work->target, sizeof(work->target)))) {
-		applog(LOG_ERR, "JSON invalid target");
-		goto err_out;
-	}
+    if(opt_algo != ALGO_NEOSCRYPT)
+      data_size = 128;
 
-	for (i = 0; i < ARRAY_SIZE(work->data); i++)
-		work->data[i] = le32dec(work->data + i);
-	for (i = 0; i < ARRAY_SIZE(work->target); i++)
-		work->target[i] = le32dec(work->target + i);
+    if(unlikely(!jobj_binary(val, "data", work->data, data_size))) {
+        applog(LOG_ERR, "JSON invalid data");
+        return(false);
+    }
 
-	return true;
+    if(unlikely(!jobj_binary(val, "target", work->target, target_size))) {
+        applog(LOG_ERR, "JSON invalid target");
+        return(false);
+    }
 
-err_out:
-	return false;
+    for(i = 0; i < (data_size >> 2); i++)
+      work->data[i] = le32dec(work->data + i);
+
+    for(i = 0; i < (target_size >> 2); i++)
+      work->target[i] = le32dec(work->target + i);
+
+    return(true);
 }
 
 static bool gbt_work_decode(const json_t *val, struct work *work)
@@ -721,32 +732,43 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 			share_result(json_is_null(res), json_string_value(res));
 
 		json_decref(val);
-	} else {
-		/* build hex string */
-		for (i = 0; i < ARRAY_SIZE(work->data); i++)
-			le32enc(work->data + i, work->data[i]);
-		bin2hex(data_str, (unsigned char *)work->data, sizeof(work->data));
 
-		/* build JSON-RPC request */
-		sprintf(s,
-			"{\"method\": \"getwork\", \"params\": [ \"%s\" ], \"id\":1}\r\n",
-			data_str);
+    } else {
+        uint data_size = 80;
 
-		/* issue JSON-RPC request */
-		val = json_rpc_call(curl, rpc_url, rpc_userpass, s, NULL, 0);
-		if (unlikely(!val)) {
-			applog(LOG_ERR, "submit_upstream_work json_rpc_call failed");
-			goto out;
-		}
+        if(opt_algo != ALGO_NEOSCRYPT)
+          data_size = 128;
 
-		res = json_object_get(val, "result");
-		reason = json_object_get(val, "reject-reason");
-		share_result(json_is_true(res), reason ? json_string_value(reason) : NULL);
+        uchar gw_str[2 * data_size + 1];
 
-		json_decref(val);
-	}
+        /* Convert to little endian */
+        for(i = 0; i < (data_size >> 2); i++)
+          le32enc(work->data + i, work->data[i]);
 
-	rc = true;
+        /* Convert binary to hexadecimal string */
+        bin2hex(gw_str, (uchar *) work->data, data_size);
+
+        /* Prepare a JSON-RPC request */
+        sprintf(s,
+          "{\"method\": \"getwork\", \"params\": [ \"%s\" ], \"id\":1}\r\n",
+          gw_str);
+
+        /* Issue a JSON-RPC request */
+        val = json_rpc_call(curl, rpc_url, rpc_userpass, s, NULL, 0);
+        if(unlikely(!val)) {
+            applog(LOG_ERR, "submit_upstream_work json_rpc_call failed");
+            return(false);
+        }
+
+        /* Process a JSON-RPC response */
+        res = json_object_get(val, "result");
+        reason = json_object_get(val, "reject-reason");
+        share_result(json_is_true(res), reason ? json_string_value(reason) : NULL);
+        json_decref(val);
+
+    }
+
+    return(true);
 
 out:
 	return rc;
@@ -1046,10 +1068,102 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		free(xnonce2str);
 	}
 
-	if (opt_algo == ALGO_SCRYPT)
-		diff_to_target(work->target, sctx->job.diff / 65536.0);
-	else
-		diff_to_target(work->target, sctx->job.diff);
+        if(opt_algo == ALGO_SHA256D)
+          diff_to_target(work->target, sctx->job.diff);
+        else
+          diff_to_target(work->target, sctx->job.diff / 65536.0);
+}
+
+bool fulltest_le(const uint *hash, const uint *target) {
+    uint i;
+    bool rc;
+
+    for(i = 7; i >= 0; i--) {
+        if(hash[i] > target[i]) {
+            rc = false;
+            break;
+        }
+        if(hash[i] < target[i]) {
+            rc = true;
+            break;
+        }
+    }
+
+    if(opt_debug) {
+        uchar hash_str[65], target_str[65];
+
+        bin2hex(hash_str, (uint8_t *) hash, 32);
+        bin2hex(target_str, (uint8_t *) target, 32);
+
+        applog(LOG_DEBUG, "DEBUG (little endian): %s\nHash:   %sx0\nTarget: %sx0",
+          rc ? "hash <= target"
+             : "hash > target (false positive)",
+               hash_str, target_str);
+
+    }
+
+    return(rc);
+}
+
+int scanhash_neoscrypt(int thr_id, uint *pdata, const uint *ptarget, uint max_nonce,
+  ulong *hashes_done, uint profile) {
+    uint hash[8];
+    const uint targint = ptarget[7];
+    uint start_nonce = pdata[19], inc_nonce = 1;
+
+     while((pdata[19] < max_nonce) && !work_restart[thr_id].restart) {
+
+        neoscrypt((uint8_t *) pdata, (uint8_t *) hash, profile);
+
+        /* Quick hash check */
+        if(hash[7] <= targint) {
+            /* Complete hash check */
+            if(fulltest_le(hash, ptarget)) {
+                *hashes_done = pdata[19] - start_nonce;
+                return(1);
+            }
+        }
+
+        pdata[19] += inc_nonce;
+
+    } 
+
+    *hashes_done = pdata[19] - inc_nonce - start_nonce;
+    return(0);
+}
+
+int scanhash_altscrypt(int thr_id, uint *pdata, const uint *ptarget, uint max_nonce,
+  ulong *hashes_done, uint profile) {
+    uint hash[8], data[20];
+    const uint targint = ptarget[7];
+    uint start_nonce = pdata[19], inc_nonce = 1;
+    uint i;
+
+    /* Convert BE to LE */
+    for(i = 0; i < 19; i++)
+      data[i] = be32dec(&pdata[i]);
+
+    data[19] = pdata[19];
+
+     while((data[19] < max_nonce) && !work_restart[thr_id].restart) {
+
+        neoscrypt((uint8_t *) data, (uint8_t *) hash, profile);
+
+        if(hash[7] <= targint) {
+            if(fulltest_le(hash, ptarget)) {
+                /* LE to BE and write back */
+                be32enc(&pdata[19], data[19]);
+                *hashes_done = data[19] - start_nonce;
+                return(1);
+            }
+        }
+
+        data[19] += inc_nonce;
+
+    }
+
+    *hashes_done = data[19] - inc_nonce - start_nonce;
+    return(0);
 }
 
 static void *miner_thread(void *userdata)
@@ -1133,8 +1247,26 @@ static void *miner_thread(void *userdata)
 			max64 = g_work_time + (have_longpoll ? LP_SCANTIME : opt_scantime)
 			      - time(NULL);
 		max64 *= thr_hashrates[thr_id];
-		if (max64 <= 0)
-			max64 = opt_algo == ALGO_SCRYPT ? 0xfffLL : 0x1fffffLL;
+
+                if(max64 <= 0)
+                  switch(opt_algo) {
+
+                    case(ALGO_NEOSCRYPT):
+                    case(ALGO_ALTSCRYPT):
+                    case(ALGO_SCRYPT):
+                        max64 = 0x3FFFF;
+                        if(opt_nfactor > 3)
+                          max64 >>= (opt_nfactor - 3);
+                        if(opt_nfactor > 16)
+                          max64 = 0xF;
+                        break;
+
+                    case(ALGO_SHA256D):
+                        max64 = 0x1FFFFF;
+                        break;
+
+                }
+
 		if (work.data[19] + max64 > end_nonce)
 			max_nonce = end_nonce;
 		else
@@ -1144,7 +1276,18 @@ static void *miner_thread(void *userdata)
 		gettimeofday(&tv_start, NULL);
 
 		/* scan nonces for a proof-of-work hash */
-		switch (opt_algo) {
+		switch(opt_algo) {
+
+                    case(ALGO_NEOSCRYPT):
+                        rc = scanhash_neoscrypt(thr_id, work.data, work.target, max_nonce,
+                          &hashes_done, 0x80000020 | (opt_nfactor << 8));
+                        break;
+
+                    case(ALGO_ALTSCRYPT):
+                        rc = scanhash_altscrypt(thr_id, work.data, work.target, max_nonce,
+                          &hashes_done, 0x80000003 | (opt_nfactor << 8));
+                        break;
+
 		case ALGO_SCRYPT:
 			rc = scanhash_scrypt(thr_id, work.data, scratchbuf, work.target,
 			                     max_nonce, &hashes_done);
@@ -1477,12 +1620,27 @@ static void parse_arg(int key, char *arg, char *pname)
 				break;
 			}
 		}
+                if((i == ALGO_ALTSCRYPT) || (i == ALGO_SCRYPT))
+                  opt_nfactor = 9;
 		if (i == ARRAY_SIZE(algo_names)) {
 			fprintf(stderr, "%s: unknown algorithm -- '%s'\n",
 				pname, arg);
 			show_usage_and_exit(1);
 		}
 		break;
+
+        case('n'):
+            if((i == ALGO_NEOSCRYPT) || (i == ALGO_ALTSCRYPT)) {
+                v = atoi(arg);
+                /* Nfactor = lb(N) - 1; N = (1 << (Nfactor + 1)) */
+                if((v < 0) || (v > 30)) {
+                    fprintf(stderr, "%s: incorrect Nfactor %d\n", pname, v);
+                    show_usage_and_exit(1);
+                }
+                opt_nfactor = v;
+            }
+            break;
+
 	case 'B':
 		opt_background = true;
 		break;

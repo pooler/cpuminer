@@ -17,10 +17,12 @@ dist_man_MANS	= minerd.1
 
 minerd_SOURCES	= elist.h miner.h compat.h \
 		  cpu-miner.c util.c \
-		  sha2.c scrypt.c
+		  sha2.c scrypt.c \
+		  neoscrypt.c neoscrypt.h
 if USE_ASM
+minerd_SOURCES += neoscrypt_asm.S
 if ARCH_x86
-minerd_SOURCES += sha2-x86.S scrypt-x86.S
+minerd_SOURCES += sha2-x86.S scrypt-x86.S 
 endif
 if ARCH_x86_64
 minerd_SOURCES += sha2-x64.S scrypt-x64.S

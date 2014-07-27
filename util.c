@@ -511,7 +511,7 @@ void bin2hex(char *s, const unsigned char *p, size_t len)
 {
 	int i;
 	for (i = 0; i < len; i++)
-		sprintf(s + (i * 2), "%02x", (unsigned int) p[i]);
+		sprintf(s + (i * 2), "%02X", (unsigned int) p[i]);
 }
 
 char *abin2hex(const unsigned char *p, size_t len)
@@ -547,7 +547,8 @@ bool hex2bin(unsigned char *p, const char *hexstr, size_t len)
 		len--;
 	}
 
-	return (len == 0 && *hexstr == 0) ? true : false;
+	return(!len) ? true : false;
+/*	return (len == 0 && *hexstr == 0) ? true : false; */
 }
 
 int varint_encode(unsigned char *p, uint64_t n)
