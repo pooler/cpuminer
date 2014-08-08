@@ -1088,6 +1088,10 @@ start:
 		applog(LOG_ERR, "Failed to get extranonce2_size");
 		goto out;
 	}
+	if (xn2_size < 0 || xn2_size > 100) {
+		applog(LOG_ERR, "Invalid value of extranonce2_size");
+		goto out;
+	}
 
 	pthread_mutex_lock(&sctx->work_lock);
 	free(sctx->session_id);
