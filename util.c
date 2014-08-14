@@ -579,6 +579,27 @@ int varint_encode(unsigned char *p, uint64_t n)
 	return 9;
 }
 
+int varint_decode(unsigned char *p, uint64_t *n)
+{
+	int i;
+	if (p[0] == 0xff) {
+		for (*n = 0, i = 8; i > 0; --i)
+			*n = (*n << 8) + p[i];
+		return 9;
+	}
+	if (p[0] == 0xfe) {
+		for (*n = 0, i = 4; i > 0; --i)
+			*n = (*n << 8) + p[i];
+		return 5;
+	}
+	if (p[0] == 0xfd) {
+		*n = p[1] + ((uint64_t)p[2] << 8);
+		return 3;
+	}
+	*n = p[0];
+	return 1;
+}
+
 static const char b58digits[] = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 static bool b58dec(unsigned char *bin, size_t binsz, const char *b58)
@@ -1176,11 +1197,13 @@ out:
 static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 {
 	const char *job_id, *prevhash, *coinb1, *coinb2, *version, *nbits, *ntime;
-	size_t coinb1_size, coinb2_size;
-	bool clean, ret = false;
+	size_t coinb1_size, coinb2_size, pos;
+	bool clean, pass_cb_check, ret = false;
 	int merkle_count, i;
 	json_t *merkle_arr;
 	unsigned char **merkle;
+	uint64_t len, total, target;
+	float cb_perc;
 
 	job_id = json_string_value(json_array_get(params, 0));
 	prevhash = json_string_value(json_array_get(params, 1));
@@ -1224,10 +1247,65 @@ static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 	sctx->job.coinbase = realloc(sctx->job.coinbase, sctx->job.coinbase_size);
 	sctx->job.xnonce2 = sctx->job.coinbase + coinb1_size + sctx->xnonce1_size;
 	hex2bin(sctx->job.coinbase, coinb1, coinb1_size);
+	if (check_coinbase_perc) {
+		pos = sizeof(sctx->job.version);
+		if (varint_decode(sctx->job.coinbase + pos, &len) != 1 || len != 1) {
+			applog(LOG_ERR, "Stratum notify: multiple inputs (%ld) in coinbase", len);
+			goto err_with_lock;
+		}
+	}
 	memcpy(sctx->job.coinbase + coinb1_size, sctx->xnonce1, sctx->xnonce1_size);
 	if (!sctx->job.job_id || strcmp(sctx->job.job_id, job_id))
 		memset(sctx->job.xnonce2, 0, sctx->xnonce2_size);
 	hex2bin(sctx->job.xnonce2 + sctx->xnonce2_size, coinb2, coinb2_size);
+	if (check_coinbase_perc) {
+		pos += 1 /* varint length */ + sizeof(sctx->job.prevhash) + 4 /* 0xffffffff */;
+		if (varint_decode(sctx->job.coinbase + pos, &len) != 1 || len >= sizeof(coinbase_sig)) {
+			applog(LOG_ERR, "Stratum notify: input script sig is too long: %ld", len);
+			goto err_with_lock;
+		}
+		total = target = 0;
+		pos += 1 /* varint length */ + len + 4 /* 0xffffffff */;
+		for (pos += varint_decode(sctx->job.coinbase + pos, &len); len > 0; --len) {
+			uint64_t amount = 0, curr_pk_script_len;
+			for (i = 7; i >= 0; --i)
+				amount = (amount << 8) + sctx->job.coinbase[pos + i];
+			total += amount;
+			pos += 8; /* amount length */
+			if (varint_decode(sctx->job.coinbase + pos, &curr_pk_script_len) != 1 || curr_pk_script_len > sizeof(pk_script)) {
+				applog(LOG_ERR, "Stratum notify: coinbase output script too long: %ld", curr_pk_script_len);
+				goto err_with_lock;
+			}
+			pos += 1 /* varint length */;
+			i = (pk_script_size == curr_pk_script_len && !memcmp(pk_script, sctx->job.coinbase + pos, pk_script_size));
+			if (i)
+				target += amount;
+			if (opt_debug) {
+				char *addrstr = abin2hex(sctx->job.coinbase + pos, curr_pk_script_len);
+				applog(LOG_DEBUG, "Coinbase output: %10ld - %s%c", amount, addrstr, i ? '*' : '\0');
+				free(addrstr);
+			}
+			pos += curr_pk_script_len;
+		}
+		if (!total) {
+			applog(LOG_ERR, "Stratum notify: coinbase output no coins");
+			goto err_with_lock;
+		}
+		cb_perc = (double)target / total;
+		if (coinbase_perc_op.op == '>')
+			pass_cb_check = (cb_perc > coinbase_perc_op.value);
+		else if (coinbase_perc_op.op == '<')
+			pass_cb_check = (cb_perc < coinbase_perc_op.value);
+		else
+			pass_cb_check = (cb_perc == coinbase_perc_op.value);
+		if (!pass_cb_check) {
+			applog(LOG_ERR, "Stratum notify: lopsided target/total = %g(%ld/%ld), expecting %c %g",
+				cb_perc, target, total, coinbase_perc_op.op, coinbase_perc_op.value);
+			goto err_with_lock;
+		}
+		if (opt_debug)
+			applog(LOG_DEBUG, "Stratum notify: target/total = %g %c %g", cb_perc, coinbase_perc_op.op, coinbase_perc_op.value);
+	}
 
 	free(sctx->job.job_id);
 	sctx->job.job_id = strdup(job_id);
@@ -1246,9 +1324,10 @@ static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 
 	sctx->job.diff = sctx->next_diff;
 
-	pthread_mutex_unlock(&sctx->work_lock);
-
 	ret = true;
+
+err_with_lock:
+	pthread_mutex_unlock(&sctx->work_lock);
 
 out:
 	return ret;

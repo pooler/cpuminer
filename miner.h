@@ -170,6 +170,11 @@ struct work_restart {
 	char			padding[128 - sizeof(unsigned long)];
 };
 
+struct compare_op {
+	char op;			/* '=', '>', or '<' */
+	float value;
+};
+
 extern bool opt_debug;
 extern bool opt_protocol;
 extern bool opt_redirect;
@@ -180,6 +185,11 @@ extern bool have_gbt;
 extern bool allow_getwork;
 extern bool want_stratum;
 extern bool have_stratum;
+extern int pk_script_size;
+extern unsigned char pk_script[25];
+extern bool check_coinbase_perc;
+extern struct compare_op coinbase_perc_op;
+extern char coinbase_sig[101];
 extern char *opt_cert;
 extern char *opt_proxy;
 extern long opt_proxy_type;
@@ -200,6 +210,7 @@ extern void bin2hex(char *s, const unsigned char *p, size_t len);
 extern char *abin2hex(const unsigned char *p, size_t len);
 extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
 extern int varint_encode(unsigned char *p, uint64_t n);
+extern int varint_decode(unsigned char *p, uint64_t *n);
 extern size_t address_to_script(unsigned char *out, size_t outsz, const char *addr);
 extern int timeval_subtract(struct timeval *result, struct timeval *x,
 	struct timeval *y);
