@@ -602,6 +602,47 @@ int varint_decode(unsigned char *p, uint64_t *n)
 
 static const char b58digits[] = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
+static bool b58enc(char *b58, size_t *b58sz, const unsigned char* bin, size_t binsz)
+{
+	int i, j, carry, zcount = 0;
+	size_t size;
+	unsigned char *buf;
+
+	while (zcount < binsz && !bin[zcount]) ++zcount;
+
+	size = (binsz - zcount) * 138 / 100 + 1;
+	buf = malloc(size);
+	if (!buf)
+		return false;
+	memset(buf, 0, size);
+
+	for (i = zcount; i < binsz; ++i) {
+		for (carry = bin[i], j = size - 1; j >= 0; --j) {
+			carry += 256 * buf[j];
+			buf[j] = carry % 58;
+			carry /= 58;
+		}
+	}
+
+	for (j = 0; j < size && !buf[j]; ++j);
+
+	if (*b58sz <= zcount + size - j) {
+		free(buf);
+		*b58sz = zcount + size - j + 1;
+		return false;
+	}
+
+	if (zcount)
+		memset(b58, '1', zcount);
+	for (i = zcount; j < size; ++i, ++j)
+		b58[i] = b58digits[buf[j]];
+	b58[i] = '\0';
+	*b58sz = i + 1;
+
+	free(buf);
+	return true;
+}
+
 static bool b58dec(unsigned char *bin, size_t binsz, const char *b58)
 {
 	size_t i, j;
@@ -682,6 +723,17 @@ size_t address_to_script(unsigned char *out, size_t outsz, const char *addr)
 	if (addrver < 0)
 		return 0;
 	switch (addrver) {
+		case 0:
+		case 111:
+			if (outsz < (rv = 25))
+				return rv;
+			out[ 0] = 0x76;  /* OP_DUP */
+			out[ 1] = 0xa9;  /* OP_HASH160 */
+			out[ 2] = 0x14;  /* push 20 bytes */
+			memcpy(&out[3], &addrbin[1], 20);
+			out[23] = 0x88;  /* OP_EQUALVERIFY */
+			out[24] = 0xac;  /* OP_CHECKSIG */
+			return rv;
 		case 5:    /* Bitcoin script hash */
 		case 196:  /* Testnet script hash */
 			if (outsz < (rv = 23))
@@ -692,16 +744,57 @@ size_t address_to_script(unsigned char *out, size_t outsz, const char *addr)
 			out[22] = 0x87;  /* OP_EQUAL */
 			return rv;
 		default:
-			if (outsz < (rv = 25))
-				return rv;
-			out[ 0] = 0x76;  /* OP_DUP */
-			out[ 1] = 0xa9;  /* OP_HASH160 */
-			out[ 2] = 0x14;  /* push 20 bytes */
-			memcpy(&out[3], &addrbin[1], 20);
-			out[23] = 0x88;  /* OP_EQUALVERIFY */
-			out[24] = 0xac;  /* OP_CHECKSIG */
-			return rv;
+			return 0;
 	}
+}
+
+static bool test_address( char *addr, size_t *addrsz, unsigned char ver, const unsigned char *pkhash )
+{
+	unsigned char buf[25], hret[32];
+
+	buf[0] = ver;
+	memcpy(buf + 1, pkhash, 20);
+	sha256d(hret, buf, 21);
+	memcpy(buf + 21, hret, 4);
+
+	return (b58enc(addr, addrsz, buf, 25) && (*addrsz == 35 || *addrsz == 34) &&
+			b58dec(buf, sizeof(buf), addr) && buf[0] == ver && !memcmp(buf + 1, pkhash, 20));
+}
+
+size_t script_to_address(char *out, size_t outsz, const unsigned char *script, size_t scriptsz)
+{
+	unsigned char buf[32], hret[32];
+	char addr[35];
+	size_t size = sizeof(addr);
+
+	if (scriptsz == 25) {
+		if (script[0] != 0x76 || script[1] != 0xa9 || script[2] != 0x14 || script[23] != 0x88 || script[24] != 0xac)
+			return 0;
+		if (test_address(addr, &size, 0x00, script + 3)) {
+			if (outsz >= size)
+				strcpy(out, addr);
+			return size;
+		}
+		if (test_address(addr, &size, 0x6f, script + 3)) {
+			if (outsz >= size)
+				strcpy(out, addr);
+			return size;
+		}
+	} else if (scriptsz == 23) {
+		if (script[0] != 0xa9 || script[1] != 0x14 || script[22] != 0x87)
+			return 0;
+		if (test_address(addr, &size, 0x05, script + 2)) {
+			if (outsz >= size)
+				strcpy(out, addr);
+			return size;
+		}
+		if (test_address(addr, &size, 0xc4, script + 2)) {
+			if (outsz >= size)
+				strcpy(out, addr);
+			return size;
+		}
+	}
+	return 0;
 }
 
 /* Subtract the `struct timeval' values X and Y,
@@ -1268,6 +1361,8 @@ static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 		pos += 1 /* varint length */ + len + 4 /* 0xffffffff */;
 		for (pos += varint_decode(sctx->job.coinbase + pos, &len); len > 0; --len) {
 			uint64_t amount = 0, curr_pk_script_len;
+			char addr[35];
+
 			for (i = 7; i >= 0; --i)
 				amount = (amount << 8) + sctx->job.coinbase[pos + i];
 			total += amount;
@@ -1277,14 +1372,17 @@ static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 				goto err_with_lock;
 			}
 			pos += 1 /* varint length */;
+			if (script_to_address(addr, sizeof(addr), sctx->job.coinbase + pos, curr_pk_script_len) > sizeof(addr)) {
+				char *script = abin2hex(sctx->job.coinbase + pos, curr_pk_script_len);
+				applog(LOG_ERR, "Stratum notify: coinbase output to an invalid address: %s", script);
+				free(script);
+				goto err_with_lock;
+			}
 			i = (pk_script_size == curr_pk_script_len && !memcmp(pk_script, sctx->job.coinbase + pos, pk_script_size));
 			if (i)
 				target += amount;
-			if (opt_debug) {
-				char *addrstr = abin2hex(sctx->job.coinbase + pos, curr_pk_script_len);
-				applog(LOG_DEBUG, "Coinbase output: %10ld - %s%c", amount, addrstr, i ? '*' : '\0');
-				free(addrstr);
-			}
+			if (opt_debug)
+				applog(LOG_DEBUG, "Coinbase output: %10ld - %s%c", amount, addr, i ? '*' : '\0');
 			pos += curr_pk_script_len;
 		}
 		if (!total) {
