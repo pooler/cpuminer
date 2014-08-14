@@ -22,6 +22,8 @@
 #include <time.h>
 #ifdef WIN32
 #include <windows.h>
+typedef unsigned long ulong;
+typedef unsigned int uint;
 #else
 #include <errno.h>
 #include <signal.h>
@@ -665,25 +667,32 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 		return true;
 	}
 
-	if (have_stratum) {
-		uint32_t ntime, nonce;
-		char ntimestr[9], noncestr[9], *xnonce2str;
+    if(have_stratum) {
+        uint32_t ntime, nonce;
+        char ntimestr[9], noncestr[9], *xnonce2str;
 
-		le32enc(&ntime, work->data[17]);
-		le32enc(&nonce, work->data[19]);
-		bin2hex(ntimestr, (const unsigned char *)(&ntime), 4);
-		bin2hex(noncestr, (const unsigned char *)(&nonce), 4);
-		xnonce2str = abin2hex(work->xnonce2, work->xnonce2_len);
-		sprintf(s,
-			"{\"method\": \"mining.submit\", \"params\": [\"%s\", \"%s\", \"%s\", \"%s\", \"%s\"], \"id\":4}",
-			rpc_user, work->job_id, xnonce2str, ntimestr, noncestr);
-		free(xnonce2str);
+        if(opt_algo != ALGO_NEOSCRYPT) {
+            le32enc(&ntime, work->data[17]);
+            le32enc(&nonce, work->data[19]);
+        } else {
+            be32enc(&ntime, work->data[17]);
+            be32enc(&nonce, work->data[19]);
+        }
 
-		if (unlikely(!stratum_send_line(&stratum, s))) {
-			applog(LOG_ERR, "submit_upstream_work stratum_send_line failed");
-			goto out;
-		}
-	} else if (work->txs) {
+        bin2hex(ntimestr, (const unsigned char *)(&ntime), 4);
+        bin2hex(noncestr, (const unsigned char *)(&nonce), 4);
+
+        xnonce2str = abin2hex(work->xnonce2, work->xnonce2_len);
+        sprintf(s, "{\"method\": \"mining.submit\", \"params\": [\"%s\", \"%s\", \"%s\", \"%s\", \"%s\"], \"id\":4}",
+          rpc_user, work->job_id, xnonce2str, ntimestr, noncestr);
+        free(xnonce2str);
+
+        if(unlikely(!stratum_send_line(&stratum, s))) {
+            applog(LOG_ERR, "submit_upstream_work stratum_send_line failed");
+            return(false);
+        }
+
+    } else if(work->txs) {
 		char *req;
 
 		for (i = 0; i < ARRAY_SIZE(work->data); i++)
@@ -1047,17 +1056,28 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 	/* Increment extranonce2 */
 	for (i = 0; i < sctx->xnonce2_size && !++sctx->job.xnonce2[i]; i++);
 
-	/* Assemble block header */
-	memset(work->data, 0, 128);
-	work->data[0] = le32dec(sctx->job.version);
-	for (i = 0; i < 8; i++)
-		work->data[1 + i] = le32dec((uint32_t *)sctx->job.prevhash + i);
-	for (i = 0; i < 8; i++)
-		work->data[9 + i] = be32dec((uint32_t *)merkle_root + i);
-	work->data[17] = le32dec(sctx->job.ntime);
-	work->data[18] = le32dec(sctx->job.nbits);
-	work->data[20] = 0x80000000;
-	work->data[31] = 0x00000280;
+    /* Assemble block header;
+     * reverse byte order for NeoScrypt */
+    memset(work->data, 0, 128);
+    if(opt_algo != ALGO_NEOSCRYPT) {
+        work->data[0] = le32dec(sctx->job.version);
+        for(i = 0; i < 8; i++)
+          work->data[1 + i] = le32dec((uint32_t *) sctx->job.prevhash + i);
+        for(i = 0; i < 8; i++)
+          work->data[9 + i] = be32dec((uint32_t *) merkle_root + i);
+        work->data[17] = le32dec(sctx->job.ntime);
+        work->data[18] = le32dec(sctx->job.nbits);
+    } else {
+        work->data[0] = be32dec(sctx->job.version);
+        for(i = 0; i < 8; i++)
+          work->data[1 + i] = be32dec((uint32_t *) sctx->job.prevhash + i);
+        for(i = 0; i < 8; i++)
+          work->data[9 + i] = le32dec((uint32_t *) merkle_root + i);
+        work->data[17] = be32dec(sctx->job.ntime);
+        work->data[18] = be32dec(sctx->job.nbits);
+    }
+    work->data[20] = 0x80000000;
+    work->data[31] = 0x00000280;
 
 	pthread_mutex_unlock(&sctx->work_lock);
 
@@ -1205,13 +1225,21 @@ static void *miner_thread(void *userdata)
 		int64_t max64;
 		int rc;
 
-		if (have_stratum) {
-			while (time(NULL) >= g_work_time + 120)
-				sleep(1);
-			pthread_mutex_lock(&g_work_lock);
-			if (work.data[19] >= end_nonce && !memcmp(work.data, g_work.data, 76))
-				stratum_gen_work(&stratum, &g_work);
-		} else {
+        if(have_stratum) {
+
+            while(time(NULL) >= g_work_time + 120)
+              sleep(1);
+
+            while(!stratum.job.diff) {
+                applog(LOG_DEBUG, "Waiting for Stratum to set the job difficulty");
+                sleep(1);
+            }
+
+            pthread_mutex_lock(&g_work_lock);
+            if(work.data[19] >= end_nonce && !memcmp(work.data, g_work.data, 76))
+              stratum_gen_work(&stratum, &g_work);
+
+        } else {
 			int min_scantime = have_longpoll ? LP_SCANTIME : opt_scantime;
 			/* obtain new work from internal workio thread */
 			pthread_mutex_lock(&g_work_lock);
