@@ -604,7 +604,7 @@ static const char b58digits[] = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmno
 
 static bool b58enc(char *b58, size_t *b58sz, const unsigned char* bin, size_t binsz)
 {
-	int i, j, carry, zcount = 0;
+	int i, j, carry, high, zcount = 0;
 	size_t size;
 	unsigned char *buf;
 
@@ -616,8 +616,8 @@ static bool b58enc(char *b58, size_t *b58sz, const unsigned char* bin, size_t bi
 		return false;
 	memset(buf, 0, size);
 
-	for (i = zcount; i < binsz; ++i) {
-		for (carry = bin[i], j = size - 1; j >= 0; --j) {
+	for (i = zcount, high = size - 1; i < binsz; ++i, high = j) {
+		for (carry = bin[i], j = size - 1; (j > high) || carry; --j) {
 			carry += 256 * buf[j];
 			buf[j] = carry % 58;
 			carry /= 58;
