@@ -761,41 +761,62 @@ static bool test_address( char *addr, size_t *addrsz, unsigned char ver, const u
 			b58dec(buf, sizeof(buf), addr) && buf[0] == ver && !memcmp(buf + 1, pkhash, 20));
 }
 
-size_t script_to_address(char *out, size_t outsz, const unsigned char *script, size_t scriptsz)
+size_t script_to_address(char *out, size_t outsz, const unsigned char *script, size_t scriptsz, bool testnet)
 {
 	unsigned char buf[32], hret[32];
 	char addr[35];
 	size_t size = sizeof(addr);
+	bool bok = false;
 
 	if (scriptsz == 25) {
 		if (script[0] != 0x76 || script[1] != 0xa9 || script[2] != 0x14 || script[23] != 0x88 || script[24] != 0xac)
 			return 0;
-		if (test_address(addr, &size, 0x00, script + 3)) {
-			if (outsz >= size)
-				strcpy(out, addr);
-			return size;
-		}
-		if (test_address(addr, &size, 0x6f, script + 3)) {
-			if (outsz >= size)
-				strcpy(out, addr);
-			return size;
-		}
+		bok = test_address(addr, &size, testnet ? 0x6f : 0x00, script + 3);
 	} else if (scriptsz == 23) {
 		if (script[0] != 0xa9 || script[1] != 0x14 || script[22] != 0x87)
 			return 0;
-		if (test_address(addr, &size, 0x05, script + 2)) {
-			if (outsz >= size)
-				strcpy(out, addr);
-			return size;
-		}
-		if (test_address(addr, &size, 0xc4, script + 2)) {
-			if (outsz >= size)
-				strcpy(out, addr);
-			return size;
-		}
+		bok = test_address(addr, &size, testnet ? 0xc4 : 0x05, script + 2);
 	}
-	return 0;
+	if (!bok)
+		return 0;
+	if (outsz >= size)
+		strcpy(out, addr);
+	return size;
 }
+
+#if 0
+void test_addr_script_conversion()
+{
+	char addr[][35] = {};
+	int i;
+	for (i = 0; i < sizeof(addr)/sizeof(addr[0]); ++i) {
+		unsigned char script[25];
+		char newaddr[50];
+		int len1 = address_to_script(script, sizeof(script), addr[i]);
+		if (len1 > sizeof(script) {
+			applog(LOG_ERR, "1 Failed: %s", addr[i]);
+			continue;
+		}
+		int len2 = script_to_address(newaddr, sizeof(newaddr), script, len1, false);
+		if (len2 > sizeof(newaddr)) {
+			bin2hex(newaddr, script, len1);
+			applog(LOG_ERR, "2 Failed: %s", newaddr);
+			continue;
+		}
+		if (strcmp(&addr[0][i], newaddr)) {
+			len2 = script_to_address(newaddr, sizeof(newaddr), script, len1, true);
+			if (len2 > sizeof(newaddr)) {
+				bin2hex(newaddr, script, len1);
+				applog(LOG_ERR, "3 Failed: %s", newaddr);
+				continue;
+			}
+			if (strcmp(&addr[0][i], newaddr))
+				applog(LOG_ERR, "3 Failed: %s/%s", addr[i], newaddr);
+		}
+		applog(LOG_DEBUG, "OK %d %s", len1, addr[i]);
+	}
+}
+#endif
 
 /* Subtract the `struct timeval' values X and Y,
    storing the result in RESULT.
@@ -1340,18 +1361,17 @@ static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 	sctx->job.coinbase = realloc(sctx->job.coinbase, sctx->job.coinbase_size);
 	sctx->job.xnonce2 = sctx->job.coinbase + coinb1_size + sctx->xnonce1_size;
 	hex2bin(sctx->job.coinbase, coinb1, coinb1_size);
+	memcpy(sctx->job.coinbase + coinb1_size, sctx->xnonce1, sctx->xnonce1_size);
+	if (!sctx->job.job_id || strcmp(sctx->job.job_id, job_id))
+		memset(sctx->job.xnonce2, 0, sctx->xnonce2_size);
+	hex2bin(sctx->job.xnonce2 + sctx->xnonce2_size, coinb2, coinb2_size);
+
 	if (check_coinbase_perc) {
 		pos = sizeof(sctx->job.version);
 		if (varint_decode(sctx->job.coinbase + pos, &len) != 1 || len != 1) {
 			applog(LOG_ERR, "Stratum notify: multiple inputs (%ld) in coinbase", len);
 			goto err_with_lock;
 		}
-	}
-	memcpy(sctx->job.coinbase + coinb1_size, sctx->xnonce1, sctx->xnonce1_size);
-	if (!sctx->job.job_id || strcmp(sctx->job.job_id, job_id))
-		memset(sctx->job.xnonce2, 0, sctx->xnonce2_size);
-	hex2bin(sctx->job.xnonce2 + sctx->xnonce2_size, coinb2, coinb2_size);
-	if (check_coinbase_perc) {
 		pos += 1 /* varint length */ + sizeof(sctx->job.prevhash) + 4 /* 0xffffffff */;
 		if (varint_decode(sctx->job.coinbase + pos, &len) != 1 || len >= sizeof(coinbase_sig)) {
 			applog(LOG_ERR, "Stratum notify: input script sig is too long: %ld", len);
@@ -1372,7 +1392,7 @@ static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 				goto err_with_lock;
 			}
 			pos += 1 /* varint length */;
-			if (script_to_address(addr, sizeof(addr), sctx->job.coinbase + pos, curr_pk_script_len) > sizeof(addr)) {
+			if (script_to_address(addr, sizeof(addr), sctx->job.coinbase + pos, curr_pk_script_len, opt_testnet_addr) > sizeof(addr)) {
 				char *script = abin2hex(sctx->job.coinbase + pos, curr_pk_script_len);
 				applog(LOG_ERR, "Stratum notify: coinbase output to an invalid address: %s", script);
 				free(script);
@@ -1382,7 +1402,7 @@ static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 			if (i)
 				target += amount;
 			if (opt_debug)
-				applog(LOG_DEBUG, "Coinbase output: %10ld - %s%c", amount, addr, i ? '*' : '\0');
+				applog(LOG_DEBUG, "Coinbase output: %10ld - %34s%c", amount, addr, i ? '*' : '\0');
 			pos += curr_pk_script_len;
 		}
 		if (!total) {

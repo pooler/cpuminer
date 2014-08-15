@@ -137,6 +137,7 @@ static char *rpc_userpass;
 static char *rpc_user, *rpc_pass;
 int pk_script_size = 0;
 unsigned char pk_script[25];
+bool opt_testnet_addr = false;
 bool check_coinbase_perc = false;
 struct compare_op coinbase_perc_op;
 char coinbase_sig[101] = "";
@@ -1688,6 +1689,7 @@ static void parse_arg(int key, char *arg, char *pname)
 		have_gbt = false;
 		break;
 	case 1013:			/* --coinbase-addr */
+		opt_testnet_addr = (arg[0] != '1');
 		pk_script_size = address_to_script(pk_script, sizeof(pk_script), arg);
 		if (!pk_script_size) {
 			fprintf(stderr, "%s: invalid address -- '%s'\n",

@@ -187,6 +187,7 @@ extern bool want_stratum;
 extern bool have_stratum;
 extern int pk_script_size;
 extern unsigned char pk_script[25];
+extern bool opt_testnet_addr;
 extern bool check_coinbase_perc;
 extern struct compare_op coinbase_perc_op;
 extern char coinbase_sig[101];
