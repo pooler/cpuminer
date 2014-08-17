@@ -100,6 +100,21 @@ static inline uint32_t le32dec(const void *pp)
 }
 #endif
 
+#if !HAVE_DECL_LE64DEC
+static inline uint64_t le64dec(const void *pp)
+{
+	const uint8_t *p = (uint8_t const *)pp;
+	return ((uint64_t)(p[0])			|
+			((uint64_t)(p[1]) << 8) 	|
+			((uint64_t)(p[2]) << 16)	|
+			((uint64_t)(p[3]) << 24)	|
+			((uint64_t)(p[4]) << 32)	|
+			((uint64_t)(p[5]) << 40)	|
+			((uint64_t)(p[6]) << 48)	|
+			((uint64_t)(p[7]) << 56));
+}
+#endif
+
 #if !HAVE_DECL_BE32ENC
 static inline void be32enc(void *pp, uint32_t x)
 {
@@ -188,7 +203,6 @@ extern bool have_stratum;
 extern int pk_script_size;
 extern unsigned char pk_script[25];
 extern bool opt_testnet_addr;
-extern bool check_coinbase_perc;
 extern struct compare_op coinbase_perc_op;
 extern char coinbase_sig[101];
 extern char *opt_cert;
@@ -211,7 +225,7 @@ extern void bin2hex(char *s, const unsigned char *p, size_t len);
 extern char *abin2hex(const unsigned char *p, size_t len);
 extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
 extern int varint_encode(unsigned char *p, uint64_t n);
-extern int varint_decode(unsigned char *p, uint64_t *n);
+extern int varint_decode(const unsigned char *p, size_t size, uint64_t *n);
 extern size_t address_to_script(unsigned char *out, size_t outsz, const char *addr);
 extern int timeval_subtract(struct timeval *result, struct timeval *x,
 	struct timeval *y);

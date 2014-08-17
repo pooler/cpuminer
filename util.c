@@ -579,25 +579,28 @@ int varint_encode(unsigned char *p, uint64_t n)
 	return 9;
 }
 
-int varint_decode(unsigned char *p, uint64_t *n)
+int varint_decode(const unsigned char *p, size_t size, uint64_t *n)
 {
 	int i;
-	if (p[0] == 0xff) {
+	if (size > 8 && p[0] == 0xff) {
 		for (*n = 0, i = 8; i > 0; --i)
 			*n = (*n << 8) + p[i];
 		return 9;
 	}
-	if (p[0] == 0xfe) {
+	if (size > 4 && p[0] == 0xfe) {
 		for (*n = 0, i = 4; i > 0; --i)
 			*n = (*n << 8) + p[i];
 		return 5;
 	}
-	if (p[0] == 0xfd) {
+	if (size > 2 && p[0] == 0xfd) {
 		*n = p[1] + ((uint64_t)p[2] << 8);
 		return 3;
 	}
-	*n = p[0];
-	return 1;
+	if (size) {
+		*n = p[0];
+		return 1;
+	}
+	return 0;
 }
 
 static const char b58digits[] = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -1308,16 +1311,117 @@ out:
 	return ret;
 }
 
+bool check_coinbase(const unsigned char *coinbase, size_t cbsize,
+	struct compare_op* cop, const unsigned char *pk_script, size_t pk_script_size)
+{
+	size_t pos, i;
+	uint64_t len, total, target;
+
+	if (cbsize < 62) { /* Smallest possible coinbase size */
+		applog(LOG_ERR, "Coinbase check: invalid length %zu", cbsize);
+		return false;
+	}
+	pos = 4; /* Skip the version */
+
+	if (coinbase[pos] != 1) {
+		applog(LOG_ERR, "Coinbase check: multiple inputs (0x%02x) in coinbase", coinbase[pos]);
+		return false;
+	}
+	pos += 1 /* varint length */ + 32 /* prevhash */ + 4 /* 0xffffffff */;
+
+	if (coinbase[pos] < 2 || coinbase[pos] > 100) {
+		applog(LOG_ERR, "Coinbase check: input script sig invalid length: 0x%02x", coinbase[pos]);
+		return false;
+	}
+	pos += 1 /* varint length */ + coinbase[pos] + 4 /* 0xffffffff */;
+
+	if (cbsize <= pos) {
+incomplete_cb:
+		applog(LOG_ERR, "Coinbase check: incomplete coinbase");
+		return false;
+	}
+
+	i = varint_decode(coinbase + pos, cbsize - pos, &len);
+	if (!i)
+		goto incomplete_cb;
+	pos += i;
+
+	total = target = 0;
+	while (len-- > 0) {
+		uint64_t amount = 0, curr_pk_script_len;
+		char addr[35];
+
+		if (cbsize <= pos + 8)
+			goto incomplete_cb;
+
+		amount = le64dec(coinbase + pos);
+		pos += 8; /* amount length */
+
+		total += amount;
+
+		i = varint_decode(coinbase + pos, cbsize - pos, &curr_pk_script_len);
+		if (!i || cbsize <= pos + i + curr_pk_script_len)
+			goto incomplete_cb;
+		pos += i; /* varint length */
+
+		i = script_to_address(addr, sizeof(addr), coinbase + pos, curr_pk_script_len, opt_testnet_addr);
+		if (i || i <= sizeof(addr)) {
+			if (cop && cop->op) {
+				i = (pk_script_size == curr_pk_script_len && !memcmp(pk_script, coinbase + pos, pk_script_size));
+				if (i)
+					target += amount;
+			} else
+				i = 0;
+			if (opt_debug)
+				applog(LOG_DEBUG, "Coinbase output: %10ld - %34s%c", amount, addr, i ? '*' : '\0');
+		} else if (opt_debug) {
+			char *hex = abin2hex(coinbase + pos, curr_pk_script_len);
+			applog(LOG_DEBUG, "Coinbase output: %10ld PK %34s", amount, hex);
+			free(hex);
+		}
+
+		pos += curr_pk_script_len;
+	}
+	if (!total) {
+		applog(LOG_ERR, "Coinbase check: output no coins");
+		return false;
+	}
+	if (cbsize < pos + 4) {
+		applog(LOG_ERR, "Coinbase check: no room for locktime");
+		return false;
+	}
+
+	if (cop && cop->op) {
+		bool pass_cb_check;
+		float cb_perc;
+		cb_perc = (double)target / total;
+		if (cop->op == '>')
+			pass_cb_check = (cb_perc > cop->value);
+		else if (cop->op == '<')
+			pass_cb_check = (cb_perc < cop->value);
+		else
+			pass_cb_check = (cb_perc == cop->value);
+		if (!pass_cb_check) {
+			applog(LOG_ERR, "Stratum notify: lopsided target/total = %g(%ld/%ld), expecting %c %g",
+				cb_perc, target, total, coinbase_perc_op.op, coinbase_perc_op.value);
+			return false;
+		}
+	}
+
+	if (opt_debug)
+		applog(LOG_DEBUG, "Stratum notify: (target, total, percent) = (%ld, %ld, %g)", target, total, (double)target / total);
+
+	return true;
+}
+
 static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 {
 	const char *job_id, *prevhash, *coinb1, *coinb2, *version, *nbits, *ntime;
-	size_t coinb1_size, coinb2_size, pos;
-	bool clean, pass_cb_check, ret = false;
+	size_t coinb1_size, coinb2_size, cbsize;
+	bool clean, ret = false;
 	int merkle_count, i;
 	json_t *merkle_arr;
-	unsigned char **merkle;
-	uint64_t len, total, target;
-	float cb_perc;
+	unsigned char *coinbase, **merkle;
 
 	job_id = json_string_value(json_array_get(params, 0));
 	prevhash = json_string_value(json_array_get(params, 1));
@@ -1352,78 +1456,27 @@ static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 		hex2bin(merkle[i], s, 32);
 	}
 
-	pthread_mutex_lock(&sctx->work_lock);
-
 	coinb1_size = strlen(coinb1) / 2;
 	coinb2_size = strlen(coinb2) / 2;
-	sctx->job.coinbase_size = coinb1_size + sctx->xnonce1_size +
-	                          sctx->xnonce2_size + coinb2_size;
-	sctx->job.coinbase = realloc(sctx->job.coinbase, sctx->job.coinbase_size);
-	sctx->job.xnonce2 = sctx->job.coinbase + coinb1_size + sctx->xnonce1_size;
-	hex2bin(sctx->job.coinbase, coinb1, coinb1_size);
+	cbsize = coinb1_size + sctx->xnonce1_size + sctx->xnonce2_size + coinb2_size;
+	coinbase = malloc(cbsize);
+	hex2bin(coinbase, coinb1, coinb1_size);
+	hex2bin(coinbase + coinb1_size + sctx->xnonce1_size + sctx->xnonce2_size, coinb2, coinb2_size);
+	if (!check_coinbase(coinbase, cbsize, &coinbase_perc_op, pk_script, pk_script_size)) {
+		applog(LOG_ERR, "Stratum notify: invalid coinbase data");
+		goto out;
+	}
+
+	pthread_mutex_lock(&sctx->work_lock);
+
+	sctx->job.coinbase_size = cbsize;
+	sctx->job.coinbase = coinbase;
+	free(sctx->job.coinbase);
 	memcpy(sctx->job.coinbase + coinb1_size, sctx->xnonce1, sctx->xnonce1_size);
+	sctx->job.xnonce2 = sctx->job.coinbase + coinb1_size + sctx->xnonce1_size;
 	if (!sctx->job.job_id || strcmp(sctx->job.job_id, job_id))
 		memset(sctx->job.xnonce2, 0, sctx->xnonce2_size);
 	hex2bin(sctx->job.xnonce2 + sctx->xnonce2_size, coinb2, coinb2_size);
-
-	if (check_coinbase_perc) {
-		pos = sizeof(sctx->job.version);
-		if (varint_decode(sctx->job.coinbase + pos, &len) != 1 || len != 1) {
-			applog(LOG_ERR, "Stratum notify: multiple inputs (%ld) in coinbase", len);
-			goto err_with_lock;
-		}
-		pos += 1 /* varint length */ + sizeof(sctx->job.prevhash) + 4 /* 0xffffffff */;
-		if (varint_decode(sctx->job.coinbase + pos, &len) != 1 || len >= sizeof(coinbase_sig)) {
-			applog(LOG_ERR, "Stratum notify: input script sig is too long: %ld", len);
-			goto err_with_lock;
-		}
-		total = target = 0;
-		pos += 1 /* varint length */ + len + 4 /* 0xffffffff */;
-		for (pos += varint_decode(sctx->job.coinbase + pos, &len); len > 0; --len) {
-			uint64_t amount = 0, curr_pk_script_len;
-			char addr[35];
-
-			for (i = 7; i >= 0; --i)
-				amount = (amount << 8) + sctx->job.coinbase[pos + i];
-			total += amount;
-			pos += 8; /* amount length */
-			if (varint_decode(sctx->job.coinbase + pos, &curr_pk_script_len) != 1 || curr_pk_script_len > sizeof(pk_script)) {
-				applog(LOG_ERR, "Stratum notify: coinbase output script too long: %ld", curr_pk_script_len);
-				goto err_with_lock;
-			}
-			pos += 1 /* varint length */;
-			if (script_to_address(addr, sizeof(addr), sctx->job.coinbase + pos, curr_pk_script_len, opt_testnet_addr) > sizeof(addr)) {
-				char *script = abin2hex(sctx->job.coinbase + pos, curr_pk_script_len);
-				applog(LOG_ERR, "Stratum notify: coinbase output to an invalid address: %s", script);
-				free(script);
-				goto err_with_lock;
-			}
-			i = (pk_script_size == curr_pk_script_len && !memcmp(pk_script, sctx->job.coinbase + pos, pk_script_size));
-			if (i)
-				target += amount;
-			if (opt_debug)
-				applog(LOG_DEBUG, "Coinbase output: %10ld - %34s%c", amount, addr, i ? '*' : '\0');
-			pos += curr_pk_script_len;
-		}
-		if (!total) {
-			applog(LOG_ERR, "Stratum notify: coinbase output no coins");
-			goto err_with_lock;
-		}
-		cb_perc = (double)target / total;
-		if (coinbase_perc_op.op == '>')
-			pass_cb_check = (cb_perc > coinbase_perc_op.value);
-		else if (coinbase_perc_op.op == '<')
-			pass_cb_check = (cb_perc < coinbase_perc_op.value);
-		else
-			pass_cb_check = (cb_perc == coinbase_perc_op.value);
-		if (!pass_cb_check) {
-			applog(LOG_ERR, "Stratum notify: lopsided target/total = %g(%ld/%ld), expecting %c %g",
-				cb_perc, target, total, coinbase_perc_op.op, coinbase_perc_op.value);
-			goto err_with_lock;
-		}
-		if (opt_debug)
-			applog(LOG_DEBUG, "Stratum notify: target/total = %g %c %g", cb_perc, coinbase_perc_op.op, coinbase_perc_op.value);
-	}
 
 	free(sctx->job.job_id);
 	sctx->job.job_id = strdup(job_id);
@@ -1442,10 +1495,9 @@ static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 
 	sctx->job.diff = sctx->next_diff;
 
-	ret = true;
-
-err_with_lock:
 	pthread_mutex_unlock(&sctx->work_lock);
+
+	ret = true;
 
 out:
 	return ret;
