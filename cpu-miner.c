@@ -1705,12 +1705,15 @@ static void parse_arg(int key, char *arg, char *pname)
 				pname);
 			show_usage_and_exit(1);
 		}
-		if (arg[0] != '>' && arg[0] != '<' && arg[0] != '=') {
+		if (arg[0] != '>' && arg[0] != '+' &&
+			arg[0] != '<' && arg[0] != '-' &&
+			arg[0] != '=') {
 			fprintf(stderr, "%s: invalid coinbase-perc op -- '%s'\n", pname,
 				arg);
 			show_usage_and_exit(1);
 		}
-		coinbase_perc_op.op = arg[0];
+		coinbase_perc_op.op = (arg[0] == '+' ? '>' :
+								(arg[0] == '-' ? '<' : arg[0]));
 		coinbase_perc_op.value = atof(&arg[1]);
 		break;
 	case 1015:			/* --coinbase-sig */

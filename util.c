@@ -766,7 +766,6 @@ static bool test_address( char *addr, size_t *addrsz, unsigned char ver, const u
 
 size_t script_to_address(char *out, size_t outsz, const unsigned char *script, size_t scriptsz, bool testnet)
 {
-	unsigned char buf[32], hret[32];
 	char addr[35];
 	size_t size = sizeof(addr);
 	bool bok = false;

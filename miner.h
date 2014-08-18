@@ -231,6 +231,8 @@ extern int timeval_subtract(struct timeval *result, struct timeval *x,
 	struct timeval *y);
 extern bool fulltest(const uint32_t *hash, const uint32_t *target);
 extern void diff_to_target(uint32_t *target, double diff);
+extern bool check_coinbase(const unsigned char *coinbase, size_t cbsize,
+	struct compare_op* cop, const unsigned char *pk_script, size_t pk_script_size);
 
 struct stratum_job {
 	char *job_id;
