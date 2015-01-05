@@ -344,6 +344,9 @@ err_out:
 	return false;
 }
 
+#define BLOCK_VERSION_MASK 0x000000ff
+#define BLOCK_VERSION_CURRENT 2
+
 static bool gbt_work_decode(const json_t *val, struct work *work)
 {
 	int i, n;
@@ -393,9 +396,9 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		goto out;
 	}
 	version = json_integer_value(tmp);
-	if (version > 2) {
+	if ((version & BLOCK_VERSION_MASK) > BLOCK_VERSION_CURRENT) {
 		if (version_reduce) {
-			version = 2;
+			version = (version & ~BLOCK_VERSION_MASK) | BLOCK_VERSION_CURRENT;
 		} else if (!version_force) {
 			applog(LOG_ERR, "Unrecognized block version: %u", version);
 			goto out;
