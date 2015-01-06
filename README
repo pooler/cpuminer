@@ -14,7 +14,7 @@ Dependencies:
 Basic *nix build instructions:
 	./autogen.sh	# only needed if building from git repo
 	./nomacro.pl	# only needed if building on Mac OS X or with Clang
-	./configure CFLAGS="-O3"
+	./configure CFLAGS="-O2 -fomit-frame-pointer -DASM -DOPT -DMINER_4WAY -DSHA256"
 	make
 
 Notes for AIX users:

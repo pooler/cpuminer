@@ -82,8 +82,6 @@ static inline uint32_t swab32(uint32_t v)
 #include <sys/endian.h>
 #endif
 
-typedef unsigned char uchar;
-
 #if !HAVE_DECL_BE32DEC
 static inline uint32_t be32dec(const void *pp)
 {

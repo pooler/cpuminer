@@ -2,6 +2,7 @@
  * Copyright 2010 Jeff Garzik
  * Copyright 2012 Luke Dashjr
  * Copyright 2012-2014 pooler
+ * Copyright 2014-2015 John Doering <ghostlander@phoenixcoin.org>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free

@@ -1,7 +1,7 @@
 /*
  * Copyright 2010 Jeff Garzik
  * Copyright 2012-2014 pooler
- * Copyright 2014 John Doering <ghostlander@phoenixcoin.org>
+ * Copyright 2014-2015 John Doering <ghostlander@phoenixcoin.org>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -40,6 +40,7 @@ typedef unsigned int uint;
 #include <curl/curl.h>
 #include "compat.h"
 #include "miner.h"
+#include "version.h"
 
 #include "neoscrypt.h"
 
@@ -138,7 +139,9 @@ int opt_timeout = 0;
 static int opt_scantime = 5;
 static const bool opt_time = true;
 static enum algos opt_algo = ALGO_NEOSCRYPT;
-static unsigned int opt_nfactor = 6;
+static uint opt_neoscrypt_profile = 0;
+static uint opt_neoscrypt_asm = 0;
+static uint opt_nfactor = 6;
 static int opt_n_threads;
 static int num_processors;
 static char *rpc_url;
@@ -182,7 +185,18 @@ Options:\n\
       neoscrypt  NeoScrypt(128, 2, 1) with Salsa20/20 and ChaCha20/20 (default)\n\
       altscrypt  Scrypt(1024, 1, 1) with Salsa20/8 through NeoScrypt\n\
       scrypt     Scrypt(1024, 1, 1) with Salsa20/8\n\
-      sha256d    SHA-256d\n\
+      sha256d    SHA-256d\n"
+#if (ASM)
+"\
+  -e, --engine=N        choose a NeoScrypt hashing engine\n\
+      0          integer (default)\n\
+      1          SSE2\n"
+#if (MINER_4WAY)
+"\
+      2          SSE2 4-way\n"
+#endif
+#endif
+"\
   -o, --url=URL         URL of mining server\n\
   -O, --userpass=U:P    username:password pair for mining server\n\
   -u, --user=USERNAME   username for mining server\n\
@@ -228,10 +242,13 @@ static char const short_options[] =
 #ifdef HAVE_SYSLOG_H
 	"S"
 #endif
-	"a:c:Dhp:Px:qr:R:s:t:T:o:u:O:V";
+	"a:e:n:c:Dhp:Px:qr:R:s:t:T:o:u:O:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
+#if (ASM)
+	{ "engine", 1, NULL, 'e' },
+#endif
 #ifndef WIN32
 	{ "background", 0, NULL, 'B' },
 #endif
@@ -640,8 +657,8 @@ static void share_result(int result, const char *reason)
 	result ? accepted_count++ : rejected_count++;
 	pthread_mutex_unlock(&stats_lock);
 	
-	sprintf(s, hashrate >= 1e6 ? "%.0f" : "%.2f", 1e-3 * hashrate);
-	applog(LOG_INFO, "accepted: %lu/%lu (%.2f%%), %s khash/s %s",
+	sprintf(s, hashrate >= 1e6 ? "%.0f" : "%.3f", 1e-3 * hashrate);
+	applog(LOG_INFO, "accepted: %lu/%lu (%.3f%%), %s KH/s %s",
 		   accepted_count,
 		   accepted_count + rejected_count,
 		   100. * accepted_count / (accepted_count + rejected_count),
@@ -1125,8 +1142,8 @@ bool fulltest_le(const uint *hash, const uint *target) {
     return(rc);
 }
 
-int scanhash_neoscrypt(int thr_id, uint *pdata, const uint *ptarget, uint max_nonce,
-  ulong *hashes_done, uint profile) {
+static int scanhash_neoscrypt(int thr_id, uint *pdata, const uint *ptarget,
+  uint max_nonce, ulong *hashes_done, uint profile) {
     uint hash[8];
     const uint targint = ptarget[7];
     uint start_nonce = pdata[19], inc_nonce = 1;
@@ -1152,8 +1169,8 @@ int scanhash_neoscrypt(int thr_id, uint *pdata, const uint *ptarget, uint max_no
     return(0);
 }
 
-int scanhash_altscrypt(int thr_id, uint *pdata, const uint *ptarget, uint max_nonce,
-  ulong *hashes_done, uint profile) {
+static int scanhash_altscrypt(int thr_id, uint *pdata, const uint *ptarget,
+  uint max_nonce, ulong *hashes_done, uint profile) {
     uint hash[8], data[20];
     const uint targint = ptarget[7];
     uint start_nonce = pdata[19], inc_nonce = 1;
@@ -1185,6 +1202,123 @@ int scanhash_altscrypt(int thr_id, uint *pdata, const uint *ptarget, uint max_no
     *hashes_done = data[19] - inc_nonce - start_nonce;
     return(0);
 }
+
+#if (ASM) && (MINER_4WAY)
+
+static int scanhash_neoscrypt_4way(int thr_id, uint *pdata,
+  const uint *ptarget, uint max_nonce, ulong *hashes_done) {
+    uint hash[32];
+    const uint targint = ptarget[7];
+    uint start_nonce = pdata[19];
+    const uint inc_nonce = 4;
+
+     while((pdata[19] <= (max_nonce - inc_nonce))
+       && !work_restart[thr_id].restart) {
+
+        neoscrypt_4way((uint8_t *) pdata, (uint8_t *) hash, 0);
+
+        if(hash[7] <= targint) {
+            if(fulltest_le(&hash[0], ptarget)) {
+                *hashes_done = pdata[19] - start_nonce;
+                return(1);
+            }
+        }
+
+        if(hash[15] <= targint) {
+            if(fulltest_le(&hash[8], ptarget)) {
+                pdata[19] += 1;
+                *hashes_done = pdata[19] - start_nonce;
+                return(1);
+            }
+        }
+
+        if(hash[23] <= targint) {
+            if(fulltest_le(&hash[16], ptarget)) {
+                pdata[19] += 2;
+                *hashes_done = pdata[19] - start_nonce;
+                return(1);
+            }
+        }
+
+        if(hash[31] <= targint) {
+            if(fulltest_le(&hash[24], ptarget)) {
+                pdata[19] += 3;
+                *hashes_done = pdata[19] - start_nonce;
+                return(1);
+            }
+        }
+
+        pdata[19] += inc_nonce;
+
+    }
+
+    *hashes_done = pdata[19] - inc_nonce - start_nonce;
+    return(0);
+}
+
+static int scanhash_altscrypt_4way(int thr_id, uint *pdata,
+  const uint *ptarget, uint max_nonce, ulong *hashes_done) {
+    uint hash[32], data[20];
+    const uint targint = ptarget[7];
+    uint start_nonce = pdata[19];
+    const uint inc_nonce = 4;
+    uint i;
+
+    for(i = 0; i < 19; i++)
+      data[i] = be32dec(&pdata[i]);
+
+    data[19] = pdata[19];
+
+     while((data[19] <= (max_nonce - inc_nonce))
+       && !work_restart[thr_id].restart) {
+
+        neoscrypt_4way((uint8_t *) data, (uint8_t *) hash, 1);
+
+        if(hash[7] <= targint) {
+            if(fulltest_le(&hash[0], ptarget)) {
+                be32enc(&pdata[19], data[19]);
+                *hashes_done = data[19] - start_nonce;
+                return(1);
+            }
+        }
+
+        if(hash[15] <= targint) {
+            if(fulltest_le(&hash[8], ptarget)) {
+                data[19] += 1;
+                be32enc(&pdata[19], data[19]);
+                *hashes_done = data[19] - start_nonce;
+                return(1);
+            }
+        }
+
+        if(hash[23] <= targint) {
+            if(fulltest_le(&hash[16], ptarget)) {
+                data[19] += 2;
+                be32enc(&pdata[19], data[19]);
+                *hashes_done = data[19] - start_nonce;
+                return(1);
+            }
+        }
+
+        if(hash[31] <= targint) {
+            if(fulltest_le(&hash[24], ptarget)) {
+                data[19] += 3;
+                be32enc(&pdata[19], data[19]);
+                *hashes_done = data[19] - start_nonce;
+                return(1);
+            }
+        }
+
+        data[19] += inc_nonce;
+
+    }
+
+    *hashes_done = data[19] - inc_nonce - start_nonce;
+    return(0);
+}
+
+
+#endif
 
 static void *miner_thread(void *userdata)
 {
@@ -1303,18 +1437,30 @@ static void *miner_thread(void *userdata)
 		hashes_done = 0;
 		gettimeofday(&tv_start, NULL);
 
-		/* scan nonces for a proof-of-work hash */
-		switch(opt_algo) {
+        /* Hash and verify against targets */
+        switch(opt_algo) {
 
-                    case(ALGO_NEOSCRYPT):
-                        rc = scanhash_neoscrypt(thr_id, work.data, work.target, max_nonce,
-                          &hashes_done, 0x80000020 | (opt_nfactor << 8));
-                        break;
+            case(ALGO_NEOSCRYPT):
+#if (ASM) && (MINER_4WAY)
+                if(opt_neoscrypt_asm == 2)
+                  rc = scanhash_neoscrypt_4way(thr_id, work.data, work.target,
+                    max_nonce, &hashes_done);
+                else
+#endif
+                  rc = scanhash_neoscrypt(thr_id, work.data, work.target,
+                    max_nonce, &hashes_done, opt_neoscrypt_profile);
+                break;
 
-                    case(ALGO_ALTSCRYPT):
-                        rc = scanhash_altscrypt(thr_id, work.data, work.target, max_nonce,
-                          &hashes_done, 0x80000003 | (opt_nfactor << 8));
-                        break;
+            case(ALGO_ALTSCRYPT):
+#if (ASM) && (MINER_4WAY)
+                if(opt_neoscrypt_asm == 2)
+                  rc = scanhash_altscrypt_4way(thr_id, work.data, work.target,
+                    max_nonce, &hashes_done);
+                else
+#endif
+                  rc = scanhash_altscrypt(thr_id, work.data, work.target,
+                    max_nonce, &hashes_done, opt_neoscrypt_profile);
+                break;
 
 		case ALGO_SCRYPT:
 			rc = scanhash_scrypt(thr_id, work.data, scratchbuf, work.target,
@@ -1341,9 +1487,9 @@ static void *miner_thread(void *userdata)
 			pthread_mutex_unlock(&stats_lock);
 		}
 		if (!opt_quiet) {
-			sprintf(s, thr_hashrates[thr_id] >= 1e6 ? "%.0f" : "%.2f",
+			sprintf(s, thr_hashrates[thr_id] >= 1e6 ? "%.0f" : "%.3f",
 				1e-3 * thr_hashrates[thr_id]);
-			applog(LOG_INFO, "thread %d: %lu hashes, %s khash/s",
+			applog(LOG_INFO, "thread %d: %lu hashes, %s KH/s",
 				thr_id, hashes_done, s);
 		}
 		if (opt_benchmark && thr_id == opt_n_threads - 1) {
@@ -1351,8 +1497,8 @@ static void *miner_thread(void *userdata)
 			for (i = 0; i < opt_n_threads && thr_hashrates[i]; i++)
 				hashrate += thr_hashrates[i];
 			if (i == opt_n_threads) {
-				sprintf(s, hashrate >= 1e6 ? "%.0f" : "%.2f", 1e-3 * hashrate);
-				applog(LOG_INFO, "Total: %s khash/s", s);
+				sprintf(s, hashrate >= 1e6 ? "%.0f" : "%.3f", 1e-3 * hashrate);
+				applog(LOG_INFO, "Total: %s KH/s", s);
 			}
 		}
 
@@ -1657,8 +1803,27 @@ static void parse_arg(int key, char *arg, char *pname)
 		}
 		break;
 
+        case('e'):
+#if (ASM)
+            if((opt_algo == ALGO_NEOSCRYPT) || (opt_algo == ALGO_ALTSCRYPT)) {
+                v = atoi(arg);
+#if (MINER_4WAY)
+                if((v < 0) || (v > 2)) {
+#else
+                if((v < 0) || (v > 1)) {
+#endif
+                    fprintf(stderr, "%s: incorrect engine %d\n", pname, v);
+                    show_usage_and_exit(1);
+                }
+                opt_neoscrypt_asm = v;
+            }
+#endif
+            break;
+
         case('n'):
-            if((i == ALGO_NEOSCRYPT) || (i == ALGO_ALTSCRYPT)) {
+#if !(ASM)
+            /* Nfactor is fixed in the NeoScrypt assembly code */
+            if((opt_algo == ALGO_NEOSCRYPT) || (opt_algo == ALGO_ALTSCRYPT)) {
                 v = atoi(arg);
                 /* Nfactor = lb(N) - 1; N = (1 << (Nfactor + 1)) */
                 if((v < 0) || (v > 30)) {
@@ -1667,6 +1832,7 @@ static void parse_arg(int key, char *arg, char *pname)
                 }
                 opt_nfactor = v;
             }
+#endif
             break;
 
 	case 'B':
@@ -1869,6 +2035,7 @@ static void parse_arg(int key, char *arg, char *pname)
 	default:
 		show_usage_and_exit(1);
 	}
+
 }
 
 static void parse_config(json_t *config, char *pname, char *ref)
@@ -1953,11 +2120,44 @@ int main(int argc, char *argv[])
 	long flags;
 	int i;
 
+    printf("NeoScrypt CPUminer v%u.%u.%u\n",
+      VERSION_MAJOR, VERSION_MINOR, VERSION_REVISION);
+
 	rpc_user = strdup("");
 	rpc_pass = strdup("");
 
 	/* parse command line */
 	parse_cmdline(argc, argv);
+
+    if((opt_algo == ALGO_NEOSCRYPT) || (opt_algo == ALGO_ALTSCRYPT)) {
+        printf("Engines: ");
+#if (ASM)
+#if (MINER_4WAY)
+        printf("INT SSE2 SSE2-4way (enabled: ");
+        if(opt_neoscrypt_asm == 2)
+          printf("SSE2-4way)\n");
+#else
+        printf("INT SSE2 (enabled: ");
+#endif
+        if(opt_neoscrypt_asm == 1)
+          printf("SSE2)\n");
+        if(!opt_neoscrypt_asm)
+          printf("INT)\n");
+#else
+        printf("INT (enabled: INT)\n");
+#endif
+
+        if(opt_algo == ALGO_NEOSCRYPT) {
+            opt_neoscrypt_profile =
+              0x80000020 | (opt_nfactor << 8) | ((opt_neoscrypt_asm & 0x1) << 12);
+        }
+
+        if(opt_algo == ALGO_ALTSCRYPT) {
+            opt_neoscrypt_profile =
+              0x80000003 | (opt_nfactor << 8) | ((opt_neoscrypt_asm & 0x1) << 12);
+        }
+
+    }
 
 	if (!opt_benchmark && !rpc_url) {
 		fprintf(stderr, "%s: no URL supplied\n", argv[0]);
