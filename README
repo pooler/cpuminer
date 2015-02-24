@@ -40,6 +40,8 @@ Architecture-specific notes:
 		but the decision whether to use them is made at compile time,
 		based on compiler-defined macros.
 		To use NEON instructions, add "-mfpu=neon" to CFLAGS.
+	PowerPC: No runtime CPU detection.
+		To use AltiVec instructions, add "-maltivec" to CFLAGS.
 	x86:	The miner checks for SSE2 instructions support at runtime,
 		and uses them if they are available.
 	x86-64:	The miner can take advantage of AVX, AVX2 and XOP instructions,

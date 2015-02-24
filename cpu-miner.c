@@ -1457,6 +1457,12 @@ static void show_version_and_exit(void)
 		" NEON"
 #endif
 #endif
+#if defined(USE_ASM) && (defined(__powerpc__) || defined(__ppc__) || defined(__PPC__))
+		" PowerPC"
+#if defined(__ALTIVEC__)
+		" AltiVec"
+#endif
+#endif
 		"\n");
 
 	printf("%s\n", curl_version());

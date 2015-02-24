@@ -409,6 +409,12 @@ void scrypt_core(uint32_t *X, uint32_t *V, int N);
 void scrypt_core_3way(uint32_t *X, uint32_t *V, int N);
 #endif
 
+#elif defined(USE_ASM) && (defined(__powerpc__) || defined(__ppc__) || defined(__PPC__))
+
+#define SCRYPT_MAX_WAYS 4
+#define scrypt_best_throughput() 1
+void scrypt_core(uint32_t *X, uint32_t *V, int N);
+
 #else
 
 static inline void xor_salsa8(uint32_t B[16], const uint32_t Bx[16])
@@ -513,7 +519,7 @@ static void scrypt_1024_1_1_256(const uint32_t *input, uint32_t *output,
 	uint32_t *midstate, unsigned char *scratchpad, int N)
 {
 	uint32_t tstate[8], ostate[8];
-	uint32_t X[32];
+	uint32_t X[32] __attribute__((aligned(128)));
 	uint32_t *V;
 	
 	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
