@@ -345,7 +345,7 @@ err_out:
 }
 
 #define BLOCK_VERSION_MASK 0x000000ff
-#define BLOCK_VERSION_CURRENT 2
+#define BLOCK_VERSION_CURRENT 3
 
 static bool gbt_work_decode(const json_t *val, struct work *work)
 {
