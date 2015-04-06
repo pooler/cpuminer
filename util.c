@@ -770,7 +770,7 @@ void diff_to_target(uint32_t *target, double diff)
 #define socket_blocks() (errno == EAGAIN || errno == EWOULDBLOCK)
 #endif
 
-static bool send_line(curl_socket_t sock, char *s)
+static bool send_line(struct stratum_ctx *sctx, char *s)
 {
 	ssize_t len, sent = 0;
 	
@@ -783,12 +783,18 @@ static bool send_line(curl_socket_t sock, char *s)
 		fd_set wd;
 
 		FD_ZERO(&wd);
-		FD_SET(sock, &wd);
-		if (select(sock + 1, NULL, &wd, NULL, &timeout) < 1)
+		FD_SET(sctx->sock, &wd);
+		if (select(sctx->sock + 1, NULL, &wd, NULL, &timeout) < 1)
 			return false;
-		n = send(sock, s + sent, len, 0);
+#if LIBCURL_VERSION_NUM >= 0x071202
+		CURLcode rc = curl_easy_send(sctx->curl, s + sent, len, (size_t *)&n);
+		if (rc != CURLE_OK) {
+			if (rc != CURLE_AGAIN)
+#else
+		n = send(sctx->sock, s + sent, len, 0);
 		if (n < 0) {
 			if (!socket_blocks())
+#endif
 				return false;
 			n = 0;
 		}
@@ -807,7 +813,7 @@ bool stratum_send_line(struct stratum_ctx *sctx, char *s)
 		applog(LOG_DEBUG, "> %s", s);
 
 	pthread_mutex_lock(&sctx->sock_lock);
-	ret = send_line(sctx->sock, s);
+	ret = send_line(sctx, s);
 	pthread_mutex_unlock(&sctx->sock_lock);
 
 	return ret;
@@ -867,6 +873,15 @@ char *stratum_recv_line(struct stratum_ctx *sctx)
 			ssize_t n;
 
 			memset(s, 0, RBUFSIZE);
+#if LIBCURL_VERSION_NUM >= 0x071202
+			CURLcode rc = curl_easy_recv(sctx->curl, s, RECVSIZE, (size_t *)&n);
+			if (rc == CURLE_OK && !n) {
+				ret = false;
+				break;
+			}
+			if (rc != CURLE_OK) {
+				if (rc != CURLE_AGAIN || !socket_full(sctx->sock, 1)) {
+#else
 			n = recv(sctx->sock, s, RECVSIZE, 0);
 			if (!n) {
 				ret = false;
@@ -874,6 +889,7 @@ char *stratum_recv_line(struct stratum_ctx *sctx)
 			}
 			if (n < 0) {
 				if (!socket_blocks() || !socket_full(sctx->sock, 1)) {
+#endif
 					ret = false;
 					break;
 				}
@@ -945,7 +961,7 @@ bool stratum_connect(struct stratum_ctx *sctx, const char *url)
 	}
 	free(sctx->curl_url);
 	sctx->curl_url = malloc(strlen(url));
-	sprintf(sctx->curl_url, "http%s", strstr(url, "://"));
+	sprintf(sctx->curl_url, "http%s", url + 11);
 
 	if (opt_protocol)
 		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
@@ -1289,7 +1305,8 @@ static bool stratum_reconnect(struct stratum_ctx *sctx, json_t *params)
 		return false;
 
 	url = malloc(32 + strlen(host));
-	sprintf(url, "stratum+tcp://%s:%d", host, port);
+	strncpy(url, sctx->url, 15);
+	sprintf(strstr(url, "://") + 3, "%s:%d", host, port);
 
 	if (!opt_redirect) {
 		applog(LOG_INFO, "Ignoring request to reconnect to %s", url);
