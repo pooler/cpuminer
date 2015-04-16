@@ -966,6 +966,8 @@ bool stratum_connect(struct stratum_ctx *sctx, const char *url)
 	if (opt_protocol)
 		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
 	curl_easy_setopt(curl, CURLOPT_URL, sctx->curl_url);
+	if (opt_cert)
+		curl_easy_setopt(curl, CURLOPT_CAINFO, opt_cert);
 	curl_easy_setopt(curl, CURLOPT_FRESH_CONNECT, 1);
 	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 30);
 	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, sctx->curl_err_str);
