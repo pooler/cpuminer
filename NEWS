@@ -1,3 +1,8 @@
+Version 2.4.2 - Apr 28, 2015
+
+- Add support for Stratum over TLS
+- Allow block version 3 when using getblocktemplate
+
 Version 2.4.1 - Feb 25, 2015
 
 - Add support for scrypt(N, 1, 1)
