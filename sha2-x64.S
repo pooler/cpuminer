@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2013 pooler@litecoinpool.org
+ * Copyright 2012-2015 pooler@litecoinpool.org
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -14,6 +14,551 @@
 #endif
 
 #if defined(USE_ASM) && defined(__x86_64__)
+
+	.data
+	.p2align 4
+sha256_h:
+	.long 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a
+	.long 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+
+	.data
+	.p2align 6
+sha256_k:
+	.long 0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5
+	.long 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5
+	.long 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3
+	.long 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174
+	.long 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc
+	.long 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da
+	.long 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7
+	.long 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967
+	.long 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13
+	.long 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85
+	.long 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3
+	.long 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070
+	.long 0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5
+	.long 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3
+	.long 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208
+	.long 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+
+bswap_xmm_mask:
+	.long 0x00010203, 0x04050607, 0x08090a0b, 0x0c0d0e0f
+
+
+.macro sha256_mixed_quadround ra, rb, rc, rd, re, rf, rg, rh, x0, x1, x2, x3
+	movdqa	\x3, %xmm4
+	movl	\re, %eax
+	movdqa	\x2, %xmm6
+	rorl	$(25-11), %eax
+	movl	\ra, %ebx
+	pslldq	$12, %xmm4
+	rorl	$(22-13), %ebx
+	psrldq	$4, %xmm6
+	xorl	\re, %eax
+	movl	\rf, %ecx
+	rorl	$(11-6), %eax
+	pxor	%xmm6, %xmm4
+	movdqa	\x1, %xmm5
+	xorl	\ra, %ebx
+	xorl	\rg, %ecx
+	xorl	\re, %eax
+	paddd	\x0, %xmm4
+	movdqa	\x0, %xmm7
+	andl	\re, %ecx
+	rorl	$(13-2), %ebx
+	xorl	\ra, %ebx
+	pslldq	$12, %xmm5
+	psrldq	$4, %xmm7
+	rorl	$6, %eax
+	xorl	\rg, %ecx
+	pxor	%xmm7, %xmm5
+	rorl	$2, %ebx
+	addl	%eax, %ecx
+	addl	(%rsp) , %ecx
+	movdqa	%xmm5, %xmm6
+	movl	\ra, %eax
+	addl	%ecx, \rh
+	movl	\ra, %ecx
+	movdqa	%xmm5, %xmm7
+	orl	\rc, %eax
+	addl	\rh, \rd
+	andl	\rc, %ecx
+	pslld	$(32-7), %xmm5
+	psrld	$7, %xmm6
+	andl	\rb, %eax
+	addl	%ebx, \rh
+	orl	%ecx, %eax
+	por	%xmm6, %xmm5
+	addl	%eax, \rh
+	
+	movl	\rd, %eax
+	movdqa	%xmm7, %xmm6
+	movl	\rh, %ebx
+	rorl	$(25-11), %eax
+	xorl	\rd, %eax
+	movdqa	%xmm7, %xmm8
+	movl	\re, %ecx
+	rorl	$(22-13), %ebx
+	xorl	\rh, %ebx
+	pslld	$(32-18), %xmm7
+	rorl	$(11-6), %eax
+	xorl	\rf, %ecx
+	rorl	$(13-2), %ebx
+	psrld	$18, %xmm6
+	xorl	\rd, %eax
+	andl	\rd, %ecx
+	rorl	$6, %eax
+	pxor	%xmm7, %xmm5
+	xorl	\rh, %ebx
+	xorl	\rf, %ecx
+	psrld	$3, %xmm8
+	addl	%eax, %ecx
+	addl	1*4(%rsp), %ecx
+	rorl	$2, %ebx
+	pxor	%xmm6, %xmm5
+	movl	\rh, %eax
+	addl	%ecx, \rg
+	movl	\rh, %ecx
+	pxor	%xmm8, %xmm5
+	orl	\rb, %eax
+	addl	\rg, \rc
+	andl	\rb, %ecx
+	pshufd	$0xfa, \x3, %xmm6
+	andl	\ra, %eax
+	addl	%ebx, \rg
+	paddd	%xmm5, %xmm4
+	orl	%ecx, %eax
+	addl	%eax, \rg
+	
+	movl	\rc, %eax
+	movdqa	%xmm6, %xmm7
+	movl	\rg, %ebx
+	rorl	$(25-11), %eax
+	xorl	\rc, %eax
+	movdqa	%xmm6, %xmm8
+	rorl	$(22-13), %ebx
+	movl	\rd, %ecx
+	xorl	\rg, %ebx
+	psrlq	$17, %xmm6
+	psrlq	$19, %xmm7
+	rorl	$(11-6), %eax
+	xorl	\re, %ecx
+	xorl	\rc, %eax
+	psrld	$10, %xmm8
+	pxor	%xmm7, %xmm6
+	andl	\rc, %ecx
+	rorl	$(13-2), %ebx
+	xorl	\rg, %ebx
+	pxor	%xmm6, %xmm8
+	xorl	\re, %ecx
+	rorl	$6, %eax
+	addl	%eax, %ecx
+	pshufd	$0x8f, %xmm8, %xmm8
+	rorl	$2, %ebx
+	addl	2*4(%rsp), %ecx
+	movl	\rg, %eax
+	psrldq	$8, %xmm8
+	addl	%ecx, \rf
+	movl	\rg, %ecx
+	orl	\ra, %eax
+	paddd	%xmm8, %xmm4
+	addl	\rf, \rb
+	andl	\ra, %ecx
+	andl	\rh, %eax
+	pshufd	$0x50, %xmm4, %xmm6
+	addl	%ebx, \rf
+	orl	%ecx, %eax
+	addl	%eax, \rf
+	
+	movdqa	%xmm6, %xmm7
+	movl	\rb, %eax
+	rorl	$(25-11), %eax
+	movl	\rf, %ebx
+	movdqa	%xmm6, \x0
+	rorl	$(22-13), %ebx
+	xorl	\rb, %eax
+	movl	\rc, %ecx
+	psrlq	$17, %xmm6
+	rorl	$(11-6), %eax
+	xorl	\rf, %ebx
+	xorl	\rd, %ecx
+	psrlq	$19, %xmm7
+	xorl	\rb, %eax
+	andl	\rb, %ecx
+	rorl	$(13-2), %ebx
+	psrld	$10, \x0
+	xorl	\rf, %ebx
+	rorl	$6, %eax
+	pxor	%xmm7, %xmm6
+	xorl	\rd, %ecx
+	rorl	$2, %ebx
+	addl	%eax, %ecx
+	pxor	%xmm6, \x0
+	addl	3*4(%rsp), %ecx
+	movl	\rf, %eax
+	addl	%ecx, \re
+	pshufd	$0xf8, \x0, \x0
+	movl	\rf, %ecx
+	orl	\rh, %eax
+	addl	\re, \ra
+	pslldq	$8, \x0
+	andl	\rh, %ecx
+	andl	\rg, %eax
+	paddd	%xmm4, \x0
+	addl	%ebx, \re
+	orl	%ecx, %eax
+	addl	%eax, \re
+.endm
+
+.macro sha256_main_round i, ra, rb, rc, rd, re, rf, rg, rh
+	movl	\re, %eax
+	rorl	$(25-11), %eax
+	movl	\ra, %ebx
+	xorl	\re, %eax
+	rorl	$(22-13), %ebx
+	movl	\rf, %ecx
+	xorl	\ra, %ebx
+	rorl	$(11-6), %eax
+	xorl	\rg, %ecx
+	xorl	\re, %eax
+	rorl	$(13-2), %ebx
+	andl	\re, %ecx
+	xorl	\ra, %ebx
+	rorl	$6, %eax
+	xorl	\rg, %ecx
+	addl	%eax, %ecx
+	rorl	$2, %ebx
+	addl	\i*4(%rsp), %ecx
+	movl	\ra, %eax
+	addl	%ecx, \rh
+	movl	\ra, %ecx
+	orl	\rc, %eax
+	addl	\rh, \rd
+	andl	\rc, %ecx
+	andl	\rb, %eax
+	addl	%ebx, \rh
+	orl	%ecx, %eax
+	addl	%eax, \rh
+.endm
+
+
+	.text
+	.p2align 6
+sha256_transform_sse2:
+	pushq	%rbx
+	pushq	%r12
+	pushq	%r13
+	pushq	%r14
+	pushq	%r15
+#if defined(_WIN64) || defined(__CYGWIN__)
+	pushq	%rdi
+	pushq	%rsi
+	subq	$5*16, %rsp
+	movdqa	%xmm6, 1*16(%rsp)
+	movdqa	%xmm7, 2*16(%rsp)
+	movdqa	%xmm8, 3*16(%rsp)
+	movdqa	%xmm9, 4*16(%rsp)
+	movq	%rcx, %rdi
+	movq	%rdx, %rsi
+	movq	%r8, %rdx
+#else
+	subq	$16, %rsp
+#endif
+	
+	movl	0*4(%rdi), %r8d
+	movl	1*4(%rdi), %r9d
+	movl	2*4(%rdi), %r10d
+	movl	3*4(%rdi), %r11d
+	movl	4*4(%rdi), %r12d
+	movl	5*4(%rdi), %r13d
+	movl	6*4(%rdi), %r14d
+	movl	7*4(%rdi), %r15d
+	
+	testq	%rdx, %rdx
+	jnz sha256_transform_sse2_swap
+	
+	movdqu	0*16(%rsi), %xmm0
+	movdqu	1*16(%rsi), %xmm1
+	movdqu	2*16(%rsi), %xmm2
+	movdqu	3*16(%rsi), %xmm3
+	jmp sha256_transform_sse2_core
+	
+sha256_transform_sse2_swap:
+	movdqu	0*16(%rsi), %xmm0
+	movdqu	1*16(%rsi), %xmm1
+	movdqu	2*16(%rsi), %xmm2
+	movdqu	3*16(%rsi), %xmm3
+	pshuflw	$0xb1, %xmm0, %xmm0
+	pshuflw	$0xb1, %xmm1, %xmm1
+	pshuflw	$0xb1, %xmm2, %xmm2
+	pshuflw	$0xb1, %xmm3, %xmm3
+	pshufhw	$0xb1, %xmm0, %xmm0
+	pshufhw	$0xb1, %xmm1, %xmm1
+	pshufhw	$0xb1, %xmm2, %xmm2
+	pshufhw	$0xb1, %xmm3, %xmm3
+	movdqa	%xmm0, %xmm4
+	movdqa	%xmm1, %xmm5
+	movdqa	%xmm2, %xmm6
+	movdqa	%xmm3, %xmm7
+	psrlw	$8, %xmm4
+	psrlw	$8, %xmm5
+	psrlw	$8, %xmm6
+	psrlw	$8, %xmm7
+	psllw	$8, %xmm0
+	psllw	$8, %xmm1
+	psllw	$8, %xmm2
+	psllw	$8, %xmm3
+	pxor	%xmm4, %xmm0
+	pxor	%xmm5, %xmm1
+	pxor	%xmm6, %xmm2
+	pxor	%xmm7, %xmm3
+	
+sha256_transform_sse2_core:
+	leaq	sha256_k(%rip), %rdx
+	movq	$48, %rsi
+	.p2align 4
+sha256_transform_sse2_loop:
+	movdqa	0*16(%rdx), %xmm9
+	paddd	%xmm0, %xmm9
+	movdqa	%xmm9, (%rsp)
+	sha256_mixed_quadround %r8d, %r9d, %r10d, %r11d, %r12d, %r13d, %r14d, %r15d, %xmm0, %xmm1, %xmm2, %xmm3
+	movdqa	1*16(%rdx), %xmm9
+	paddd	%xmm1, %xmm9
+	movdqa	%xmm9, (%rsp)
+	sha256_mixed_quadround %r12d, %r13d, %r14d, %r15d, %r8d, %r9d, %r10d, %r11d, %xmm1, %xmm2, %xmm3, %xmm0
+	movdqa	2*16(%rdx), %xmm9
+	paddd	%xmm2, %xmm9
+	movdqa	%xmm9, (%rsp)
+	sha256_mixed_quadround %r8d, %r9d, %r10d, %r11d, %r12d, %r13d, %r14d, %r15d, %xmm2, %xmm3, %xmm0, %xmm1
+	movdqa	3*16(%rdx), %xmm9
+	paddd	%xmm3, %xmm9
+	movdqa	%xmm9, (%rsp)
+	addq	$4*16, %rdx
+	sha256_mixed_quadround %r12d, %r13d, %r14d, %r15d, %r8d, %r9d, %r10d, %r11d, %xmm3, %xmm0, %xmm1, %xmm2
+	
+	subq	$16, %rsi
+	jne sha256_transform_sse2_loop
+	
+	paddd	0*16(%rdx), %xmm0
+	movdqa	%xmm0, (%rsp)
+	sha256_main_round 0, %r8d, %r9d, %r10d, %r11d, %r12d, %r13d, %r14d, %r15d
+	sha256_main_round 1, %r15d, %r8d, %r9d, %r10d, %r11d, %r12d, %r13d, %r14d
+	sha256_main_round 2, %r14d, %r15d, %r8d, %r9d, %r10d, %r11d, %r12d, %r13d
+	sha256_main_round 3, %r13d, %r14d, %r15d, %r8d, %r9d, %r10d, %r11d, %r12d
+	paddd	1*16(%rdx), %xmm1
+	movdqa	%xmm1, (%rsp)
+	sha256_main_round 0, %r12d, %r13d, %r14d, %r15d, %r8d, %r9d, %r10d, %r11d
+	sha256_main_round 1, %r11d, %r12d, %r13d, %r14d, %r15d, %r8d, %r9d, %r10d
+	sha256_main_round 2, %r10d, %r11d, %r12d, %r13d, %r14d, %r15d, %r8d, %r9d
+	sha256_main_round 3, %r9d, %r10d, %r11d, %r12d, %r13d, %r14d, %r15d, %r8d
+	paddd	2*16(%rdx), %xmm2
+	movdqa	%xmm2, (%rsp)
+	sha256_main_round 0, %r8d, %r9d, %r10d, %r11d, %r12d, %r13d, %r14d, %r15d
+	sha256_main_round 1, %r15d, %r8d, %r9d, %r10d, %r11d, %r12d, %r13d, %r14d
+	sha256_main_round 2, %r14d, %r15d, %r8d, %r9d, %r10d, %r11d, %r12d, %r13d
+	sha256_main_round 3, %r13d, %r14d, %r15d, %r8d, %r9d, %r10d, %r11d, %r12d
+	paddd	3*16(%rdx), %xmm3
+	movdqa	%xmm3, (%rsp)
+	sha256_main_round 0, %r12d, %r13d, %r14d, %r15d, %r8d, %r9d, %r10d, %r11d
+	sha256_main_round 1, %r11d, %r12d, %r13d, %r14d, %r15d, %r8d, %r9d, %r10d
+	sha256_main_round 2, %r10d, %r11d, %r12d, %r13d, %r14d, %r15d, %r8d, %r9d
+	sha256_main_round 3, %r9d, %r10d, %r11d, %r12d, %r13d, %r14d, %r15d, %r8d
+	
+	addl	%r8d, 0*4(%rdi)
+	addl	%r9d, 1*4(%rdi)
+	addl	%r10d, 2*4(%rdi)
+	addl	%r11d, 3*4(%rdi)
+	addl	%r12d, 4*4(%rdi)
+	addl	%r13d, 5*4(%rdi)
+	addl	%r14d, 6*4(%rdi)
+	addl	%r15d, 7*4(%rdi)
+	
+#if defined(_WIN64) || defined(__CYGWIN__)
+	movdqa	1*16(%rsp), %xmm6
+	movdqa	2*16(%rsp), %xmm7
+	movdqa	3*16(%rsp), %xmm8
+	movdqa	4*16(%rsp), %xmm9
+	addq	$5*16, %rsp
+	popq	%rsi
+	popq	%rdi
+#else
+	addq	$16, %rsp
+#endif
+	popq	%r15
+	popq	%r14
+	popq	%r13
+	popq	%r12
+	popq	%rbx
+	ret
+
+
+	.text
+	.p2align 6
+sha256_transform_phe:
+#if defined(_WIN64) || defined(__CYGWIN__)
+	pushq	%rdi
+	pushq	%rsi
+	movq	%rcx, %rdi
+	movq	%rdx, %rsi
+	movq	%r8, %rdx
+#endif
+	movq	%rsp, %r8
+	subq	$64, %rsp
+	andq	$-64, %rsp
+	
+	testq	%rdx, %rdx
+	jnz sha256_transform_phe_noswap
+	
+	movl	0*4(%rsi), %eax
+	movl	1*4(%rsi), %ecx
+	movl	2*4(%rsi), %edx
+	movl	3*4(%rsi), %r9d
+	bswapl	%eax
+	bswapl	%ecx
+	bswapl	%edx
+	bswapl	%r9d
+	movl	%eax, 0*4(%rsp)
+	movl	%ecx, 1*4(%rsp)
+	movl	%edx, 2*4(%rsp)
+	movl	%r9d, 3*4(%rsp)
+	movl	4*4(%rsi), %eax
+	movl	5*4(%rsi), %ecx
+	movl	6*4(%rsi), %edx
+	movl	7*4(%rsi), %r9d
+	bswapl	%eax
+	bswapl	%ecx
+	bswapl	%edx
+	bswapl	%r9d
+	movl	%eax, 4*4(%rsp)
+	movl	%ecx, 5*4(%rsp)
+	movl	%edx, 6*4(%rsp)
+	movl	%r9d, 7*4(%rsp)
+	
+	movdqu	2*16(%rsi), %xmm0
+	movdqu	3*16(%rsi), %xmm2
+	pshuflw	$0xb1, %xmm0, %xmm0
+	pshuflw	$0xb1, %xmm2, %xmm2
+	pshufhw	$0xb1, %xmm0, %xmm0
+	pshufhw	$0xb1, %xmm2, %xmm2
+	movdqa	%xmm0, %xmm1
+	movdqa	%xmm2, %xmm3
+	psrlw	$8, %xmm1
+	psrlw	$8, %xmm3
+	psllw	$8, %xmm0
+	psllw	$8, %xmm2
+	pxor	%xmm1, %xmm0
+	pxor	%xmm3, %xmm2
+	movdqa	%xmm0, 2*16(%rsp)
+	movdqa	%xmm2, 3*16(%rsp)
+	
+	jmp sha256_transform_phe_core
+	
+sha256_transform_phe_noswap:
+	movdqu	0*16(%rsi), %xmm0
+	movdqu	1*16(%rsi), %xmm1
+	movdqu	2*16(%rsi), %xmm2
+	movdqu	3*16(%rsi), %xmm3
+	movdqa	%xmm0, 0*16(%rsp)
+	movdqa	%xmm1, 1*16(%rsp)
+	movdqa	%xmm2, 2*16(%rsp)
+	movdqa	%xmm3, 3*16(%rsp)
+	
+sha256_transform_phe_core:
+	movq	%rsp, %rsi
+	movq	$-1, %rax
+	movq	$1, %rcx
+	/* rep xsha256 */
+	.byte 0xf3, 0x0f, 0xa6, 0xd0
+	
+	movq	%r8, %rsp
+#if defined(_WIN64) || defined(__CYGWIN__)
+	popq	%rsi
+	popq	%rdi
+#endif
+	ret
+	
+	
+	.data
+	.p2align 3
+sha256_transform_addr:
+	.quad sha256_transform_sse2
+	
+	.text
+	.p2align 3
+	.globl sha256_transform
+	.globl _sha256_transform
+sha256_transform:
+_sha256_transform:
+	jmp *sha256_transform_addr(%rip)
+
+
+	.text
+	.p2align 6
+	.globl sha256d_ms
+	.globl _sha256d_ms
+sha256d_ms:
+_sha256d_ms:
+#if defined(_WIN64) || defined(__CYGWIN__)
+	pushq	%rdi
+	pushq	%rsi
+	movq	%rcx, %rdi
+	movq	%rdx, %rsi
+	movq	%r8, %rdx
+#endif
+	movq	%rsp, %r8
+	subq	$32, %rsp
+	andq	$-32, %rsp
+	
+	movdqa	0*16(%rdx), %xmm0
+	movdqa	1*16(%rdx), %xmm1
+	movdqa	%xmm0, 0*16(%rdi)
+	movdqa	%xmm1, 1*16(%rdi)
+	
+	movl	0*4(%rsi), %eax
+	movl	1*4(%rsi), %ecx
+	movl	2*4(%rsi), %edx
+	movl	3*4(%rsi), %r9d
+	bswapl	%eax
+	bswapl	%ecx
+	bswapl	%edx
+	bswapl	%r9d
+	movl	%eax, 0*4(%rsp)
+	movl	%ecx, 1*4(%rsp)
+	movl	%edx, 2*4(%rsp)
+	movl	%r9d, 3*4(%rsp)
+	
+	movq	%rsp, %rsi
+	movl	$64, %eax
+	movl	$80, %ecx
+	/* rep xsha256 */
+	.byte 0xf3, 0x0f, 0xa6, 0xd0
+	
+	movdqa	bswap_xmm_mask(%rip), %xmm1
+	movdqa	0*16(%rdi), %xmm0
+	movdqa	1*16(%rdi), %xmm2
+	pshufb	%xmm1, %xmm0
+	pshufb	%xmm1, %xmm2
+	movdqa	%xmm0, 0*16(%rsp)
+	movdqa	%xmm2, 1*16(%rsp)
+	
+	movdqa	sha256_h+0*16(%rip), %xmm0
+	movdqa	sha256_h+1*16(%rip), %xmm1
+	movdqa	%xmm0, 0*16(%rdi)
+	movdqa	%xmm1, 1*16(%rdi)
+	
+	movq	%rsp, %rsi
+	xorq	%rax, %rax
+	movl	$32, %ecx
+	/* rep xsha256 */
+	.byte 0xf3, 0x0f, 0xa6, 0xd0
+	
+	movq	%r8, %rsp
+#if defined(_WIN64) || defined(__CYGWIN__)
+	popq	%rsi
+	popq	%rdi
+#endif
+	ret
+
 
 	.data
 	.p2align 7
@@ -3021,6 +3566,21 @@ _sha256_use_4way:
 	pushq	%rcx
 	pushq	%rdx
 	
+	/* Check for VIA PadLock Hash Engine */
+	movl	$0xc0000000, %eax
+	cpuid
+	cmpl	$0xc0000001, %eax
+	jb	sha256_use_4way_no_phe
+	movl	$0xc0000001, %eax
+	cpuid
+	andl	$0x00000c00, %edx
+	cmpl	$0x00000c00, %edx
+	jne	sha256_use_4way_no_phe
+	leaq	sha256_transform_phe(%rip), %rdx
+	movq	%rdx, sha256_transform_addr(%rip)
+	xorl	%eax, %eax
+	jmp	sha256_use_4way_exit
+sha256_use_4way_no_phe:
 #if defined(USE_AVX)
 	/* Check for AVX and OSXSAVE support */
 	movl	$1, %eax
@@ -3060,10 +3620,11 @@ sha256_use_4way_base:
 sha256_use_4way_done:
 	movq	%rcx, sha256d_ms_4way_addr(%rip)
 	movq	%rdx, sha256_transform_4way_core_addr(%rip)
+	movl	$1, %eax
+sha256_use_4way_exit:
 	popq	%rdx
 	popq	%rcx
 	popq	%rbx
-	movl	$1, %eax
 	ret
 
 

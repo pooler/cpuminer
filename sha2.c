@@ -15,7 +15,8 @@
 #include <inttypes.h>
 
 #if defined(USE_ASM) && \
-	((defined(__arm__) && defined(__APCS_32__)) || \
+	(defined(__x86_64__) || \
+	 (defined(__arm__) && defined(__APCS_32__)) || \
 	 (defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)))
 #define EXTERN_SHA256
 #endif
