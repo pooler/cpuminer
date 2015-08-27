@@ -1785,6 +1785,17 @@ static void parse_arg(int key, char *arg, char *pname)
 	char *p;
 	int v, i;
 
+    if((opt_algo == ALGO_NEOSCRYPT) || (opt_algo == ALGO_ALTSCRYPT)) {
+
+        /* Auto-detect the best engine; may be overriden later */
+
+        uint flags = cpu_vec_exts();
+
+        /* SSE2-4way */
+        if(flags & 0x00000020) opt_neoscrypt_asm = 2;
+
+    }
+
 	switch(key) {
 	case 'a':
 		for (i = 0; i < ARRAY_SIZE(algo_names); i++) {

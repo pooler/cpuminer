@@ -16,7 +16,15 @@ void neoscrypt_xor(void *dstp, const void *srcp, unsigned int len);
 #if (ASM) && (MINER_4WAY)
 void neoscrypt_4way(const unsigned char *input, unsigned char *output,
   unsigned int profile);
+
+void neoscrypt_blake2s_4way(const unsigned char *input,
+  const unsigned char *key, unsigned char *output);
+
+void neoscrypt_fastkdf_4way(const unsigned char *password,
+  const unsigned char *salt, unsigned char *output, unsigned int mode);
 #endif
+
+unsigned int cpu_vec_exts(void);
 
 #if (__cplusplus)
 }
