@@ -5,21 +5,18 @@
 #
 #
 
-FROM		ubuntu:12.10
-MAINTAINER	Guillaume J. Charmes <guillaume@charmes.net>
+FROM            ubuntu:14.04
+MAINTAINER      Guillaume J. Charmes <guillaume@charmes.net>
 
-RUN		apt-get update -qq
+RUN             apt-get update -qq && \
+                apt-get install -qqy automake libcurl4-openssl-dev git make
 
-RUN		apt-get install -qqy automake
-RUN		apt-get install -qqy libcurl4-openssl-dev
-RUN		apt-get install -qqy git
-RUN		apt-get install -qqy make
+RUN             git clone https://github.com/pooler/cpuminer
 
-RUN		git clone https://github.com/pooler/cpuminer
+RUN             cd cpuminer && \
+                ./autogen.sh && \
+                ./configure CFLAGS="-O3" && \
+                make
 
-RUN		cd cpuminer && ./autogen.sh
-RUN		cd cpuminer && ./configure CFLAGS="-O3"
-RUN		cd cpuminer && make
-
-WORKDIR		/cpuminer
-ENTRYPOINT	["./minerd"]
+WORKDIR         /cpuminer
+ENTRYPOINT      ["./minerd"]
