@@ -1785,17 +1785,6 @@ static void parse_arg(int key, char *arg, char *pname)
 	char *p;
 	int v, i;
 
-    if((opt_algo == ALGO_NEOSCRYPT) || (opt_algo == ALGO_ALTSCRYPT)) {
-
-        /* Auto-detect the best engine; may be overriden later */
-
-        uint flags = cpu_vec_exts();
-
-        /* SSE2-4way */
-        if(flags & 0x00000020) opt_neoscrypt_asm = 2;
-
-    }
-
 	switch(key) {
 	case 'a':
 		for (i = 0; i < ARRAY_SIZE(algo_names); i++) {
@@ -2133,6 +2122,12 @@ int main(int argc, char *argv[])
 
     printf("NeoScrypt CPUminer v%u.%u.%u\n",
       VERSION_MAJOR, VERSION_MINOR, VERSION_REVISION);
+
+    /* Processor vector extensions detected */
+    uint opt_flags = cpu_vec_exts();
+
+    /* Configure for SSE2-4way by default */
+    if(opt_flags & 0x00000020) opt_neoscrypt_asm = 2;
 
 	rpc_user = strdup("");
 	rpc_pass = strdup("");
