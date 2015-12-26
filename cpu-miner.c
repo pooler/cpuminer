@@ -400,8 +400,7 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		if (version_reduce) {
 			version = (version & ~BLOCK_VERSION_MASK) | BLOCK_VERSION_CURRENT;
 		} else if (!version_force) {
-			applog(LOG_ERR, "Unrecognized block version: %u", version);
-			goto out;
+			applog(LOG_WARNING, "Unrecognized block version: %u", version);
 		}
 	}
 
