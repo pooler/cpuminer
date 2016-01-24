@@ -1427,6 +1427,7 @@ static void show_version_and_exit(void)
 #endif
 #if defined(USE_ASM) && defined(__x86_64__)
 		" x86_64"
+		" PHE"
 #endif
 #if defined(USE_ASM) && (defined(__i386__) || defined(__x86_64__))
 		" SSE2"

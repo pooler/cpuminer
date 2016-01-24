@@ -1,3 +1,8 @@
+Version 2.4.3 - Jan 24, 2016
+
+- Add support for the VIA PadLock Hash Engine on x86-64
+- Allow block version 4 when using getblocktemplate
+
 Version 2.4.2 - Apr 28, 2015
 
 - Add support for Stratum over TLS

@@ -54,6 +54,7 @@ Architecture-specific notes:
 		The configure script outputs a warning if the assembler
 		doesn't support some instruction sets. In that case, the miner
 		can still be built, but unavailable optimizations are left off.
+		The miner uses the VIA Padlock Hash Engine where available.
 
 Usage instructions:  Run "minerd --help" to see options.
 
