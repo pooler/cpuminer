@@ -554,6 +554,7 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 			goto out;
 		}
 		sha256d(merkle_tree[1 + i], tx, tx_size);
+		free(tx);
 		if (!submit_coinbase)
 			strcat(work->txs, tx_hex);
 	}
@@ -604,7 +605,7 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		if (!have_longpoll) {
 			char *lp_uri;
 			tmp = json_object_get(val, "longpolluri");
-			lp_uri = json_is_string(tmp) ? strdup(json_string_value(tmp)) : rpc_url;
+			lp_uri = strdup(json_is_string(tmp) ? json_string_value(tmp) : rpc_url);
 			have_longpoll = true;
 			tq_push(thr_info[longpoll_thr_id].q, lp_uri);
 		}
@@ -1115,6 +1116,7 @@ static void *miner_thread(void *userdata)
 			if (!have_stratum &&
 			    (time(NULL) - g_work_time >= min_scantime ||
 			     work.data[19] >= end_nonce)) {
+				work_free(&g_work);
 				if (unlikely(!get_work(mythr, &g_work))) {
 					applog(LOG_ERR, "work retrieval failed, exiting "
 						"mining thread %d", mythr->id);
