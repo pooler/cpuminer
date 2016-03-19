@@ -2,7 +2,7 @@
  * Copyright (c) 2009 Colin Percival, 2011 ArtForz
  * Copyright (c) 2012 Andrew Moon (floodyberry)
  * Copyright (c) 2012 Samuel Neves <sneves@dei.uc.pt>
- * Copyright (c) 2014-2015 John Doering <ghostlander@phoenixcoin.org>
+ * Copyright (c) 2014-2016 John Doering <ghostlander@phoenixcoin.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,19 +35,19 @@
 #include "neoscrypt.h"
 
 
-#if (SHA256)
+#ifdef SHA256
 
 /* SHA-256 */
 
-static const uint32_t sha256_constants[64] = {
-    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+static const uint sha256_constants[64] = {
+    0x428A2F98, 0x71374491, 0xB5C0FBCF, 0xE9B5DBA5, 0x3956C25B, 0x59F111F1, 0x923F82A4, 0xAB1C5ED5,
+    0xD807AA98, 0x12835B01, 0x243185BE, 0x550C7DC3, 0x72BE5D74, 0x80DEB1FE, 0x9BDC06A7, 0xC19BF174,
+    0xE49B69C1, 0xEFBE4786, 0x0FC19DC6, 0x240CA1CC, 0x2DE92C6F, 0x4A7484AA, 0x5CB0A9DC, 0x76F988DA,
+    0x983E5152, 0xA831C66D, 0xB00327C8, 0xBF597FC7, 0xC6E00BF3, 0xD5A79147, 0x06CA6351, 0x14292967,
+    0x27B70A85, 0x2E1B2138, 0x4D2C6DFC, 0x53380D13, 0x650A7354, 0x766A0ABB, 0x81C2C92E, 0x92722C85,
+    0xA2BFE8A1, 0xA81A664B, 0xC24B8B70, 0xC76C51A3, 0xD192E819, 0xD6990624, 0xF40E3585, 0x106AA070,
+    0x19A4C116, 0x1E376C08, 0x2748774C, 0x34B0BCB5, 0x391C0CB3, 0x4ED8AA4A, 0x5B9CCA4F, 0x682E6FF3,
+    0x748F82EE, 0x78A5636F, 0x84C87814, 0x8CC70208, 0x90BEFFFA, 0xA4506CEB, 0xBEF9A3F7, 0xC67178F2
 };
 
 #define Ch(x,y,z)  (z ^ (x & (y ^ z)))
@@ -70,18 +70,15 @@ static const uint32_t sha256_constants[64] = {
     r[1] = r[0]; \
     r[0] = t0 + t1;
 
-
 typedef struct sha256_hash_state_t {
-    uint32_t H[8];
-    uint64_t T;
-    uint32_t leftover;
-    uint8_t buffer[SCRYPT_HASH_BLOCK_SIZE];
+    uint H[8];
+    ullong T;
+    uint leftover;
+    uchar buffer[BLOCK_SIZE];
 } sha256_hash_state;
 
-
-static void sha256_blocks(sha256_hash_state *S, const uint8_t *in, size_t blocks) {
-    uint32_t r[8], w[64], t0, t1;
-    size_t i;
+static void sha256_blocks(sha256_hash_state *S, const uchar *in, uint blocks) {
+    uint r[8], w[64], t0, t1, i;
 
     for(i = 0; i < 8; i++)
       r[i] = S->H[i];
@@ -100,34 +97,34 @@ static void sha256_blocks(sha256_hash_state *S, const uint8_t *in, size_t blocks
             r[i] += S->H[i];
             S->H[i] = r[i];
         }
-        S->T += SCRYPT_HASH_BLOCK_SIZE * 8;
-        in += SCRYPT_HASH_BLOCK_SIZE;
+        S->T += BLOCK_SIZE * 8;
+        in += BLOCK_SIZE;
     }
 }
 
 static void neoscrypt_hash_init_sha256(sha256_hash_state *S) {
-    S->H[0] = 0x6a09e667;
-    S->H[1] = 0xbb67ae85;
-    S->H[2] = 0x3c6ef372;
-    S->H[3] = 0xa54ff53a;
-    S->H[4] = 0x510e527f;
-    S->H[5] = 0x9b05688c;
-    S->H[6] = 0x1f83d9ab;
-    S->H[7] = 0x5be0cd19;
+    S->H[0] = 0x6A09E667;
+    S->H[1] = 0xBB67AE85;
+    S->H[2] = 0x3C6EF372;
+    S->H[3] = 0xA54FF53A;
+    S->H[4] = 0x510E527F;
+    S->H[5] = 0x9B05688C;
+    S->H[6] = 0x1F83D9AB;
+    S->H[7] = 0x5BE0CD19;
     S->T = 0;
     S->leftover = 0;
 }
 
-static void neoscrypt_hash_update_sha256(sha256_hash_state *S, const uint8_t *in, size_t inlen) {
-    size_t blocks, want;
+static void neoscrypt_hash_update_sha256(sha256_hash_state *S, const uchar *in, uint inlen) {
+    uint blocks, want;
 
     /* handle the previous data */
     if(S->leftover) {
-        want = (SCRYPT_HASH_BLOCK_SIZE - S->leftover);
+        want = (BLOCK_SIZE - S->leftover);
         want = (want < inlen) ? want : inlen;
-        memcpy(S->buffer + S->leftover, in, want);
-        S->leftover += (uint32_t)want;
-        if(S->leftover < SCRYPT_HASH_BLOCK_SIZE)
+        neoscrypt_copy(S->buffer + S->leftover, in, want);
+        S->leftover += (uint)want;
+        if(S->leftover < BLOCK_SIZE)
           return;
         in += want;
         inlen -= want;
@@ -135,28 +132,28 @@ static void neoscrypt_hash_update_sha256(sha256_hash_state *S, const uint8_t *in
     }
 
     /* handle the current data */
-    blocks = (inlen & ~(SCRYPT_HASH_BLOCK_SIZE - 1));
-    S->leftover = (uint32_t)(inlen - blocks);
+    blocks = (inlen & ~(BLOCK_SIZE - 1));
+    S->leftover = (uint)(inlen - blocks);
     if(blocks) {
-        sha256_blocks(S, in, blocks / SCRYPT_HASH_BLOCK_SIZE);
+        sha256_blocks(S, in, blocks / BLOCK_SIZE);
         in += blocks;
     }
 
     /* handle leftover data */
     if(S->leftover)
-      memcpy(S->buffer, in, S->leftover);
+      neoscrypt_copy(S->buffer, in, S->leftover);
 }
 
-static void neoscrypt_hash_finish_sha256(sha256_hash_state *S, uint8_t *hash) {
-    uint64_t t = S->T + (S->leftover * 8);
+static void neoscrypt_hash_finish_sha256(sha256_hash_state *S, uchar *hash) {
+    ullong t = S->T + (S->leftover * 8);
 
     S->buffer[S->leftover] = 0x80;
     if(S->leftover <= 55) {
-        memset(S->buffer + S->leftover + 1, 0, 55 - S->leftover);
+        neoscrypt_erase(S->buffer + S->leftover + 1, 55 - S->leftover);
     } else {
-        memset(S->buffer + S->leftover + 1, 0, 63 - S->leftover);
+        neoscrypt_erase(S->buffer + S->leftover + 1, 63 - S->leftover);
         sha256_blocks(S, S->buffer, 1);
-        memset(S->buffer, 0, 56);
+        neoscrypt_erase(S->buffer, 56);
     }
 
     U64TO8_BE(S->buffer + 56, t);
@@ -172,13 +169,6 @@ static void neoscrypt_hash_finish_sha256(sha256_hash_state *S, uint8_t *hash) {
     U32TO8_BE(&hash[28], S->H[7]);
 }
 
-static void neoscrypt_hash_sha256(hash_digest hash, const uint8_t *m, size_t mlen) {
-    sha256_hash_state st;
-    neoscrypt_hash_init_sha256(&st);
-    neoscrypt_hash_update_sha256(&st, m, mlen);
-    neoscrypt_hash_finish_sha256(&st, hash);
-}
-
 
 /* HMAC for SHA-256 */
 
@@ -186,40 +176,49 @@ typedef struct sha256_hmac_state_t {
     sha256_hash_state inner, outer;
 } sha256_hmac_state;
 
-static void neoscrypt_hmac_init_sha256(sha256_hmac_state *st, const uint8_t *key, size_t keylen) {
-    uint8_t pad[SCRYPT_HASH_BLOCK_SIZE] = {0};
-    size_t i;
+static inline void neoscrypt_hmac_init_sha256(sha256_hmac_state *st,
+  const uchar *key, uint keylen) {
+    uchar pad[BLOCK_SIZE + DIGEST_SIZE];
+    uint *P = (uint *) pad;
+    uint i;
 
-    neoscrypt_hash_init_sha256(&st->inner);
-    neoscrypt_hash_init_sha256(&st->outer);
+    /* The pad initialisation for the inner loop */
+    for(i = 0; i < (BLOCK_SIZE >> 2); i++)
+      P[i] = 0x36363636;
 
-    if(keylen <= SCRYPT_HASH_BLOCK_SIZE) {
-        /* use the key directly if it's <= blocksize bytes */
-        memcpy(pad, key, keylen);
+    if(keylen <= BLOCK_SIZE) {
+        /* XOR the key into the pad */
+        neoscrypt_xor(pad, key, keylen);
     } else {
-        /* if it's > blocksize bytes, hash it */
-        neoscrypt_hash_sha256(pad, key, keylen);
+        /* Hash the key and XOR into the pad */
+        sha256_hash_state st0;
+        neoscrypt_hash_init_sha256(&st0);
+        neoscrypt_hash_update_sha256(&st0, key, keylen);
+        neoscrypt_hash_finish_sha256(&st0, &pad[BLOCK_SIZE]);
+        neoscrypt_xor(&pad[0], &pad[BLOCK_SIZE], DIGEST_SIZE);
     }
 
-    /* inner = (key ^ 0x36) */
-    /* h(inner || ...) */
-    for(i = 0; i < SCRYPT_HASH_BLOCK_SIZE; i++)
-      pad[i] ^= 0x36;
-    neoscrypt_hash_update_sha256(&st->inner, pad, SCRYPT_HASH_BLOCK_SIZE);
+    neoscrypt_hash_init_sha256(&st->inner);
+    /* h(inner || pad) */
+    neoscrypt_hash_update_sha256(&st->inner, pad, BLOCK_SIZE);
 
-    /* outer = (key ^ 0x5c) */
-    /* h(outer || ...) */
-    for(i = 0; i < SCRYPT_HASH_BLOCK_SIZE; i++)
-      pad[i] ^= (0x5c ^ 0x36);
-    neoscrypt_hash_update_sha256(&st->outer, pad, SCRYPT_HASH_BLOCK_SIZE);
+    /* The pad re-initialisation for the outer loop */
+    for(i = 0; i < (BLOCK_SIZE >> 2); i++)
+       P[i] ^= (0x36363636 ^ 0x5C5C5C5C);
+
+    neoscrypt_hash_init_sha256(&st->outer);
+    /* h(outer || pad) */
+    neoscrypt_hash_update_sha256(&st->outer, pad, BLOCK_SIZE);
 }
 
-static void neoscrypt_hmac_update_sha256(sha256_hmac_state *st, const uint8_t *m, size_t mlen) {
+static inline void neoscrypt_hmac_update_sha256(sha256_hmac_state *st,
+  const uchar *m, uint mlen) {
     /* h(inner || m...) */
     neoscrypt_hash_update_sha256(&st->inner, m, mlen);
 }
 
-static void neoscrypt_hmac_finish_sha256(sha256_hmac_state *st, hash_digest mac) {
+static inline void neoscrypt_hmac_finish_sha256(sha256_hmac_state *st,
+  hash_digest mac) {
     /* h(inner || m) */
     hash_digest innerhash;
     neoscrypt_hash_finish_sha256(&st->inner, innerhash);
@@ -232,14 +231,14 @@ static void neoscrypt_hmac_finish_sha256(sha256_hmac_state *st, hash_digest mac)
 
 /* PBKDF2 for SHA-256 */
 
-void neoscrypt_pbkdf2_sha256(const uint8_t *password, size_t password_len,
-  const uint8_t *salt, size_t salt_len, uint32_t N, uint8_t *output, size_t output_len) {
+void neoscrypt_pbkdf2_sha256(const uchar *password, uint password_len,
+  const uchar *salt, uint salt_len, uint N, uchar *output, uint output_len) {
     sha256_hmac_state hmac_pw, hmac_pw_salt, work;
     hash_digest ti, u;
-    uint8_t be[4];
-    uint32_t i, j, k, blocks;
+    uchar be[4];
+    uint i, j, k, blocks;
 
-    /* bytes must be <= (0xffffffff - (SCRYPT_HASH_DIGEST_SIZE - 1)), which they will always be under scrypt */
+    /* bytes must be <= (0xffffffff - (DIGEST_SIZE - 1)), which they will always be under scrypt */
 
     /* hmac(password, ...) */
     neoscrypt_hmac_init_sha256(&hmac_pw, password, password_len);
@@ -248,20 +247,20 @@ void neoscrypt_pbkdf2_sha256(const uint8_t *password, size_t password_len,
     hmac_pw_salt = hmac_pw;
     neoscrypt_hmac_update_sha256(&hmac_pw_salt, salt, salt_len);
 
-    blocks = ((uint32_t)output_len + (SCRYPT_HASH_DIGEST_SIZE - 1)) / SCRYPT_HASH_DIGEST_SIZE;
+    blocks = ((uint)output_len + (DIGEST_SIZE - 1)) / DIGEST_SIZE;
     for(i = 1; i <= blocks; i++) {
         /* U1 = hmac(password, salt || be(i)) */
         U32TO8_BE(be, i);
         work = hmac_pw_salt;
         neoscrypt_hmac_update_sha256(&work, be, 4);
         neoscrypt_hmac_finish_sha256(&work, ti);
-        memcpy(u, ti, sizeof(u));
+        neoscrypt_copy(u, ti, sizeof(u));
 
         /* T[i] = U1 ^ U2 ^ U3... */
         for(j = 0; j < N - 1; j++) {
             /* UX = hmac(password, U{X-1}) */
             work = hmac_pw;
-            neoscrypt_hmac_update_sha256(&work, u, SCRYPT_HASH_DIGEST_SIZE);
+            neoscrypt_hmac_update_sha256(&work, u, DIGEST_SIZE);
             neoscrypt_hmac_finish_sha256(&work, u);
 
             /* T[i] ^= UX */
@@ -269,20 +268,20 @@ void neoscrypt_pbkdf2_sha256(const uint8_t *password, size_t password_len,
               ti[k] ^= u[k];
         }
 
-        memcpy(output, ti, (output_len > SCRYPT_HASH_DIGEST_SIZE) ? SCRYPT_HASH_DIGEST_SIZE : output_len);
-        output += SCRYPT_HASH_DIGEST_SIZE;
-        output_len -= SCRYPT_HASH_DIGEST_SIZE;
+        neoscrypt_copy(output, ti, (output_len > DIGEST_SIZE) ? DIGEST_SIZE : output_len);
+        output += DIGEST_SIZE;
+        output_len -= DIGEST_SIZE;
     }
 }
 
-#endif
+#endif /* SHA256 */
 
 
-#if (BLAKE256)
+#ifdef BLAKE256
 
 /* BLAKE-256 */
 
-const uint8_t blake256_sigma[] = {
+const uchar blake256_sigma[] = {
      0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
     14, 10,  4,  8,  9, 15, 13,  6,  1, 12,  0,  2, 11,  7,  5,  3,
     11,  8, 12,  0,  5,  2, 15, 13, 10, 14,  3,  6,  7,  1,  9,  4,
@@ -295,24 +294,24 @@ const uint8_t blake256_sigma[] = {
     10,  2,  8,  4,  7,  6,  1,  5, 15, 11,  9, 14,  3, 12, 13,  0
 };
 
-const uint32_t blake256_constants[16] = {
-    0x243f6a88, 0x85a308d3, 0x13198a2e, 0x03707344,
-    0xa4093822, 0x299f31d0, 0x082efa98, 0xec4e6c89,
-    0x452821e6, 0x38d01377, 0xbe5466cf, 0x34e90c6c,
-    0xc0ac29b7, 0xc97c50dd, 0x3f84d5b5, 0xb5470917
+const uint blake256_constants[16] = {
+    0x243F6A88, 0x85A308D3, 0x13198A2E, 0x03707344,
+    0xA4093822, 0x299F31D0, 0x082EFA98, 0xEC4E6C89,
+    0x452821E6, 0x38D01377, 0xBE5466CF, 0x34E90C6C,
+    0xC0AC29B7, 0xC97C50DD, 0x3F84D5B5, 0xB5470917
 };
 
 typedef struct blake256_hash_state_t {
-    uint32_t H[8], T[2];
-    uint32_t leftover;
-    uint8_t buffer[SCRYPT_HASH_BLOCK_SIZE];
+    uint H[8];
+    uint T[2];
+    uint leftover;
+    uchar buffer[BLOCK_SIZE];
 } blake256_hash_state;
 
-static void blake256_blocks(blake256_hash_state *S, const uint8_t *in,
-  size_t blocks) {
-    const uint8_t *sigma, *sigma_end = blake256_sigma + (10 * 16);
-    uint32_t m[16], v[16], h[8], t[2];
-    uint32_t i;
+static void blake256_blocks(blake256_hash_state *S, const uchar *in, uint blocks) {
+    const uchar *sigma, *sigma_end = blake256_sigma + (10 * 16);
+    uint m[16], v[16], h[8], t[2];
+    uint i;
 
     for(i = 0; i < 8; i++)
       h[i] = S->H[i];
@@ -328,9 +327,9 @@ static void blake256_blocks(blake256_hash_state *S, const uint8_t *in,
         for(i = 0; i <  4; i++)
           v[i + 8] = blake256_constants[i];
         for(i = 0; i <  2; i++)
-          v[i + 12] = blake256_constants[i+4] ^ t[0];
+          v[i + 12] = blake256_constants[i + 4] ^ t[0];
         for(i = 0; i <  2; i++)
-          v[i + 14] = blake256_constants[i+6] ^ t[1];
+          v[i + 14] = blake256_constants[i + 6] ^ t[1];
 
         for(i = 0; i < 16; i++)
           m[i] = U8TO32_BE(&in[i * 4]);
@@ -390,16 +389,16 @@ static void neoscrypt_hash_init_blake256(blake256_hash_state *S) {
 }
 
 static void neoscrypt_hash_update_blake256(blake256_hash_state *S,
-  const uint8_t *in, size_t inlen) {
-    size_t blocks, want;
+  const uchar *in, uint inlen) {
+    uint blocks, want;
 
     /* handle the previous data */
     if(S->leftover) {
-        want = (SCRYPT_HASH_BLOCK_SIZE - S->leftover);
+        want = (BLOCK_SIZE - S->leftover);
         want = (want < inlen) ? want : inlen;
-        memcpy(S->buffer + S->leftover, in, want);
-        S->leftover += (uint32_t)want;
-        if(S->leftover < SCRYPT_HASH_BLOCK_SIZE)
+        neoscrypt_copy(S->buffer + S->leftover, in, want);
+        S->leftover += (uint)want;
+        if(S->leftover < BLOCK_SIZE)
           return;
         in += want;
         inlen -= want;
@@ -407,30 +406,29 @@ static void neoscrypt_hash_update_blake256(blake256_hash_state *S,
     }
 
     /* handle the current data */
-    blocks = (inlen & ~(SCRYPT_HASH_BLOCK_SIZE - 1));
-    S->leftover = (uint32_t)(inlen - blocks);
+    blocks = (inlen & ~(BLOCK_SIZE - 1));
+    S->leftover = (uint)(inlen - blocks);
     if(blocks) {
-        blake256_blocks(S, in, blocks / SCRYPT_HASH_BLOCK_SIZE);
+        blake256_blocks(S, in, blocks / BLOCK_SIZE);
         in += blocks;
     }
 
     /* handle leftover data */
     if(S->leftover)
-      memcpy(S->buffer, in, S->leftover);
+      neoscrypt_copy(S->buffer, in, S->leftover);
 }
 
-static void neoscrypt_hash_finish_blake256(blake256_hash_state *S,
-  uint8_t *hash) {
-    uint32_t th, tl, bits;
+static void neoscrypt_hash_finish_blake256(blake256_hash_state *S, uchar *hash) {
+    uint th, tl, bits;
 
     bits = (S->leftover << 3);
     tl = S->T[0] + bits;
     th = S->T[1];
     if(S->leftover == 0) {
-        S->T[0] = (uint32_t)0 - (uint32_t)512;
-        S->T[1] = (uint32_t)0 - (uint32_t)1;
+        S->T[0] = (uint)0 - (uint)512;
+        S->T[1] = (uint)0 - (uint)1;
     } else if(S->T[0] == 0) {
-        S->T[0] = ((uint32_t)0 - (uint32_t)512) + bits;
+        S->T[0] = ((uint)0 - (uint)512) + bits;
         S->T[1] = S->T[1] - 1;
     } else {
         S->T[0] -= (512 - bits);
@@ -438,13 +436,13 @@ static void neoscrypt_hash_finish_blake256(blake256_hash_state *S,
 
     S->buffer[S->leftover] = 0x80;
     if(S->leftover <= 55) {
-        memset(S->buffer + S->leftover + 1, 0, 55 - S->leftover);
+        neoscrypt_erase(S->buffer + S->leftover + 1, 55 - S->leftover);
     } else {
-        memset(S->buffer + S->leftover + 1, 0, 63 - S->leftover);
+        neoscrypt_erase(S->buffer + S->leftover + 1, 63 - S->leftover);
         blake256_blocks(S, S->buffer, 1);
-        S->T[0] = (uint32_t)0 - (uint32_t)512;
-        S->T[1] = (uint32_t)0 - (uint32_t)1;
-        memset(S->buffer, 0, 56);
+        S->T[0] = (uint)0 - (uint)512;
+        S->T[1] = (uint)0 - (uint)1;
+        neoscrypt_erase(S->buffer, 56);
     }
     S->buffer[55] |= 1;
     U32TO8_BE(S->buffer + 56, th);
@@ -461,14 +459,6 @@ static void neoscrypt_hash_finish_blake256(blake256_hash_state *S,
     U32TO8_BE(&hash[28], S->H[7]);
 }
 
-static void neoscrypt_hash_blake256(hash_digest hash, const uint8_t *m,
-  size_t mlen) {
-    blake256_hash_state st;
-    neoscrypt_hash_init_blake256(&st);
-    neoscrypt_hash_update_blake256(&st, m, mlen);
-    neoscrypt_hash_finish_blake256(&st, hash);
-}
-
 
 /* HMAC for BLAKE-256 */
 
@@ -477,42 +467,48 @@ typedef struct blake256_hmac_state_t {
     blake256_hash_state outer;
 } blake256_hmac_state;
 
-static void neoscrypt_hmac_init_blake256(blake256_hmac_state *st,
-  const uint8_t *key, size_t keylen) {
-    uint8_t pad[SCRYPT_HASH_BLOCK_SIZE] = {0};
-    size_t i;
+static inline void neoscrypt_hmac_init_blake256(blake256_hmac_state *st,
+  const uchar *key, uint keylen) {
+    uchar pad[BLOCK_SIZE + DIGEST_SIZE];
+    uint *P = (uint *) pad;
+    uint i;
 
-    neoscrypt_hash_init_blake256(&st->inner);
-    neoscrypt_hash_init_blake256(&st->outer);
+    /* The pad initialisation for the inner loop */
+    for(i = 0; i < (BLOCK_SIZE >> 2); i++)
+      P[i] = 0x36363636;
 
-    if(keylen <= SCRYPT_HASH_BLOCK_SIZE) {
-        /* use the key directly if it's <= blocksize bytes */
-        memcpy(pad, key, keylen);
+    if(keylen <= BLOCK_SIZE) {
+        /* XOR the key into the pad */
+        neoscrypt_xor(pad, key, keylen);
     } else {
-        /* if it's > blocksize bytes, hash it */
-        neoscrypt_hash_blake256(pad, key, keylen);
+        /* Hash the key and XOR into the pad */
+        blake256_hash_state st0;
+        neoscrypt_hash_init_blake256(&st0);
+        neoscrypt_hash_update_blake256(&st0, key, keylen);
+        neoscrypt_hash_finish_blake256(&st0, &pad[BLOCK_SIZE]);
+        neoscrypt_xor(&pad[0], &pad[BLOCK_SIZE], DIGEST_SIZE);
     }
 
-    /* inner = (key ^ 0x36) */
-    /* h(inner || ...) */
-    for(i = 0; i < SCRYPT_HASH_BLOCK_SIZE; i++)
-      pad[i] ^= 0x36;
-    neoscrypt_hash_update_blake256(&st->inner, pad, SCRYPT_HASH_BLOCK_SIZE);
+    neoscrypt_hash_init_blake256(&st->inner);
+    /* h(inner || pad) */
+    neoscrypt_hash_update_blake256(&st->inner, pad, BLOCK_SIZE);
 
-    /* outer = (key ^ 0x5c) */
-    /* h(outer || ...) */
-    for(i = 0; i < SCRYPT_HASH_BLOCK_SIZE; i++)
-      pad[i] ^= (0x5c ^ 0x36);
-    neoscrypt_hash_update_blake256(&st->outer, pad, SCRYPT_HASH_BLOCK_SIZE);
+    /* The pad re-initialisation for the outer loop */
+    for(i = 0; i < (BLOCK_SIZE >> 2); i++)
+       P[i] ^= (0x36363636 ^ 0x5C5C5C5C);
+
+    neoscrypt_hash_init_blake256(&st->outer);
+    /* h(outer || pad) */
+    neoscrypt_hash_update_blake256(&st->outer, pad, BLOCK_SIZE);
 }
 
-static void neoscrypt_hmac_update_blake256(blake256_hmac_state *st,
-  const uint8_t *m, size_t mlen) {
+static inline void neoscrypt_hmac_update_blake256(blake256_hmac_state *st,
+  const uchar *m, uint mlen) {
     /* h(inner || m...) */
     neoscrypt_hash_update_blake256(&st->inner, m, mlen);
 }
 
-static void neoscrypt_hmac_finish_blake256(blake256_hmac_state *st,
+static inline void neoscrypt_hmac_finish_blake256(blake256_hmac_state *st,
   hash_digest mac) {
     /* h(inner || m) */
     hash_digest innerhash;
@@ -526,15 +522,15 @@ static void neoscrypt_hmac_finish_blake256(blake256_hmac_state *st,
 
 /* PBKDF2 for BLAKE-256 */
 
-static void neoscrypt_pbkdf2_blake256(const uint8_t *password,
-  size_t password_len, const uint8_t *salt, size_t salt_len, uint32_t N,
-  uint8_t *output, size_t output_len) {
+static void neoscrypt_pbkdf2_blake256(const uchar *password,
+  uint password_len, const uchar *salt, uint salt_len, uint N,
+  uchar *output, uint output_len) {
     blake256_hmac_state hmac_pw, hmac_pw_salt, work;
     hash_digest ti, u;
-    uint8_t be[4];
-    uint32_t i, j, k, blocks;
+    uchar be[4];
+    uint i, j, k, blocks;
 
-    /* bytes must be <= (0xffffffff - (SCRYPT_HASH_DIGEST_SIZE - 1)), which they will always be under scrypt */
+    /* bytes must be <= (0xffffffff - (DIGEST_SIZE - 1)), which they will always be under scrypt */
 
     /* hmac(password, ...) */
     neoscrypt_hmac_init_blake256(&hmac_pw, password, password_len);
@@ -543,20 +539,20 @@ static void neoscrypt_pbkdf2_blake256(const uint8_t *password,
     hmac_pw_salt = hmac_pw;
     neoscrypt_hmac_update_blake256(&hmac_pw_salt, salt, salt_len);
 
-    blocks = ((uint32_t)output_len + (SCRYPT_HASH_DIGEST_SIZE - 1)) / SCRYPT_HASH_DIGEST_SIZE;
+    blocks = ((uint)output_len + (DIGEST_SIZE - 1)) / DIGEST_SIZE;
     for(i = 1; i <= blocks; i++) {
         /* U1 = hmac(password, salt || be(i)) */
         U32TO8_BE(be, i);
         work = hmac_pw_salt;
         neoscrypt_hmac_update_blake256(&work, be, 4);
         neoscrypt_hmac_finish_blake256(&work, ti);
-        memcpy(u, ti, sizeof(u));
+        neoscrypt_copy(u, ti, sizeof(u));
 
         /* T[i] = U1 ^ U2 ^ U3... */
         for(j = 0; j < N - 1; j++) {
             /* UX = hmac(password, U{X-1}) */
             work = hmac_pw;
-            neoscrypt_hmac_update_blake256(&work, u, SCRYPT_HASH_DIGEST_SIZE);
+            neoscrypt_hmac_update_blake256(&work, u, DIGEST_SIZE);
             neoscrypt_hmac_finish_blake256(&work, u);
 
             /* T[i] ^= UX */
@@ -564,18 +560,18 @@ static void neoscrypt_pbkdf2_blake256(const uint8_t *password,
               ti[k] ^= u[k];
         }
 
-        memcpy(output, ti, (output_len > SCRYPT_HASH_DIGEST_SIZE) ? SCRYPT_HASH_DIGEST_SIZE : output_len);
-        output += SCRYPT_HASH_DIGEST_SIZE;
-        output_len -= SCRYPT_HASH_DIGEST_SIZE;
+        neoscrypt_copy(output, ti, (output_len > DIGEST_SIZE) ? DIGEST_SIZE : output_len);
+        output += DIGEST_SIZE;
+        output_len -= DIGEST_SIZE;
     }
 }
 
-#endif
+#endif /* BLAKE256 */
 
 
 /* NeoScrypt */
 
-#if (ASM)
+#ifdef ASM
 
 extern void neoscrypt_copy(void *dstp, const void *srcp, uint len);
 extern void neoscrypt_erase(void *dstp, uint len);
@@ -654,11 +650,11 @@ static void neoscrypt_chacha(uint *X, uint rounds) {
 /* Fast 32-bit / 64-bit memcpy();
  * len must be a multiple of 32 bytes */
 static void neoscrypt_blkcpy(void *dstp, const void *srcp, uint len) {
-    ulong *dst = (ulong *) dstp;
-    ulong *src = (ulong *) srcp;
+    size_t *dst = (size_t *) dstp;
+    size_t *src = (size_t *) srcp;
     uint i;
 
-    for(i = 0; i < (len / sizeof(ulong)); i += 4) {
+    for(i = 0; i < (len / sizeof(size_t)); i += 4) {
         dst[i]     = src[i];
         dst[i + 1] = src[i + 1];
         dst[i + 2] = src[i + 2];
@@ -669,12 +665,12 @@ static void neoscrypt_blkcpy(void *dstp, const void *srcp, uint len) {
 /* Fast 32-bit / 64-bit block swapper;
  * len must be a multiple of 32 bytes */
 static void neoscrypt_blkswp(void *blkAp, void *blkBp, uint len) {
-    ulong *blkA = (ulong *) blkAp;
-    ulong *blkB = (ulong *) blkBp;
-    register ulong t0, t1, t2, t3;
+    size_t *blkA = (size_t *) blkAp;
+    size_t *blkB = (size_t *) blkBp;
+    register size_t t0, t1, t2, t3;
     uint i;
 
-    for(i = 0; i < (len / sizeof(ulong)); i += 4) {
+    for(i = 0; i < (len / sizeof(size_t)); i += 4) {
         t0          = blkA[i];
         t1          = blkA[i + 1];
         t2          = blkA[i + 2];
@@ -693,11 +689,11 @@ static void neoscrypt_blkswp(void *blkAp, void *blkBp, uint len) {
 /* Fast 32-bit / 64-bit block XOR engine;
  * len must be a multiple of 32 bytes */
 static void neoscrypt_blkxor(void *dstp, const void *srcp, uint len) {
-    ulong *dst = (ulong *) dstp;
-    ulong *src = (ulong *) srcp;
+    size_t *dst = (size_t *) dstp;
+    size_t *src = (size_t *) srcp;
     uint i;
 
-    for(i = 0; i < (len / sizeof(ulong)); i += 4) {
+    for(i = 0; i < (len / sizeof(size_t)); i += 4) {
         dst[i]     ^= src[i];
         dst[i + 1] ^= src[i + 1];
         dst[i + 2] ^= src[i + 2];
@@ -707,14 +703,14 @@ static void neoscrypt_blkxor(void *dstp, const void *srcp, uint len) {
 
 /* 32-bit / 64-bit optimised memcpy() */
 void neoscrypt_copy(void *dstp, const void *srcp, uint len) {
-    ulong *dst = (ulong *) dstp;
-    ulong *src = (ulong *) srcp;
+    size_t *dst = (size_t *) dstp;
+    size_t *src = (size_t *) srcp;
     uint i, tail;
 
-    for(i = 0; i < (len / sizeof(ulong)); i++)
+    for(i = 0; i < (len / sizeof(size_t)); i++)
       dst[i] = src[i];
 
-    tail = len & (sizeof(ulong) - 1);
+    tail = len & (sizeof(size_t) - 1);
     if(tail) {
         uchar *dstb = (uchar *) dstp;
         uchar *srcb = (uchar *) srcp;
@@ -726,14 +722,14 @@ void neoscrypt_copy(void *dstp, const void *srcp, uint len) {
 
 /* 32-bit / 64-bit optimised memory erase aka memset() to zero */
 void neoscrypt_erase(void *dstp, uint len) {
-    const ulong null = 0;
-    ulong *dst = (ulong *) dstp;
+    const size_t null = 0;
+    size_t *dst = (size_t *) dstp;
     uint i, tail;
 
-    for(i = 0; i < (len / sizeof(ulong)); i++)
+    for(i = 0; i < (len / sizeof(size_t)); i++)
       dst[i] = null;
 
-    tail = len & (sizeof(ulong) - 1);
+    tail = len & (sizeof(size_t) - 1);
     if(tail) {
         uchar *dstb = (uchar *) dstp;
 
@@ -744,14 +740,14 @@ void neoscrypt_erase(void *dstp, uint len) {
 
 /* 32-bit / 64-bit optimised XOR engine */
 void neoscrypt_xor(void *dstp, const void *srcp, uint len) {
-    ulong *dst = (ulong *) dstp;
-    ulong *src = (ulong *) srcp;
+    size_t *dst = (size_t *) dstp;
+    size_t *src = (size_t *) srcp;
     uint i, tail;
 
-    for(i = 0; i < (len / sizeof(ulong)); i++)
+    for(i = 0; i < (len / sizeof(size_t)); i++)
       dst[i] ^= src[i];
 
-    tail = len & (sizeof(ulong) - 1);
+    tail = len & (sizeof(size_t) - 1);
     if(tail) {
         uchar *dstb = (uchar *) dstp;
         uchar *srcb = (uchar *) srcp;
@@ -761,14 +757,10 @@ void neoscrypt_xor(void *dstp, const void *srcp, uint len) {
     }
 }
 
-#endif
+#endif /* ASM */
 
 
 /* BLAKE2s */
-
-#define BLAKE2S_BLOCK_SIZE    64U
-#define BLAKE2S_OUT_SIZE      32U
-#define BLAKE2S_KEY_SIZE      32U
 
 /* Parameter block of 32 bytes */
 typedef struct blake2s_param_t {
@@ -789,10 +781,10 @@ typedef struct blake2s_state_t {
     uint  h[8];
     uint  t[2];
     uint  f[2];
-    uchar buf[2 * BLAKE2S_BLOCK_SIZE];
+    uchar buf[2 * BLOCK_SIZE];
     uint  buflen;
     uint  padding[3];
-    uchar tempbuf[BLAKE2S_BLOCK_SIZE];
+    uchar tempbuf[BLOCK_SIZE];
 } blake2s_state;
 
 static const uint blake2s_IV[8] = {
@@ -800,7 +792,7 @@ static const uint blake2s_IV[8] = {
     0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19
 };
 
-#if (ASM)
+#ifdef ASM
 
 extern void blake2s_compress(blake2s_state *S);
 
@@ -2209,7 +2201,7 @@ static void blake2s_compress(blake2s_state *S) {
     S->h[7] ^= v[7] ^ v[15];
 }
 
-#endif
+#endif /* ASM */
 
 static void blake2s_update(blake2s_state *S, const uchar *input,
   uint input_size) {
@@ -2217,18 +2209,18 @@ static void blake2s_update(blake2s_state *S, const uchar *input,
 
     while(input_size > 0) {
         left = S->buflen;
-        fill = 2 * BLAKE2S_BLOCK_SIZE - left;
+        fill = 2 * BLOCK_SIZE - left;
         if(input_size > fill) {
             /* Buffer fill */
             neoscrypt_copy(S->buf + left, input, fill);
             S->buflen += fill;
             /* Counter increment */
-            S->t[0] += BLAKE2S_BLOCK_SIZE;
+            S->t[0] += BLOCK_SIZE;
             /* Compress */
             blake2s_compress(S);
             /* Shift buffer left */
-            neoscrypt_copy(S->buf, S->buf + BLAKE2S_BLOCK_SIZE, BLAKE2S_BLOCK_SIZE);
-            S->buflen -= BLAKE2S_BLOCK_SIZE;
+            neoscrypt_copy(S->buf, S->buf + BLOCK_SIZE, BLOCK_SIZE);
+            S->buflen -= BLOCK_SIZE;
             input += fill;
             input_size -= fill;
         } else {
@@ -2243,7 +2235,7 @@ static void blake2s_update(blake2s_state *S, const uchar *input,
 
 void neoscrypt_blake2s(const void *input, const uint input_size,
   const void *key, const uchar key_size, void *output, const uchar output_size) {
-    uchar block[BLAKE2S_BLOCK_SIZE];
+    uchar block[BLOCK_SIZE];
     blake2s_param P[1];
     blake2s_state S[1];
 
@@ -2258,30 +2250,30 @@ void neoscrypt_blake2s(const void *input, const uint input_size,
     neoscrypt_copy(S, blake2s_IV, 32);
     neoscrypt_xor(S, P, 32);
 
-    neoscrypt_erase(block, BLAKE2S_BLOCK_SIZE);
+    neoscrypt_erase(block, BLOCK_SIZE);
     neoscrypt_copy(block, key, key_size);
-    blake2s_update(S, (uchar *) block, BLAKE2S_BLOCK_SIZE);
+    blake2s_update(S, (uchar *) block, BLOCK_SIZE);
 
     /* Update */
     blake2s_update(S, (uchar *) input, input_size);
 
     /* Finish */
-    if(S->buflen > BLAKE2S_BLOCK_SIZE) {
-        S->t[0] += BLAKE2S_BLOCK_SIZE;
+    if(S->buflen > BLOCK_SIZE) {
+        S->t[0] += BLOCK_SIZE;
         blake2s_compress(S);
-        S->buflen -= BLAKE2S_BLOCK_SIZE;
-        neoscrypt_copy(S->buf, S->buf + BLAKE2S_BLOCK_SIZE, S->buflen);
+        S->buflen -= BLOCK_SIZE;
+        neoscrypt_copy(S->buf, S->buf + BLOCK_SIZE, S->buflen);
     }
     S->t[0] += S->buflen;
     S->f[0] = ~0U;
-    neoscrypt_erase(S->buf + S->buflen, 2 * BLAKE2S_BLOCK_SIZE - S->buflen);
+    neoscrypt_erase(S->buf + S->buflen, 2 * BLOCK_SIZE - S->buflen);
     blake2s_compress(S);
 
     /* Write back */
     neoscrypt_copy(output, S, output_size);
 }
 
-#if !(OPT)
+#ifndef OPT
 
 #define FASTKDF_BUFFER_SIZE 256U
 
@@ -2293,9 +2285,7 @@ void neoscrypt_fastkdf(const uchar *password, uint password_len,
   const uchar *salt, uint salt_len, uint N, uchar *output, uint output_len) {
     const size_t stack_align = 0x40;
     const uint kdf_buf_size = FASTKDF_BUFFER_SIZE,
-      prf_input_size = BLAKE2S_BLOCK_SIZE,
-      prf_key_size = BLAKE2S_KEY_SIZE,
-      prf_output_size = BLAKE2S_OUT_SIZE;
+      prf_input_size = 64, prf_key_size = 32, prf_output_size = 32;
     uint bufptr, a, b, i, j;
     uchar *A, *B, *prf_input, *prf_key, *prf_output;
 
@@ -2381,7 +2371,7 @@ void neoscrypt_fastkdf(const uchar *password, uint password_len,
 
 #else
 
-#if (ASM)
+#ifdef ASM
 
 extern void neoscrypt_fastkdf_opt(const uchar *password, const uchar *salt,
   uchar *output, uint mode);
@@ -2437,20 +2427,16 @@ void neoscrypt_fastkdf_opt(const uchar *password, const uchar *salt,
         neoscrypt_copy(&S[12], &B[bufptr], 32);
         neoscrypt_erase(&S[20], 32);
 
-        /* BLAKE2s: update input */
-        neoscrypt_copy(&S[28], &A[bufptr], 64);
-        S[44] = 128;
-
-        /* BLAKE2s: compress */
+        /* BLAKE2s: compress IV using key */
         S[8] = 64;
         blake2s_compress((blake2s_state *) S);
-        S[44] = 64;
-        neoscrypt_copy(&S[12], &S[28], 64);
 
-        /* BLAKE2s: compress again */
+        /* BLAKE2s: update input */
+        neoscrypt_copy(&S[12], &A[bufptr], 64);
+
+        /* BLAKE2s: compress again using input */
         S[8] = 128;
         S[10] = ~0U;
-        neoscrypt_erase(&S[28], 64);
         blake2s_compress((blake2s_state *) S);
 
         for(j = 0, bufptr = 0; j < 8; j++) {
@@ -2482,12 +2468,12 @@ void neoscrypt_fastkdf_opt(const uchar *password, const uchar *salt,
     }
 }
 
-#endif /* (ASM) */
+#endif /* ASM */
 
-#endif /* (OPT) */
+#endif /* !(OPT) */
 
 
-#if !(ASM)
+#ifndef ASM
 
 /* Configurable optimised block mixer */
 static void neoscrypt_blkmix(uint *X, uint *Y, uint r, uint mixmode) {
@@ -2506,14 +2492,14 @@ static void neoscrypt_blkmix(uint *X, uint *Y, uint r, uint mixmode) {
 
     if(r == 1) {
         if(mixer) {
-            neoscrypt_blkxor(&X[0], &X[16], SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkxor(&X[0], &X[16], BLOCK_SIZE);
             neoscrypt_chacha(&X[0], rounds);
-            neoscrypt_blkxor(&X[16], &X[0], SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkxor(&X[16], &X[0], BLOCK_SIZE);
             neoscrypt_chacha(&X[16], rounds);
         } else {
-            neoscrypt_blkxor(&X[0], &X[16], SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkxor(&X[0], &X[16], BLOCK_SIZE);
             neoscrypt_salsa(&X[0], rounds);
-            neoscrypt_blkxor(&X[16], &X[0], SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkxor(&X[16], &X[0], BLOCK_SIZE);
             neoscrypt_salsa(&X[16], rounds);
         }
         return;
@@ -2521,43 +2507,43 @@ static void neoscrypt_blkmix(uint *X, uint *Y, uint r, uint mixmode) {
 
     if(r == 2) {
         if(mixer) {
-            neoscrypt_blkxor(&X[0], &X[48], SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkxor(&X[0], &X[48], BLOCK_SIZE);
             neoscrypt_chacha(&X[0], rounds);
-            neoscrypt_blkxor(&X[16], &X[0], SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkxor(&X[16], &X[0], BLOCK_SIZE);
             neoscrypt_chacha(&X[16], rounds);
-            neoscrypt_blkxor(&X[32], &X[16], SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkxor(&X[32], &X[16], BLOCK_SIZE);
             neoscrypt_chacha(&X[32], rounds);
-            neoscrypt_blkxor(&X[48], &X[32], SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkxor(&X[48], &X[32], BLOCK_SIZE);
             neoscrypt_chacha(&X[48], rounds);
-            neoscrypt_blkswp(&X[16], &X[32], SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkswp(&X[16], &X[32], BLOCK_SIZE);
         } else {
-            neoscrypt_blkxor(&X[0], &X[48], SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkxor(&X[0], &X[48], BLOCK_SIZE);
             neoscrypt_salsa(&X[0], rounds);
-            neoscrypt_blkxor(&X[16], &X[0], SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkxor(&X[16], &X[0], BLOCK_SIZE);
             neoscrypt_salsa(&X[16], rounds);
-            neoscrypt_blkxor(&X[32], &X[16], SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkxor(&X[32], &X[16], BLOCK_SIZE);
             neoscrypt_salsa(&X[32], rounds);
-            neoscrypt_blkxor(&X[48], &X[32], SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkxor(&X[48], &X[32], BLOCK_SIZE);
             neoscrypt_salsa(&X[48], rounds);
-            neoscrypt_blkswp(&X[16], &X[32], SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkswp(&X[16], &X[32], BLOCK_SIZE);
         }
         return;
     }
 
     /* Reference code for any reasonable r */
     for(i = 0; i < 2 * r; i++) {
-        if(i) neoscrypt_blkxor(&X[16 * i], &X[16 * (i - 1)], SCRYPT_BLOCK_SIZE);
-        else  neoscrypt_blkxor(&X[0], &X[16 * (2 * r - 1)], SCRYPT_BLOCK_SIZE);
+        if(i) neoscrypt_blkxor(&X[16 * i], &X[16 * (i - 1)], BLOCK_SIZE);
+        else  neoscrypt_blkxor(&X[0], &X[16 * (2 * r - 1)], BLOCK_SIZE);
         if(mixer)
           neoscrypt_chacha(&X[16 * i], rounds);
         else
           neoscrypt_salsa(&X[16 * i], rounds);
-        neoscrypt_blkcpy(&Y[16 * i], &X[16 * i], SCRYPT_BLOCK_SIZE);
+        neoscrypt_blkcpy(&Y[16 * i], &X[16 * i], BLOCK_SIZE);
     }
     for(i = 0; i < r; i++)
-      neoscrypt_blkcpy(&X[16 * i], &Y[16 * 2 * i], SCRYPT_BLOCK_SIZE);
+      neoscrypt_blkcpy(&X[16 * i], &Y[16 * 2 * i], BLOCK_SIZE);
     for(i = 0; i < r; i++)
-      neoscrypt_blkcpy(&X[16 * (i + r)], &Y[16 * (2 * i + 1)], SCRYPT_BLOCK_SIZE);
+      neoscrypt_blkcpy(&X[16 * (i + r)], &Y[16 * (2 * i + 1)], BLOCK_SIZE);
 }
 
 
@@ -2610,14 +2596,14 @@ void neoscrypt(const uchar *password, uchar *output, uint profile) {
         r = (1 << ((profile >> 5) & 0x7));
     }
 
-    uchar stack[(N + 3) * r * 2 * SCRYPT_BLOCK_SIZE + stack_align];
-    /* X = r * 2 * SCRYPT_BLOCK_SIZE */
+    uchar stack[(N + 3) * r * 2 * BLOCK_SIZE + stack_align];
+    /* X = r * 2 * BLOCK_SIZE */
     X = (uint *) (((size_t)stack & ~(stack_align - 1)) + stack_align);
     /* Z is a copy of X for ChaCha */
     Z = &X[32 * r];
     /* Y is an X sized temporal space */
     Y = &X[64 * r];
-    /* V = N * r * 2 * SCRYPT_BLOCK_SIZE */
+    /* V = N * r * 2 * BLOCK_SIZE */
     V = &X[96 * r];
 
     /* X = KDF(password, salt) */
@@ -2627,25 +2613,25 @@ void neoscrypt(const uchar *password, uchar *output, uint profile) {
 
         default:
         case(0x0):
-#if (OPT)
+#ifdef OPT
             neoscrypt_fastkdf_opt(password, password, (uchar *) X, 0);
 #else
             neoscrypt_fastkdf(password, 80, password, 80, 32,
-              (uchar *) X, r * 2 * SCRYPT_BLOCK_SIZE);
+              (uchar *) X, r * 2 * BLOCK_SIZE);
 #endif
             break;
 
-#if (SHA256)
+#ifdef SHA256
         case(0x1):
             neoscrypt_pbkdf2_sha256(password, 80, password, 80, 1,
-              (uchar *) X, r * 2 * SCRYPT_BLOCK_SIZE);
+              (uchar *) X, r * 2 * BLOCK_SIZE);
             break;
 #endif
 
-#if (BLAKE256)
+#ifdef BLAKE256
         case(0x2):
             neoscrypt_pbkdf2_blake256(password, 80, password, 80, 1,
-              (uchar *) X, r * 2 * SCRYPT_BLOCK_SIZE);
+              (uchar *) X, r * 2 * BLOCK_SIZE);
             break;
 #endif
 
@@ -2655,12 +2641,12 @@ void neoscrypt(const uchar *password, uchar *output, uint profile) {
 
     if(dblmix) {
         /* blkcpy(Z, X) */
-        neoscrypt_blkcpy(&Z[0], &X[0], r * 2 * SCRYPT_BLOCK_SIZE);
+        neoscrypt_blkcpy(&Z[0], &X[0], r * 2 * BLOCK_SIZE);
 
         /* Z = SMix(Z) */
         for(i = 0; i < N; i++) {
             /* blkcpy(V, Z) */
-            neoscrypt_blkcpy(&V[i * (32 * r)], &Z[0], r * 2 * SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkcpy(&V[i * (32 * r)], &Z[0], r * 2 * BLOCK_SIZE);
             /* blkmix(Z, Y) */
             neoscrypt_blkmix(&Z[0], &Y[0], r, (mixmode | 0x0100));
         }
@@ -2669,7 +2655,7 @@ void neoscrypt(const uchar *password, uchar *output, uint profile) {
             /* integerify(Z) mod N */
             j = (32 * r) * (Z[16 * (2 * r - 1)] & (N - 1));
             /* blkxor(Z, V) */
-            neoscrypt_blkxor(&Z[0], &V[j], r * 2 * SCRYPT_BLOCK_SIZE);
+            neoscrypt_blkxor(&Z[0], &V[j], r * 2 * BLOCK_SIZE);
             /* blkmix(Z, Y) */
             neoscrypt_blkmix(&Z[0], &Y[0], r, (mixmode | 0x0100));
         }
@@ -2678,7 +2664,7 @@ void neoscrypt(const uchar *password, uchar *output, uint profile) {
     /* X = SMix(X) */
     for(i = 0; i < N; i++) {
         /* blkcpy(V, X) */
-        neoscrypt_blkcpy(&V[i * (32 * r)], &X[0], r * 2 * SCRYPT_BLOCK_SIZE);
+        neoscrypt_blkcpy(&V[i * (32 * r)], &X[0], r * 2 * BLOCK_SIZE);
         /* blkmix(X, Y) */
         neoscrypt_blkmix(&X[0], &Y[0], r, mixmode);
     }
@@ -2686,39 +2672,39 @@ void neoscrypt(const uchar *password, uchar *output, uint profile) {
         /* integerify(X) mod N */
         j = (32 * r) * (X[16 * (2 * r - 1)] & (N - 1));
         /* blkxor(X, V) */
-        neoscrypt_blkxor(&X[0], &V[j], r * 2 * SCRYPT_BLOCK_SIZE);
+        neoscrypt_blkxor(&X[0], &V[j], r * 2 * BLOCK_SIZE);
         /* blkmix(X, Y) */
         neoscrypt_blkmix(&X[0], &Y[0], r, mixmode);
     }
 
     if(dblmix)
       /* blkxor(X, Z) */
-      neoscrypt_blkxor(&X[0], &Z[0], r * 2 * SCRYPT_BLOCK_SIZE);
+      neoscrypt_blkxor(&X[0], &Z[0], r * 2 * BLOCK_SIZE);
 
     /* output = KDF(password, X) */
     switch(kdf) {
 
         default:
         case(0x0):
-#if (OPT)
+#ifdef OPT
             neoscrypt_fastkdf_opt(password, (uchar *) X, output, 1);
 #else
             neoscrypt_fastkdf(password, 80, (uchar *) X,
-              r * 2 * SCRYPT_BLOCK_SIZE, 32, output, 32);
+              r * 2 * BLOCK_SIZE, 32, output, 32);
 #endif
             break;
 
-#if (SHA256)
+#ifdef SHA256
         case(0x1):
             neoscrypt_pbkdf2_sha256(password, 80, (uchar *) X,
-              r * 2 * SCRYPT_BLOCK_SIZE, 1, output, 32);
+              r * 2 * BLOCK_SIZE, 1, output, 32);
             break;
 #endif
 
-#if (BLAKE256)
+#ifdef BLAKE256
         case(0x2):
             neoscrypt_pbkdf2_blake256(password, 80, (uchar *) X,
-              r * 2 * SCRYPT_BLOCK_SIZE, 1, output, 32);
+              r * 2 * BLOCK_SIZE, 1, output, 32);
             break;
 #endif
 
@@ -2729,7 +2715,7 @@ void neoscrypt(const uchar *password, uchar *output, uint profile) {
 #endif /* !(ASM) */
 
 
-#if (ASM) && (MINER_4WAY)
+#if defined(ASM) && defined(MINER_4WAY)
 
 extern void neoscrypt_xor_salsa_4way(uint *X, uint *X0, uint *Y, uint double_rounds);
 extern void neoscrypt_xor_chacha_4way(uint *Z, uint *Z0, uint *Y, uint double_rounds);
@@ -2750,11 +2736,11 @@ extern void neoscrypt_xor_4way(void *dstp, const void *srcAp,
 /* The following code is for reference only */
 
 static void neoscrypt_blkcpy(void *dstp, const void *srcp, uint len) {
-    ulong *dst = (ulong *) dstp;
-    ulong *src = (ulong *) srcp;
+    size_t *dst = (size_t *) dstp;
+    size_t *src = (size_t *) srcp;
     uint i;
 
-    for(i = 0; i < (len / sizeof(ulong)); i += 4) {
+    for(i = 0; i < (len / sizeof(size_t)); i += 4) {
         dst[i]     = src[i];
         dst[i + 1] = src[i + 1];
         dst[i + 2] = src[i + 2];
@@ -2763,12 +2749,12 @@ static void neoscrypt_blkcpy(void *dstp, const void *srcp, uint len) {
 }
 
 static void neoscrypt_blkswp(void *blkAp, void *blkBp, uint len) {
-    ulong *blkA = (ulong *) blkAp;
-    ulong *blkB = (ulong *) blkBp;
-    register ulong t0, t1, t2, t3;
+    size_t *blkA = (size_t *) blkAp;
+    size_t *blkB = (size_t *) blkBp;
+    register size_t t0, t1, t2, t3;
     uint i;
 
-    for(i = 0; i < (len / sizeof(ulong)); i += 4) {
+    for(i = 0; i < (len / sizeof(size_t)); i += 4) {
         t0          = blkA[i];
         t1          = blkA[i + 1];
         t2          = blkA[i + 2];
@@ -2785,11 +2771,11 @@ static void neoscrypt_blkswp(void *blkAp, void *blkBp, uint len) {
 }
 
 static void neoscrypt_blkxor(void *dstp, const void *srcp, uint len) {
-    ulong *dst = (ulong *) dstp;
-    ulong *src = (ulong *) srcp;
+    size_t *dst = (size_t *) dstp;
+    size_t *src = (size_t *) srcp;
     uint i;
 
-    for(i = 0; i < (len / sizeof(ulong)); i += 4) {
+    for(i = 0; i < (len / sizeof(size_t)); i += 4) {
         dst[i]     ^= src[i];
         dst[i + 1] ^= src[i + 1];
         dst[i + 2] ^= src[i + 2];
@@ -2848,148 +2834,142 @@ static void neoscrypt_xor_4way(void *dstp, const void *srcAp,
 #endif
 
 
-/* 4-way NeoScrypt implementation;
- * Basic customisation (required):
- *   profile bit 0:
- *     0 = NeoScrypt(128, 2, 1) with Salsa20/20 and ChaCha20/20;
- *     1 = Scrypt(1024, 1, 1) with Salsa20/8;
- *   profile bits 31 to 1 are reserved */
-void neoscrypt_4way(const uchar *password, uchar *output, uint profile) {
-    const size_t stack_align = 0x40;
+/* 4-way NeoScrypt(128, 2, 1) with Salsa20/20 and ChaCha20/20 */
+void neoscrypt_4way(const uchar *password, uchar *output, uchar *scratchpad) {
+    const uint N = 128, r = 2, double_rounds = 10;
+    uint *X, *Z, *V, *Y, *P;
     uint i, j0, j1, j2, j3, k;
 
-    /* 2 * SCRYPT_BLOCK_SIZE compacted to 128 below */
+    /* 2 * BLOCK_SIZE compacted to 128 below */;
 
-#if (SHA256)
-    if(!profile) {
-#endif
-        const uint N = 128, r = 2, double_rounds = 10;
-        uint *X, *Z, *V, *Y, *P;
+    /* Scratchpad size is 4 * ((N + 3) * r * 128 + 80) bytes */
 
-        uchar stack[4 * ((N + 3) * r * 128 + 80) + stack_align];
-        X = (uint *) (((size_t)stack & ~(stack_align - 1)) + stack_align);
-        Z = &X[4 * 32 * r];
-        V = &X[4 * 64 * r];
-        /* Y is a temporary work space */
-        Y = &X[4 * (N + 2) * 32 * r];
-        /* P is a set of passwords 80 bytes each */
-        P = &X[4 * (N + 3) * 32 * r];
+    X = (uint *) &scratchpad[0];
+    Z = &X[4 * 32 * r];
+    V = &X[4 * 64 * r];
+    /* Y is a temporary work space */
+    Y = &X[4 * (N + 2) * 32 * r];
+    /* P is a set of passwords 80 bytes each */
+    P = &X[4 * (N + 3) * 32 * r];
 
-        /* Load the password and increment nonces */
-        for(k = 0; k < 4; k++) {
-            neoscrypt_copy(&P[k * 20], password, 80);
-            P[(k + 1) * 20 - 1] += k;
-        }
-
-        neoscrypt_fastkdf_4way((uchar *) &P[0], (uchar *) &P[0], (uchar *) &Y[0], 0);
-
-        neoscrypt_pack_4way(&X[0], &Y[0], 4 * r * 128);
-
-        neoscrypt_blkcpy(&Z[0], &X[0], 4 * r * 128);
-
-        for(i = 0; i < N; i++) {
-            neoscrypt_blkcpy(&V[i * r * 128], &Z[0], 4 * r * 128);
-            neoscrypt_xor_chacha_4way(&Z[0], &Z[192], &Y[0], double_rounds);
-            neoscrypt_xor_chacha_4way(&Z[64], &Z[0], &Y[0], double_rounds);
-            neoscrypt_xor_chacha_4way(&Z[128], &Z[64], &Y[0], double_rounds);
-            neoscrypt_xor_chacha_4way(&Z[192], &Z[128], &Y[0], double_rounds);
-            neoscrypt_blkswp(&Z[64], &Z[128], r * 128);
-        }
-
-        for(i = 0; i < N; i++) {
-            j0 = (4 * r * 32) * (Z[64 * (2 * r - 1)] & (N - 1));
-            j1 = (4 * r * 32) * (Z[1 + (64 * (2 * r - 1))] & (N - 1));
-            j2 = (4 * r * 32) * (Z[2 + (64 * (2 * r - 1))] & (N - 1));
-            j3 = (4 * r * 32) * (Z[3 + (64 * (2 * r - 1))] & (N - 1));
-            neoscrypt_xor_4way(&Z[0],
-              &V[j0], &V[j1], &V[j2], &V[j3], 4 * r * 128);
-            neoscrypt_xor_chacha_4way(&Z[0], &Z[192], &Y[0], double_rounds);
-            neoscrypt_xor_chacha_4way(&Z[64], &Z[0], &Y[0], double_rounds);
-            neoscrypt_xor_chacha_4way(&Z[128], &Z[64], &Y[0], double_rounds);
-            neoscrypt_xor_chacha_4way(&Z[192], &Z[128], &Y[0], double_rounds);
-            neoscrypt_blkswp(&Z[64], &Z[128], 256);
-        }
-
-        for(i = 0; i < N; i++) {
-            neoscrypt_blkcpy(&V[i * r * 128], &X[0], 4 * r * 128);
-            neoscrypt_xor_salsa_4way(&X[0], &X[192], &Y[0], double_rounds);
-            neoscrypt_xor_salsa_4way(&X[64], &X[0], &Y[0], double_rounds);
-            neoscrypt_xor_salsa_4way(&X[128], &X[64], &Y[0], double_rounds);
-            neoscrypt_xor_salsa_4way(&X[192], &X[128], &Y[0], double_rounds);
-            neoscrypt_blkswp(&X[64], &X[128], r * 128);
-        }
-
-        for(i = 0; i < N; i++) {
-            j0 = (4 * r * 32) * (X[64 * (2 * r - 1)] & (N - 1));
-            j1 = (4 * r * 32) * (X[1 + (64 * (2 * r - 1))] & (N - 1));
-            j2 = (4 * r * 32) * (X[2 + (64 * (2 * r - 1))] & (N - 1));
-            j3 = (4 * r * 32) * (X[3 + (64 * (2 * r - 1))] & (N - 1));
-            neoscrypt_xor_4way(&X[0],
-              &V[j0], &V[j1], &V[j2], &V[j3], 4 * r * 128);
-            neoscrypt_xor_salsa_4way(&X[0], &X[192], &Y[0], double_rounds);
-            neoscrypt_xor_salsa_4way(&X[64], &X[0], &Y[0], double_rounds);
-            neoscrypt_xor_salsa_4way(&X[128], &X[64], &Y[0], double_rounds);
-            neoscrypt_xor_salsa_4way(&X[192], &X[128], &Y[0], double_rounds);
-            neoscrypt_blkswp(&X[64], &X[128], r * 128);
-        }
-
-        neoscrypt_blkxor(&X[0], &Z[0], 4 * r * 128);
-
-        neoscrypt_unpack_4way(&Y[0], &X[0], 4 * r * 128);
-
-        neoscrypt_fastkdf_4way((uchar *) &P[0], (uchar *) &Y[0], (uchar *) &output[0], 1);
-
-#if (SHA256)
-    } else {
-
-        const uint N = 1024, r = 1, double_rounds = 4;
-        uint *X, *V, *Y, *P;
-
-        uchar stack[4 * ((N + 2) * r * 128 + 80) + stack_align];
-        X = (uint *) (((size_t)stack & ~(stack_align - 1)) + stack_align);
-        V = &X[4 * 32 * r];
-        Y = &X[4 * (N + 1) * 32 * r];
-        P = &X[4 * (N + 2) * 32 * r];
-
-        for(k = 0; k < 4; k++) {
-            neoscrypt_copy(&P[k * 20], password, 80);
-            P[(k + 1) * 20 - 1] += k;
-        }
-
-        for(k = 0; k < 4; k++)
-          neoscrypt_pbkdf2_sha256((uchar *) &P[k * 20], 80,
-            (uchar *) &P[k * 20], 80, 1,
-            (uchar *) &Y[k * r * 32], r * 128);
-
-        neoscrypt_pack_4way(&X[0], &Y[0], 4 * r * 128);
-
-        for(i = 0; i < N; i++) {
-            neoscrypt_blkcpy(&V[i * r * 128], &X[0], 4 * r * 128);
-            neoscrypt_xor_salsa_4way(&X[0], &X[64], &Y[0], double_rounds);
-            neoscrypt_xor_salsa_4way(&X[64], &X[0], &Y[0], double_rounds);
-        }
-
-        for(i = 0; i < N; i++) {
-            j0 = (4 * r * 32) * (X[64 * (2 * r - 1)] & (N - 1));
-            j1 = (4 * r * 32) * (X[1 + (64 * (2 * r - 1))] & (N - 1));
-            j2 = (4 * r * 32) * (X[2 + (64 * (2 * r - 1))] & (N - 1));
-            j3 = (4 * r * 32) * (X[3 + (64 * (2 * r - 1))] & (N - 1));
-            neoscrypt_xor_4way(&X[0],
-              &V[j0], &V[j1], &V[j2], &V[j3], 4 * r * 128);
-            neoscrypt_xor_salsa_4way(&X[0], &X[64], &Y[0], double_rounds);
-            neoscrypt_xor_salsa_4way(&X[64], &X[0], &Y[0], double_rounds);
-        }
-
-        neoscrypt_unpack_4way(&Y[0], &X[0], 4 * r * 128);
-
-        for(k = 0; k < 4; k++)
-          neoscrypt_pbkdf2_sha256((uchar *) &P[k * 20], 80,
-            (uchar *) &Y[k * r * 32], r * 128, 1,
-            (uchar *) &output[k * 32], 32);
-
+    /* Load the password and increment nonces */
+    for(k = 0; k < 4; k++) {
+        neoscrypt_copy(&P[k * 20], password, 80);
+        P[(k + 1) * 20 - 1] += k;
     }
-#endif /* (SHA256) */
+
+    neoscrypt_fastkdf_4way((uchar *) &P[0], (uchar *) &P[0], (uchar *) &Y[0],
+      (uchar *) &scratchpad[0], 0);
+
+    neoscrypt_pack_4way(&X[0], &Y[0], 4 * r * 128);
+
+    neoscrypt_blkcpy(&Z[0], &X[0], 4 * r * 128);
+
+    for(i = 0; i < N; i++) {
+        neoscrypt_blkcpy(&V[i * r * 128], &Z[0], 4 * r * 128);
+        neoscrypt_xor_chacha_4way(&Z[0], &Z[192], &Y[0], double_rounds);
+        neoscrypt_xor_chacha_4way(&Z[64], &Z[0], &Y[0], double_rounds);
+        neoscrypt_xor_chacha_4way(&Z[128], &Z[64], &Y[0], double_rounds);
+        neoscrypt_xor_chacha_4way(&Z[192], &Z[128], &Y[0], double_rounds);
+        neoscrypt_blkswp(&Z[64], &Z[128], r * 128);
+    }
+
+    for(i = 0; i < N; i++) {
+        j0 = (4 * r * 32) * (Z[64 * (2 * r - 1)] & (N - 1));
+        j1 = (4 * r * 32) * (Z[1 + (64 * (2 * r - 1))] & (N - 1));
+        j2 = (4 * r * 32) * (Z[2 + (64 * (2 * r - 1))] & (N - 1));
+        j3 = (4 * r * 32) * (Z[3 + (64 * (2 * r - 1))] & (N - 1));
+        neoscrypt_xor_4way(&Z[0],
+          &V[j0], &V[j1], &V[j2], &V[j3], 4 * r * 128);
+        neoscrypt_xor_chacha_4way(&Z[0], &Z[192], &Y[0], double_rounds);
+        neoscrypt_xor_chacha_4way(&Z[64], &Z[0], &Y[0], double_rounds);
+        neoscrypt_xor_chacha_4way(&Z[128], &Z[64], &Y[0], double_rounds);
+        neoscrypt_xor_chacha_4way(&Z[192], &Z[128], &Y[0], double_rounds);
+        neoscrypt_blkswp(&Z[64], &Z[128], 256);
+    }
+
+    for(i = 0; i < N; i++) {
+        neoscrypt_blkcpy(&V[i * r * 128], &X[0], 4 * r * 128);
+        neoscrypt_xor_salsa_4way(&X[0], &X[192], &Y[0], double_rounds);
+        neoscrypt_xor_salsa_4way(&X[64], &X[0], &Y[0], double_rounds);
+        neoscrypt_xor_salsa_4way(&X[128], &X[64], &Y[0], double_rounds);
+        neoscrypt_xor_salsa_4way(&X[192], &X[128], &Y[0], double_rounds);
+        neoscrypt_blkswp(&X[64], &X[128], r * 128);
+    }
+
+    for(i = 0; i < N; i++) {
+        j0 = (4 * r * 32) * (X[64 * (2 * r - 1)] & (N - 1));
+        j1 = (4 * r * 32) * (X[1 + (64 * (2 * r - 1))] & (N - 1));
+        j2 = (4 * r * 32) * (X[2 + (64 * (2 * r - 1))] & (N - 1));
+        j3 = (4 * r * 32) * (X[3 + (64 * (2 * r - 1))] & (N - 1));
+        neoscrypt_xor_4way(&X[0],
+          &V[j0], &V[j1], &V[j2], &V[j3], 4 * r * 128);
+        neoscrypt_xor_salsa_4way(&X[0], &X[192], &Y[0], double_rounds);
+        neoscrypt_xor_salsa_4way(&X[64], &X[0], &Y[0], double_rounds);
+        neoscrypt_xor_salsa_4way(&X[128], &X[64], &Y[0], double_rounds);
+        neoscrypt_xor_salsa_4way(&X[192], &X[128], &Y[0], double_rounds);
+        neoscrypt_blkswp(&X[64], &X[128], r * 128);
+    }
+
+    neoscrypt_blkxor(&X[0], &Z[0], 4 * r * 128);
+
+    neoscrypt_unpack_4way(&Y[0], &X[0], 4 * r * 128);
+
+    neoscrypt_fastkdf_4way((uchar *) &P[0], (uchar *) &Y[0], (uchar *) &output[0],
+      (uchar *) &scratchpad[0], 1);
 }
+
+#ifdef SHA256
+/* 4-way Scrypt(1024, 1, 1) with Salsa20/8 */
+void scrypt_4way(const uchar *password, uchar *output, uchar *scratchpad) {
+    const uint N = 1024, r = 1, double_rounds = 4;
+    uint *X, *V, *Y, *P;
+    uint i, j0, j1, j2, j3, k;
+
+    /* Scratchpad size is 4 * ((N + 2) * r * 128 + 80) bytes */
+
+    X = (uint *) &scratchpad[0];
+    V = &X[4 * 32 * r];
+    Y = &X[4 * (N + 1) * 32 * r];
+    P = &X[4 * (N + 2) * 32 * r];
+
+    for(k = 0; k < 4; k++) {
+        neoscrypt_copy(&P[k * 20], password, 80);
+        P[(k + 1) * 20 - 1] += k;
+    }
+
+    for(k = 0; k < 4; k++)
+      neoscrypt_pbkdf2_sha256((uchar *) &P[k * 20], 80,
+        (uchar *) &P[k * 20], 80, 1,
+        (uchar *) &Y[k * r * 32], r * 128);
+
+    neoscrypt_pack_4way(&X[0], &Y[0], 4 * r * 128);
+
+    for(i = 0; i < N; i++) {
+        neoscrypt_blkcpy(&V[i * r * 128], &X[0], 4 * r * 128);
+        neoscrypt_xor_salsa_4way(&X[0], &X[64], &Y[0], double_rounds);
+        neoscrypt_xor_salsa_4way(&X[64], &X[0], &Y[0], double_rounds);
+    }
+
+    for(i = 0; i < N; i++) {
+        j0 = (4 * r * 32) * (X[64 * (2 * r - 1)] & (N - 1));
+        j1 = (4 * r * 32) * (X[1 + (64 * (2 * r - 1))] & (N - 1));
+        j2 = (4 * r * 32) * (X[2 + (64 * (2 * r - 1))] & (N - 1));
+        j3 = (4 * r * 32) * (X[3 + (64 * (2 * r - 1))] & (N - 1));
+        neoscrypt_xor_4way(&X[0],
+          &V[j0], &V[j1], &V[j2], &V[j3], 4 * r * 128);
+        neoscrypt_xor_salsa_4way(&X[0], &X[64], &Y[0], double_rounds);
+        neoscrypt_xor_salsa_4way(&X[64], &X[0], &Y[0], double_rounds);
+    }
+
+    neoscrypt_unpack_4way(&Y[0], &X[0], 4 * r * 128);
+
+    for(k = 0; k < 4; k++)
+      neoscrypt_pbkdf2_sha256((uchar *) &P[k * 20], 80,
+        (uchar *) &Y[k * r * 32], r * 128, 1,
+        (uchar *) &output[k * 32], 32);
+}
+#endif /* SHA256 */
 
 
 extern void blake2s_compress_4way(void *T);
@@ -3012,7 +2992,7 @@ void neoscrypt_blake2s_4way(const uchar *input, const uchar *key, uchar *output)
     uint *T;
 
     /* Align and set up the buffer in stack */
-    uchar stack[1024 + stack_align];
+    uchar stack[704 + stack_align];
     T = (uint *) (((size_t)stack & ~(stack_align - 1)) + stack_align);
 
     /* Initialise */
@@ -3023,26 +3003,17 @@ void neoscrypt_blake2s_4way(const uchar *input, const uchar *key, uchar *output)
     neoscrypt_pack_4way(&T[48], &key[0], 128);
     neoscrypt_erase(&T[80], 128);
 
-    /* Update inputs */
-    neoscrypt_pack_4way(&T[112], &input[0], 256);
-    T[176] = 128;
-    T[177] = 128;
-    T[178] = 128;
-    T[179] = 128;
-
-    /* Compress */
+    /* Compress IVs using keys */
     T[32] = 64;
     T[33] = 64;
     T[34] = 64;
     T[35] = 64;
     blake2s_compress_4way(&T[0]);
-    T[176] = 64;
-    T[177] = 64;
-    T[178] = 64;
-    T[179] = 64;
-    neoscrypt_copy(&T[48], &T[112], 256);
 
-    /* Compress again */
+    /* Update inputs */
+    neoscrypt_pack_4way(&T[48], &input[0], 256);
+
+    /* Compress using inputs */
     T[32] = 128;
     T[33] = 128;
     T[34] = 128;
@@ -3051,7 +3022,6 @@ void neoscrypt_blake2s_4way(const uchar *input, const uchar *key, uchar *output)
     T[41] = ~0U;
     T[42] = ~0U;
     T[43] = ~0U;
-    neoscrypt_erase(&T[112], 256);
     blake2s_compress_4way(&T[0]);
 
     neoscrypt_unpack_4way(&output[0], &T[0], 128);
@@ -3060,25 +3030,22 @@ void neoscrypt_blake2s_4way(const uchar *input, const uchar *key, uchar *output)
 
 /* 4-way FastKDF with BLAKE2s integrated */
 void neoscrypt_fastkdf_4way(const uchar *password, const uchar *salt,
-  uchar *output, uint mode) {
-    const size_t stack_align = 0x40;
+  uchar *output, uchar *scratchpad, uint mode) {
     uint bufptr_a = 0, bufptr_b = 0, bufptr_c = 0, bufptr_d = 0;
     uint output_len, i, j;
     uint *T;
     uchar *Aa, *Ab, *Ac, *Ad;
     uchar *Ba, *Bb, *Bc, *Bd;
 
-    /* Align and set up the buffers in stack */
-    uchar stack[3456 + stack_align];
-    T = (uint *) (((size_t)stack & ~(stack_align - 1)) + stack_align);
-    Aa = (uchar *) &T[256];
-    Ab = (uchar *) &T[336];
-    Ac = (uchar *) &T[416];
-    Ad = (uchar *) &T[496];
-    Ba = (uchar *) &T[576];
-    Bb = (uchar *) &T[648];
-    Bc = (uchar *) &T[720];
-    Bd = (uchar *) &T[792];
+    T = (uint *) &scratchpad[0];
+    Aa = (uchar *) &T[176];
+    Ab = (uchar *) &T[256];
+    Ac = (uchar *) &T[336];
+    Ad = (uchar *) &T[416];
+    Ba = (uchar *) &T[496];
+    Bb = (uchar *) &T[568];
+    Bc = (uchar *) &T[640];
+    Bd = (uchar *) &T[712];
 
     neoscrypt_copy(&Aa[0],   &password[0], 80);
     neoscrypt_copy(&Aa[80],  &password[0], 80);
@@ -3141,7 +3108,7 @@ void neoscrypt_fastkdf_4way(const uchar *password, const uchar *salt,
         neoscrypt_copy(&T[0], blake2s_IV_P_XOR_4way, 128);
         neoscrypt_erase(&T[32], 64);
 
-        /* BLAKE2s: update key */
+        /* BLAKE2s: update keys */
         for(j = 0; j < 32; j += 8) {
             T[j + 48] = *((uint *) &Ba[bufptr_a + j]);
             T[j + 49] = *((uint *) &Bb[bufptr_b + j]);
@@ -3154,35 +3121,26 @@ void neoscrypt_fastkdf_4way(const uchar *password, const uchar *salt,
         }
         neoscrypt_erase(&T[80], 128);
 
-        /* BLAKE2s: update input */
-        for(j = 0; j < 64; j += 8) {
-            T[j + 112] = *((uint *) &Aa[bufptr_a + j]);
-            T[j + 113] = *((uint *) &Ab[bufptr_b + j]);
-            T[j + 114] = *((uint *) &Ac[bufptr_c + j]);
-            T[j + 115] = *((uint *) &Ad[bufptr_d + j]);
-            T[j + 116] = *((uint *) &Aa[bufptr_a + j + 4]);
-            T[j + 117] = *((uint *) &Ab[bufptr_b + j + 4]);
-            T[j + 118] = *((uint *) &Ac[bufptr_c + j + 4]);
-            T[j + 119] = *((uint *) &Ad[bufptr_d + j + 4]);
-        }
-        T[176] = 128;
-        T[177] = 128;
-        T[178] = 128;
-        T[179] = 128;
-
-        /* BLAKE2s: compress */
+        /* BLAKE2s: compress IVs using keys */
         T[32] = 64;
         T[33] = 64;
         T[34] = 64;
         T[35] = 64;
         blake2s_compress_4way(&T[0]);
-        T[176] = 64;
-        T[177] = 64;
-        T[178] = 64;
-        T[179] = 64;
-        neoscrypt_copy(&T[48], &T[112], 256);
 
-        /* BLAKE2s: compress again */
+        /* BLAKE2s: update inputs */
+        for(j = 0; j < 64; j += 8) {
+            T[j + 48] = *((uint *) &Aa[bufptr_a + j]);
+            T[j + 49] = *((uint *) &Ab[bufptr_b + j]);
+            T[j + 50] = *((uint *) &Ac[bufptr_c + j]);
+            T[j + 51] = *((uint *) &Ad[bufptr_d + j]);
+            T[j + 52] = *((uint *) &Aa[bufptr_a + j + 4]);
+            T[j + 53] = *((uint *) &Ab[bufptr_b + j + 4]);
+            T[j + 54] = *((uint *) &Ac[bufptr_c + j + 4]);
+            T[j + 55] = *((uint *) &Ad[bufptr_d + j + 4]);
+        }
+
+        /* BLAKE2s: compress using inputs */
         T[32] = 128;
         T[33] = 128;
         T[34] = 128;
@@ -3191,8 +3149,8 @@ void neoscrypt_fastkdf_4way(const uchar *password, const uchar *salt,
         T[41] = ~0U;
         T[42] = ~0U;
         T[43] = ~0U;
-        neoscrypt_erase(&T[112], 256);
         blake2s_compress_4way(&T[0]);
+
         bufptr_a = 0;
         bufptr_b = 0;
         bufptr_c = 0;
@@ -3295,13 +3253,11 @@ void neoscrypt_fastkdf_4way(const uchar *password, const uchar *salt,
 
 #endif /* (ASM) && (MINER_4WAY) */
 
-#if !(ASM)
-
+#ifndef ASM
 uint cpu_vec_exts() {
 
-    /* No assembly, no exensions */
+    /* No assembly, no extensions */
 
     return(0);
 }
-
 #endif

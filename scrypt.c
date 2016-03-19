@@ -695,10 +695,8 @@ static void scrypt_1024_1_1_256_24way(const uint32_t *input,
 }
 #endif /* HAVE_SCRYPT_6WAY */
 
-int scanhash_scrypt(int thr_id, uint32_t *pdata,
-	unsigned char *scratchbuf, const uint32_t *ptarget,
-	uint32_t max_nonce, unsigned long *hashes_done)
-{
+int scanhash_scrypt(int thr_id, uint32_t *pdata, unsigned char *scratchbuf,
+  const uint32_t *ptarget, uint32_t max_nonce, unsigned int *hashes_done) {
 	uint32_t data[SCRYPT_MAX_WAYS * 20], hash[SCRYPT_MAX_WAYS * 8];
 	uint32_t midstate[8];
 	uint32_t n = pdata[19] - 1;

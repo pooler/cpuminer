@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015 John Doering <ghostlander@phoenixcoin.org>
+ * Copyright (c) 2014-2016 John Doering <ghostlander@phoenixcoin.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,7 +24,11 @@
  * SUCH DAMAGE.
  */
 
-#if (ASM) && (__x86_64__)
+#if defined(ASM) && defined(__x86_64__)
+
+/* MOVQ_FIX addresses incorrect behaviour of old GNU assembler when transferring
+ * data between a 64-bit general purpose register and an MMX/SSE register:
+ * suffix or operands invalid for `movq' */
 
 /* blake2s_compress(mem)
  * AMD64 BLAKE2s block compression;
@@ -39,12 +43,19 @@ _blake2s_compress:
 	pushq	%r13
 	pushq	%r14
 	pushq	%r15
-#if (WIN64)
+#ifdef WIN64
 	pushq	%rdi
 	pushq	%rsi
 	movq	%rcx, %rdi
 #endif
+
+#ifndef MOVQ_FIX
 	movq	%rsp, %mm0
+#else
+	movd	%esp, %mm0
+	shrq	$32, %rsp
+	movd	%esp, %mm7
+#endif
 
 /* initialise */
 	movl	0(%rdi), %eax
@@ -1301,8 +1312,16 @@ _blake2s_compress:
 	xorl	%r12d, 16(%rdi)		/* finalise */
 	xorl	%r14d, 24(%rdi)		/* finalise */
 
+#ifndef MOVQ_FIX
 	movq	%mm0, %rsp
-#if (WIN64)
+#else
+	movd	%mm0, %esp
+	movd	%mm7, %eax
+	shlq	$32, %rax
+	orq	%rax, %rsp
+#endif
+
+#ifdef WIN64
 	popq	%rsi
 	popq	%rdi
 #endif
@@ -1312,6 +1331,7 @@ _blake2s_compress:
 	popq	%r12
 	popq	%rbp
 	popq	%rbx
+	emms
 	ret
 
 
@@ -1321,7 +1341,7 @@ _blake2s_compress:
 .globl _neoscrypt_copy
 neoscrypt_copy:
 _neoscrypt_copy:
-#if (WIN64)
+#ifdef WIN64
 	movq	%rdi, %r10
 	movq	%rsi, %r11
 	movq	%rcx, %rdi
@@ -1372,7 +1392,7 @@ _neoscrypt_copy:
 	jnz	.byte_copy
 
 .copy_finish:
-#if (WIN64)
+#ifdef WIN64
 	movq	%r10, %rdi
 	movq	%r11, %rsi
 #endif
@@ -1385,7 +1405,7 @@ _neoscrypt_copy:
 .globl _neoscrypt_erase
 neoscrypt_erase:
 _neoscrypt_erase:
-#if (WIN64)
+#ifdef WIN64
 	movq	%rdi, %r10
 	movq	%rsi, %r11
 	movq	%rcx, %rdi
@@ -1428,7 +1448,7 @@ _neoscrypt_erase:
 	jnz	.byte_erase
 
 .erase_finish:
-#if (WIN64)
+#ifdef WIN64
 	movq	%r10, %rdi
 	movq	%r11, %rsi
 #endif
@@ -1441,7 +1461,7 @@ _neoscrypt_erase:
 .globl _neoscrypt_xor
 neoscrypt_xor:
 _neoscrypt_xor:
-#if (WIN64)
+#ifdef WIN64
 	movq	%rdi, %r10
 	movq	%rsi, %r11
 	movq	%rcx, %rdi
@@ -1496,7 +1516,7 @@ _neoscrypt_xor:
 	jnz	.byte_xor
 
 .xor_finish:
-#if (WIN64)
+#ifdef WIN64
 	movq	%r10, %rdi
 	movq	%r11, %rsi
 #endif
@@ -1515,7 +1535,7 @@ _neoscrypt_fastkdf_opt:
 	pushq	%r13
 	pushq	%r14
 	pushq	%r15
-#if (WIN64)
+#ifdef WIN64
 	pushq	%rdi
 	pushq	%rsi
 	subq	$160, %rsp
@@ -1535,7 +1555,9 @@ _neoscrypt_fastkdf_opt:
 	movq	%r9, %rcx
 #endif
 
-	subq	$980, %rsp
+/* 64 bytes (local variables) + 64 bytes (alignment space) + 320 bytes (password
+ * buffer) + 288 bytes (salt buffer) + 112 bytes (BLAKE2s space) = 848 bytes */
+	subq	$848, %rsp
 	leaq	128(%rsp), %rbp
 	andq	$0xFFFFFFFFFFFFFFC0, %rbp
 	movq	%rdx, 48(%rsp)
@@ -1661,40 +1683,26 @@ _neoscrypt_fastkdf_opt:
 	movdqa	%xmm5, 80(%r14)
 	movdqa	%xmm5, 96(%r14)
 
-	movdqu	0(%rbp), %xmm0
-	movdqu	16(%rbp), %xmm1
-	movdqu	32(%rbp), %xmm2
-	movdqu	48(%rbp), %xmm3
-	movdqa	%xmm0, 112(%r14)
-	movdqa	%xmm1, 128(%r14)
-	movdqa	%xmm2, 144(%r14)
-	movdqa	%xmm3, 160(%r14)
-	movl	$128, 176(%r14)
-
-#if (WIN64)
+#ifdef WIN64
 	movq	%r14, %rcx
 #else
 	movq	%r14, %rdi
 #endif
 	call	blake2s_compress
 
-	pxor	%xmm5, %xmm5
-	movdqa	112(%r14), %xmm0
-	movdqa	128(%r14), %xmm1
-	movdqa	144(%r14), %xmm2
-	movdqa	160(%r14), %xmm3
-	movl	$128, 32(%r14)
-	movl	$0xFFFFFFFF, 40(%r14)
+	movdqu	0(%rbp), %xmm0
+	movdqu	16(%rbp), %xmm1
+	movdqu	32(%rbp), %xmm2
+	movdqu	48(%rbp), %xmm3
 	movdqa	%xmm0, 48(%r14)
 	movdqa	%xmm1, 64(%r14)
 	movdqa	%xmm2, 80(%r14)
 	movdqa	%xmm3, 96(%r14)
-	movdqa	%xmm5, 112(%r14)
-	movdqa	%xmm5, 128(%r14)
-	movdqa	%xmm5, 144(%r14)
-	movdqa	%xmm5, 160(%r14)
 
-#if (WIN64)
+	movl	$128, 32(%r14)
+	movl	$0xFFFFFFFF, 40(%r14)
+
+#ifdef WIN64
 	movq	%r14, %rcx
 #else
 	movq	%r14, %rdi
@@ -1710,7 +1718,12 @@ _neoscrypt_fastkdf_opt:
 	psadbw	%xmm5, %xmm0
 	movhlps	%xmm0, %xmm1
 	paddq	%xmm1, %xmm0
+#ifndef MOVQ_FIX
 	movq	%xmm0, %r13
+#else
+	movq	%xmm0, 0(%r14)
+	movq	0(%r14), %r13
+#endif
 	andq	$0xFF, %r13
 	leaq	320(%r12, %r13), %rbx
 	movdqu	0(%rbx), %xmm0
@@ -1724,7 +1737,7 @@ _neoscrypt_fastkdf_opt:
 	movq	$32, %rdx
 	cmpq	%r13, %rdx
 	jc	.fastkdf_headupd
-#if (WIN64)
+#ifdef WIN64
 	movq	%rdx, %r8
 	leaq	256(%rbx), %rcx
 	movq	%rbx, %rdx
@@ -1744,7 +1757,7 @@ _neoscrypt_fastkdf_opt:
 	jnc	.fastkdf_loop_end
 	movq	%r13, %rax
 	subq	%rdx, %rax
-#if (WIN64)
+#ifdef WIN64
 	leaq	320(%r12), %rcx
 	leaq	576(%r12), %rdx
 	movq	%rax, %r8
@@ -1767,7 +1780,7 @@ _neoscrypt_fastkdf_opt:
 	jc	.fastkdf_crosscopy
 
 	leaq	320(%r12, %r13), %rbp
-#if (WIN64)
+#ifdef WIN64
 	movq	%rbp, %rcx
 	movq	%r12, %rdx
 	movq	%r15, %r8
@@ -1777,7 +1790,7 @@ _neoscrypt_fastkdf_opt:
 	movq	%r15, %rdx
 #endif
 	call	neoscrypt_xor
-#if (WIN64)
+#ifdef WIN64
 	movq	%r14, %rcx
 	movq	%rbp, %rdx
 	movq	%r15, %r8
@@ -1791,7 +1804,7 @@ _neoscrypt_fastkdf_opt:
 
 .fastkdf_crosscopy:
 	leaq	320(%r12, %r13), %rbx
-#if (WIN64)
+#ifdef WIN64
 	movq	%rbx, %rcx
 	movq	%r12, %rdx
 	movq	%rbp, %r8
@@ -1803,7 +1816,7 @@ _neoscrypt_fastkdf_opt:
 	call	neoscrypt_xor
 	leaq	320(%r12), %rdi
 	leaq	0(%r12, %rbp), %rsi
-#if (WIN64)
+#ifdef WIN64
 	movq	%rdi, %rcx
 	movq	%rsi, %rdx
 	movq	%r15, %r8
@@ -1813,7 +1826,7 @@ _neoscrypt_fastkdf_opt:
 	subq	%rbp, %rdx
 #endif
 	call	neoscrypt_xor
-#if (WIN64)
+#ifdef WIN64
 	movq	%r14, %rcx
 	movq	%rbx, %rdx
 	movq	%rbp, %r8
@@ -1823,7 +1836,7 @@ _neoscrypt_fastkdf_opt:
 	movq	%rbp, %rdx
 #endif
 	call	neoscrypt_copy
-#if (WIN64)
+#ifdef WIN64
 	leaq	0(%r14, %rbp), %rcx
 	leaq	320(%r12), %rdx
 	movq	%r15, %r8
@@ -1837,9 +1850,9 @@ _neoscrypt_fastkdf_opt:
 	call	neoscrypt_copy
 
 .fastkdf_finish:
-	addq	$980, %rsp
+	addq	$848, %rsp
 
-#if (WIN64)
+#ifdef WIN64
 	movdqu	0(%rsp), %xmm15
 	movdqu	16(%rsp), %xmm14
 	movdqu	32(%rsp), %xmm13
@@ -2488,7 +2501,7 @@ neoscrypt_xor_chacha:
 .globl _neoscrypt
 neoscrypt:
 _neoscrypt:
-#if (WIN64)
+#ifdef WIN64
 	pushq	%rdi
 	pushq	%rsi
 	movq	%rcx, %rdi
@@ -2506,13 +2519,13 @@ _neoscrypt:
 	movq	%rsi, %r15
 	movq	%rdx, %rbx
 
-#if (SHA256)
+#ifdef SHA256
 /* Scrypt mode */
 	testl	$0x01, %ebx
 	jnz	.scrypt
 #endif
 
-#if (WIN64)
+#ifdef WIN64
 /* attempt to allocate 33280 + 128 bytes of stack space fails miserably;
  * have to use malloc() and free() instead */
 	subq	$128, %rsp
@@ -2535,11 +2548,11 @@ _neoscrypt:
 	movq	%rax, 32(%rsp)
 /* memory base: X, Z, V */
 	leaq	128(%rsp), %rbp
-#endif /* (WIN64) */
+#endif /* WIN64 */
 
 /* FastKDF */
-#if (WIN64)
-#if (OPT)
+#ifdef WIN64
+#ifdef OPT
 	movq	%r14, %rcx
 	movq	%r14, %rdx
 	movq	%rbp, %r8
@@ -2555,18 +2568,18 @@ _neoscrypt:
 	movq	%rbp, 40(%rsp)
 	movq	$256, 48(%rsp)
 	call	neoscrypt_fastkdf
-#endif /* (OPT) */
+#endif /* OPT */
 #else
-#if (OPT)
+#ifdef OPT
 	movq	%r14, %rdi
 	movq	%r14, %rsi
 	movq	%rbp, %rdx
 	xorq	%rcx, %rcx
-#if (__APPLE__)
+#ifdef __APPLE__
 	call	_neoscrypt_fastkdf_opt
 #else
 	call	neoscrypt_fastkdf_opt
-#endif /* (__APPLE__) */
+#endif /* __APPLE__ */
 #else
 	movq	$80, %rax
 	movq	%r14, %rdi
@@ -2576,13 +2589,13 @@ _neoscrypt:
 	movq	$32, %r8
 	movq	%rbp, %r9
 	movq	$256, 0(%rsp)
-#if (__APPLE__)
+#ifdef __APPLE__
 	call	_neoscrypt_fastkdf
 #else
 	call	neoscrypt_fastkdf
-#endif /* (__APPLE__) */
-#endif /* (OPT) */
-#endif /* (WIN64) */
+#endif /* __APPLE__ */
+#endif /* OPT */
+#endif /* WIN64 */
 
 /* blkcpy(Z, X) */
 	leaq	256(%rbp), %rax
@@ -3033,8 +3046,8 @@ _neoscrypt:
 	movdqa	%xmm15, 240(%rbp)
 
 /* FastKDF */
-#if (WIN64)
-#if (OPT)
+#ifdef WIN64
+#ifdef OPT
 	movq	%r14, %rcx
 	movq	%rbp, %rdx
 	movq	%r15, %r8
@@ -3051,19 +3064,19 @@ _neoscrypt:
 	movq	%r15, 40(%rsp)
 	movq	%rax, 48(%rsp)
 	call	neoscrypt_fastkdf
-#endif /* (OPT) */
+#endif /* OPT */
 #else
-#if (OPT)
+#ifdef OPT
 	movq	%r14, %rdi
 	movq	%rbp, %rsi
 	movq	%r15, %rdx
 	xorq	%rcx, %rcx
 	incq	%rcx
-#if (__APPLE__)
+#ifdef __APPLE__
 	call	_neoscrypt_fastkdf_opt
 #else
 	call	neoscrypt_fastkdf_opt
-#endif /* (__APPLE__) */
+#endif /* __APPLE__ */
 #else
 	movq	%r14, %rdi
 	movq	$80, %rsi
@@ -3072,15 +3085,15 @@ _neoscrypt:
 	movq	$32, %r8
 	movq	%r15, %r9
 	movq	$32, 0(%rsp)
-#if (__APPLE__)
+#ifdef __APPLE__
 	call	_neoscrypt_fastkdf
 #else
 	call	neoscrypt_fastkdf
-#endif /* (__APPLE__) */
-#endif /* (OPT) */
-#endif /* (WIN64) */
+#endif /* __APPLE__ */
+#endif /* OPT */
+#endif /* WIN64 */
 
-#if (WIN64)
+#ifdef WIN64
 /* free memory */
 	movq	64(%rsp), %rcx
 	call	free
@@ -3096,7 +3109,7 @@ _neoscrypt:
 	popq	%r12
 	popq	%rbp
 	popq	%rbx
-#if (WIN64)
+#ifdef WIN64
 	popq	%rsi
 	popq	%rdi
 #endif
@@ -3519,8 +3532,8 @@ _neoscrypt:
 	movdqa	%xmm15, 240(%rbp)
 
 /* FastKDF */
-#if (WIN64)
-#if (OPT)
+#ifdef WIN64
+#ifdef OPT
 	movq	%r14, %rcx
 	movq	%rbp, %rdx
 	movq	%r15, %r8
@@ -3537,19 +3550,19 @@ _neoscrypt:
 	movq	%r15, 40(%rsp)
 	movq	%rax, 48(%rsp)
 	call	neoscrypt_fastkdf
-#endif /* (OPT) */
+#endif /* OPT */
 #else
-#if (OPT)
+#ifdef OPT
 	movq	%r14, %rdi
 	movq	%rbp, %rsi
 	movq	%r15, %rdx
 	xorq	%rcx, %rcx
 	incq	%rcx
-#if (__APPLE__)
+#ifdef __APPLE__
 	call	_neoscrypt_fastkdf_opt
 #else
 	call	neoscrypt_fastkdf_opt
-#endif /* (__APPLE__) */
+#endif /* __APPLE__ */
 #else
 	movq	%r14, %rdi
 	movq	$80, %rsi
@@ -3559,15 +3572,15 @@ _neoscrypt:
 	movq	%rax, %r8
 	movq	%r15, %r9
 	movq	%rax, 0(%rsp)
-#if (__APPLE__)
+#ifdef __APPLE__
 	call	_neoscrypt_fastkdf
 #else
 	call	neoscrypt_fastkdf
-#endif /* (__APPLE__) */
-#endif /* (OPT) */
-#endif /* (WIN64) */
+#endif /* __APPLE__ */
+#endif /* OPT */
+#endif /* WIN64 */
 
-#if (WIN64)
+#ifdef WIN64
 /* free memory */
 	movq	64(%rsp), %rcx
 	call	free
@@ -3583,16 +3596,16 @@ _neoscrypt:
 	popq	%r12
 	popq	%rbp
 	popq	%rbx
-#if (WIN64)
+#ifdef WIN64
 	popq	%rsi
 	popq	%rdi
 #endif
 	ret
 
-#if (SHA256)
+#ifdef SHA256
 
 .scrypt:
-#if (WIN64)
+#ifdef WIN64
 /* attempt to allocate 131200 + 128 bytes of stack space fails miserably;
  * have to use malloc() and free() instead */
 	subq	$128, %rsp
@@ -3615,10 +3628,10 @@ _neoscrypt:
 	movq	%rax, 32(%rsp)
 /* memory base: X, Z, V */
 	leaq	128(%rsp), %rbp
-#endif /* (WIN64) */
+#endif /* WIN64 */
 
 /* PBKDF2-HMAC-SHA256 */
-#if (WIN64)
+#ifdef WIN64
 	movq	$80, %rax
 	movq	%r14, %rcx
 	movq	%rax, %rdx
@@ -3637,12 +3650,12 @@ _neoscrypt:
 	movq	$1, %r8
 	movq	%rbp, %r9
 	movq	$128, 0(%rsp)
-#if (__APPLE__)
+#ifdef __APPLE__
 	call	_neoscrypt_pbkdf2_sha256
 #else
 	call	neoscrypt_pbkdf2_sha256
-#endif /* (__APPLE__) */
-#endif /* (WIN64) */
+#endif /* __APPLE__ */
+#endif /* WIN64 */
 
 /* SSE2 switch */
 	testl	$0x1000, %ebx
@@ -3737,7 +3750,7 @@ _neoscrypt:
 	jnz	.salsa_s2
 
 /* PBKDF2-HMAC-SHA256 */
-#if (WIN64)
+#ifdef WIN64
 	movq	%r14, %rcx
 	movq	$80, %rdx
 	movq	%rbp, %r8
@@ -3754,15 +3767,15 @@ _neoscrypt:
 	movq	$1, %r8
 	movq	%r15, %r9
 	movq	$32, 0(%rsp)
-#if (__APPLE__)
+#ifdef __APPLE__
 	call	_neoscrypt_pbkdf2_sha256
 #else
 	call	neoscrypt_pbkdf2_sha256
-#endif /* (__APPLE__) */
+#endif /* __APPLE__ */
 
-#endif /* (WIN64) */
+#endif /* WIN64 */
 
-#if (WIN64)
+#ifdef WIN64
 /* free memory */
 	movq	64(%rsp), %rcx
 	call	free
@@ -3778,7 +3791,7 @@ _neoscrypt:
 	popq	%r12
 	popq	%rbp
 	popq	%rbx
-#if (WIN64)
+#ifdef WIN64
 	popq	%rsi
 	popq	%rdi
 #endif
@@ -3880,7 +3893,7 @@ _neoscrypt:
 	call	neoscrypt_salsa_tangle_sse2
 
 /* PBKDF2-HMAC-SHA256 */
-#if (WIN64)
+#ifdef WIN64
 	movq	%r14, %rcx
 	movq	$80, %rdx
 	movq	%rbp, %r8
@@ -3897,14 +3910,14 @@ _neoscrypt:
 	movq	$1, %r8
 	movq	%r15, %r9
 	movq	$32, 0(%rsp)
-#if (__APPLE__)
+#ifdef __APPLE__
 	call	_neoscrypt_pbkdf2_sha256
 #else
 	call	neoscrypt_pbkdf2_sha256
-#endif /* (__APPLE__) */
-#endif /* (WIN64) */
+#endif /* __APPLE__ */
+#endif /* WIN64 */
 
-#if (WIN64)
+#ifdef WIN64
 /* free memory */
 	movq	64(%rsp), %rcx
 	call	free
@@ -3920,15 +3933,15 @@ _neoscrypt:
 	popq	%r12
 	popq	%rbp
 	popq	%rbx
-#if (WIN64)
+#ifdef WIN64
 	popq	%rsi
 	popq	%rdi
 #endif
 	ret
 
-#endif /* (SHA256) */
+#endif /* SHA256 */
 
-#if (MINER_4WAY)
+#ifdef MINER_4WAY
 
 /* blake2s_compress_4way(mem)
  * AMD64 (SSE2) BLAKE2s 4-way block compression */
@@ -3942,7 +3955,7 @@ _blake2s_compress_4way:
 	pushq	%r13
 	pushq	%r14
 	pushq	%r15
-#if (WIN64)
+#ifdef WIN64
 	pushq	%rdi
 	pushq	%rsi
 	subq	$160, %rsp
@@ -3960,7 +3973,7 @@ _blake2s_compress_4way:
 #endif
 
 /* initialise */
-	leaq	768(%rdi), %rsi
+	leaq	448(%rdi), %rsi
 	movdqa	0(%rdi), %xmm0
 	movdqa	16(%rdi), %xmm8
 	movdqa	32(%rdi), %xmm4
@@ -3985,14 +3998,26 @@ _blake2s_compress_4way:
 	movq	%r8, 136(%rsi)
 /*	movq	%r9, 144(%rsi) */
 /*	movq	%r9, 152(%rsi) */
+#ifndef MOVQ_FIX
 	movq	%r9, %xmm9
 	movlhps	%xmm9, %xmm9
+#else
+	movq	%r9, 0(%rsi)
+	movq	%r9, 8(%rsi)
+	movdqa	0(%rsi), %xmm9
+#endif
 	movq	%r10, 160(%rsi)
 	movq	%r10, 168(%rsi)
 /*	movq	%r11, 176(%rsi) */
 /*	movq	%r11, 184(%rsi) */
+#ifndef MOVQ_FIX
 	movq	%r11, %xmm11
 	movlhps	%xmm11, %xmm11
+#else
+	movq	%r11, 0(%rsi)
+	movq	%r11, 8(%rsi)
+	movdqa	0(%rsi), %xmm11
+#endif
 	movq	$0x510E527F510E527F, %r12
 	movq	$0x9B05688C9B05688C, %r13
 	movq	$0x1F83D9AB1F83D9AB, %r14
@@ -4026,18 +4051,30 @@ _blake2s_compress_4way:
 /*	movq	%rax, 192(%rsi) */
 /*	movq	%rbx, 200(%rsi) */
 /*	movdqa	192(%rsi), %xmm3 */	/* A */
+#ifndef MOVQ_FIX
 	movq	%rax, %xmm3
 	movq	%rbx, %xmm15
 	movlhps	%xmm15, %xmm3
+#else
+	movq	%rax, 0(%rsi)
+	movq	%rbx, 8(%rsi)
+	movdqa	0(%rsi), %xmm3
+#endif
 	movq	%rcx, 208(%rsi)
 	pxor	%xmm0, %xmm3		/* A */
 	movq	%rdx, 216(%rsi)
 /*	movq	%r8, 224(%rsi) */
 /*	movq	%r9, 232(%rsi) */
 /*	movdqa	224(%rsi), %xmm7 */	/* C */
+#ifndef MOVQ_FIX
 	movq	%r8, %xmm7
 	movq	%r9, %xmm15
 	movlhps	%xmm15, %xmm7
+#else
+	movq	%r8, 0(%rsi)
+	movq	%r9, 8(%rsi)
+	movdqa	0(%rsi), %xmm7
+#endif
 	movq	%r10, 240(%rsi)
 	pxor	%xmm4, %xmm7		/* C */
 	movq	%r11, 248(%rsi)
@@ -6815,7 +6852,7 @@ _blake2s_compress_4way:
 	movdqa	%xmm13, 96(%rdi)
 	movdqa	%xmm5, 112(%rdi)
 
-#if (WIN64)
+#ifdef WIN64
 	movdqu	0(%rsp), %xmm15
 	movdqu	16(%rsp), %xmm14
 	movdqu	32(%rsp), %xmm13
@@ -6846,7 +6883,7 @@ _blake2s_compress_4way:
 .globl _neoscrypt_blkcpy
 neoscrypt_blkcpy:
 _neoscrypt_blkcpy:
-#if (WIN64)
+#ifdef WIN64
 	movq	%rdi, %r10
 	movq	%rsi, %r11
 	movq	%rcx, %rdi
@@ -6870,7 +6907,7 @@ _neoscrypt_blkcpy:
 	addq	%rax, %rsi
 	decl	%ecx
 	jnz	.blkcpy
-#if (WIN64)
+#ifdef WIN64
 	movq	%r10, %rdi
 	movq	%r11, %rsi
 #endif
@@ -6884,7 +6921,7 @@ _neoscrypt_blkcpy:
 .globl _neoscrypt_blkswp
 neoscrypt_blkswp:
 _neoscrypt_blkswp:
-#if (WIN64)
+#ifdef WIN64
 	movq	%rdi, %r10
 	movq	%rsi, %r11
 	movq	%rcx, %rdi
@@ -6916,7 +6953,7 @@ _neoscrypt_blkswp:
 	addq	%rax, %rsi
 	decl	%ecx
 	jnz	.blkswp
-#if (WIN64)
+#ifdef WIN64
 	movq	%r10, %rdi
 	movq	%r11, %rsi
 #endif
@@ -6930,7 +6967,7 @@ _neoscrypt_blkswp:
 .globl _neoscrypt_blkxor
 neoscrypt_blkxor:
 _neoscrypt_blkxor:
-#if (WIN64)
+#ifdef WIN64
 	movq	%rdi, %r10
 	movq	%rsi, %r11
 	movq	%rcx, %rdi
@@ -6958,7 +6995,7 @@ _neoscrypt_blkxor:
 	addq	%rax, %rsi
 	decl	%ecx
 	jnz	.blkxor
-#if (WIN64)
+#ifdef WIN64
 	movq	%r10, %rdi
 	movq	%r11, %rsi
 #endif
@@ -6971,7 +7008,7 @@ _neoscrypt_blkxor:
 .globl _neoscrypt_pack_4way
 neoscrypt_pack_4way:
 _neoscrypt_pack_4way:
-#if (WIN64)
+#ifdef WIN64
 	pushq	%rdi
 	pushq	%rsi
 	movq	%rcx, %rdi
@@ -6998,7 +7035,7 @@ _neoscrypt_pack_4way:
 	decq	%rcx
 	jnz	.pack_4way
 
-#if (WIN64)
+#ifdef WIN64
 	popq	%rsi
 	popq	%rdi
 #endif
@@ -7011,7 +7048,7 @@ _neoscrypt_pack_4way:
 .globl _neoscrypt_unpack_4way
 neoscrypt_unpack_4way:
 _neoscrypt_unpack_4way:
-#if (WIN64)
+#ifdef WIN64
 	pushq	%rdi
 	pushq	%rsi
 	movq	%rcx, %rdi
@@ -7038,7 +7075,7 @@ _neoscrypt_unpack_4way:
 	decq	%rcx
 	jnz	.unpack_4way
 
-#if (WIN64)
+#ifdef WIN64
 	popq	%rsi
 	popq	%rdi
 #endif
@@ -7053,7 +7090,7 @@ neoscrypt_xor_4way:
 _neoscrypt_xor_4way:
 	pushq	%rbx
 	pushq	%rbp
-#if (WIN64)
+#ifdef WIN64
 	pushq	%rdi
 	pushq	%rsi
 	movq	%rcx, %rdi
@@ -7084,7 +7121,7 @@ _neoscrypt_xor_4way:
 	decq	%rcx
 	jnz	.xor_4way
 
-#if (WIN64)
+#ifdef WIN64
 	popq	%rsi
 	popq	%rdi
 #endif
@@ -7099,7 +7136,7 @@ _neoscrypt_xor_4way:
 .globl _neoscrypt_xor_salsa_4way
 neoscrypt_xor_salsa_4way:
 _neoscrypt_xor_salsa_4way:
-#if (WIN64)
+#ifdef WIN64
 	movq	%rdi, %r10
 	movq	%rsi, %r11
 	movq	%rcx, %rdi
@@ -7477,7 +7514,7 @@ _neoscrypt_xor_salsa_4way:
 	movdqa	%xmm13, 208(%rdi)
 	movdqa	%xmm14, 224(%rdi)
 	movdqa	%xmm15, 240(%rdi)
-#if (WIN64)
+#ifdef WIN64
 	movq	%r10, %rdi
 	movq	%r11, %rsi
 #endif
@@ -7490,7 +7527,7 @@ _neoscrypt_xor_salsa_4way:
 .globl _neoscrypt_xor_chacha_4way
 neoscrypt_xor_chacha_4way:
 _neoscrypt_xor_chacha_4way:
-#if (WIN64)
+#ifdef WIN64
 	movq	%rdi, %r10
 	movq	%rsi, %r11
 	movq	%rcx, %rdi
@@ -7876,13 +7913,13 @@ _neoscrypt_xor_chacha_4way:
 	movdqa	%xmm13, 208(%rdi)
 	movdqa	%xmm14, 224(%rdi)
 	movdqa	%xmm15, 240(%rdi)
-#if (WIN64)
+#ifdef WIN64
 	movq	%r10, %rdi
 	movq	%r11, %rsi
 #endif
 	ret
 
-#endif /* (MINER_4WAY) */
+#endif /* MINER_4WAY */
 
 /* cpu_vec_exts()
  * AMD64 detector of any processor vector extensions present
@@ -7983,7 +8020,7 @@ _cpu_vec_exts:
 #endif /* (ASM) && (__x86_64__) */
 
 
-#if (ASM) && (__i386__)
+#if defined(ASM) && defined(__i386__)
 
 /* blake2s_compress(mem)
  * i386 BLAKE2s block compression */
@@ -10187,12 +10224,15 @@ _neoscrypt_fastkdf_opt:
 	pushl	%esi
 	pushl	%edi
 
-	subl	$948, %esp
+/* 32 bytes (call stack and local variables + 64 bytes (alignment space) +
+ * 320 bytes (password buffer) + 288 bytes (salt buffer) + 112 bytes (BLAKE2s
+ * space) = 816 bytes */
+	subl	$816, %esp
 	leal	96(%esp), %ebp
 	andl	$0xFFFFFFC0, %ebp
 	movl	%ebp, 28(%esp)
 
-	movl	968(%esp), %edx
+	movl	836(%esp), %edx
 	movq	0(%edx), %mm0
 	movq	8(%edx), %mm1
 	movq	16(%edx), %mm2
@@ -10244,11 +10284,11 @@ _neoscrypt_fastkdf_opt:
 	movq	%mm0, 224(%ebp)
 	movq	%mm1, 232(%ebp)
 
-	movl	972(%esp), %edx
+	movl	840(%esp), %edx
 	leal	320(%ebp), %ebx
 	movl	$32, 20(%esp)
 	xorl	%edi, %edi
-	testl	$0x01, 980(%esp)
+	testl	$0x01, 848(%esp)
 	jnz	.fastkdf_mode_one
 
 	movl	$256, 24(%esp)
@@ -10404,6 +10444,9 @@ _neoscrypt_fastkdf_opt:
 	movq	%mm0, 96(%esi)
 	movq	%mm0, 104(%esi)
 
+	movl	%esi, 0(%esp)
+	call	blake2s_compress
+
 	movq	0(%ebp), %mm0
 	movq	8(%ebp), %mm1
 	movq	16(%ebp), %mm2
@@ -10412,53 +10455,24 @@ _neoscrypt_fastkdf_opt:
 	movq	40(%ebp), %mm5
 	movq	48(%ebp), %mm6
 	movq	56(%ebp), %mm7
-	movq	%mm0, 112(%esi)
-	movq	%mm1, 120(%esi)
-	movq	%mm2, 128(%esi)
-	movq	%mm3, 136(%esi)
-	movq	%mm4, 144(%esi)
-	movq	%mm5, 152(%esi)
-	movq	%mm6, 160(%esi)
-	movq	%mm7, 168(%esi)
-	movl	$128, 176(%esi)
-
-	movl	%esi, 0(%esp)
-	call	blake2s_compress
-
-	movq	112(%esi), %mm0
-	movq	120(%esi), %mm1
-	movq	128(%esi), %mm2
-	movq	136(%esi), %mm3
-	movq	144(%esi), %mm4
-	movq	152(%esi), %mm5
-	movq	160(%esi), %mm6
-	movq	168(%esi), %mm7
-	movl	$128, 32(%esi)
-	movl	$0xFFFFFFFF, 40(%esi)
 	movq	%mm0, 48(%esi)
 	movq	%mm1, 56(%esi)
 	movq	%mm2, 64(%esi)
 	movq	%mm3, 72(%esi)
-	pxor	%mm0, %mm0
 	movq	%mm4, 80(%esi)
 	movq	%mm5, 88(%esi)
 	movq	%mm6, 96(%esi)
 	movq	%mm7, 104(%esi)
-	movq	%mm0, 112(%esi)
-	movq	%mm0, 120(%esi)
-	movq	%mm0, 128(%esi)
-	movq	%mm0, 136(%esi)
-	movq	%mm0, 144(%esi)
-	movq	%mm0, 152(%esi)
-	movq	%mm0, 160(%esi)
-	movq	%mm0, 168(%esi)
 
+	movl	$128, 32(%esi)
+	movl	$0xFFFFFFFF, 40(%esi)
 	call	blake2s_compress
 
 	movq	0(%esi), %mm3
 	movq	8(%esi), %mm5
 	movq	16(%esi), %mm6
 	movq	24(%esi), %mm7
+	pxor	%mm0, %mm0
 	movq	%mm3, %mm4
 	paddb	%mm5, %mm3
 	paddb	%mm6, %mm3
@@ -10524,7 +10538,7 @@ _neoscrypt_fastkdf_opt:
 	movl	%ebp, 4(%esp)
 	movl	%esi, 8(%esp)
 	call	neoscrypt_xor
-	movl	976(%esp), %eax
+	movl	844(%esp), %eax
 	movl	%eax, 0(%esp)
 	movl	%ebx, 4(%esp)
 	call	neoscrypt_copy
@@ -10543,12 +10557,12 @@ _neoscrypt_fastkdf_opt:
 	subl	%ebx, %esi
 	movl	%esi, 8(%esp)
 	call	neoscrypt_xor
-	movl	976(%esp), %eax
+	movl	844(%esp), %eax
 	movl	%eax, 0(%esp)
 	movl	%edi, 4(%esp)
 	movl	%ebx, 8(%esp)
 	call	neoscrypt_copy
-	movl	976(%esp), %eax
+	movl	844(%esp), %eax
 	leal	0(%eax, %ebx), %eax
 	movl	%eax, 0(%esp)
 	leal	320(%ebp), %edx
@@ -10557,7 +10571,7 @@ _neoscrypt_fastkdf_opt:
 	call	neoscrypt_copy
 
 .fastkdf_finish:
-	addl	$948, %esp
+	addl	$816, %esp
 	popl	%edi
 	popl	%esi
 	popl	%ebp
@@ -11292,13 +11306,13 @@ _neoscrypt:
 	movl	24(%esp), %edi
 	movl	28(%esp), %ebx
 
-#if (SHA256)
+#ifdef SHA256
 /* Scrypt mode */
 	testl	$0x01, %ebx
 	jnz	.scrypt
 #endif
 
-#if (WIN32)
+#ifdef WIN32
 /* attempt to allocate 33280 + 128 bytes of stack space fails miserably;
  * have to use malloc() and free() instead */
 	subl	$64, %esp
@@ -11321,16 +11335,16 @@ _neoscrypt:
 	movl	%eax, 32(%esp)
 /* memory base: X, Z, V */
 	leal	128(%esp), %ebp
-#endif /* (WIN32) */
+#endif /* WIN32 */
 
 /* FastKDF */
-#if (OPT)
+#ifdef OPT
 	movl	%esi, 0(%esp)
 	movl	%esi, 4(%esp)
 	movl	%ebp, 8(%esp)
 	xorl	%eax, %eax
 	movl	%eax, 12(%esp)
-#if (WIN32) || (__APPLE__)
+#if defined(WIN32) || defined(__APPLE__)
 	call	_neoscrypt_fastkdf_opt
 #else
 	call	neoscrypt_fastkdf_opt
@@ -11344,12 +11358,12 @@ _neoscrypt:
 	movl	$32, 16(%esp)
 	movl	%ebp, 20(%esp)
 	movl	$256, 24(%esp)
-#if (WIN32) || (__APPLE__)
+#if defined(WIN32) || defined(__APPLE__)
 	call	_neoscrypt_fastkdf
 #else
 	call	neoscrypt_fastkdf
 #endif /* (WIN32) || (__APPLE__) */
-#endif /* (OPT) */
+#endif /* OPT */
 
 /* SSE2 switch */
 	testl	$0x1000, %ebx
@@ -12114,12 +12128,12 @@ _neoscrypt:
 	movq	%mm7, 248(%ebp)
 
 /* FastKDF */
-#if (OPT)
+#ifdef OPT
 	movl	%esi, 0(%esp)
 	movl	%ebp, 4(%esp)
 	movl	%edi, 8(%esp)
 	movl	$1, 12(%esp)
-#if (WIN32) || (__APPLE__)
+#if defined(WIN32) || defined(__APPLE__)
 	call	_neoscrypt_fastkdf_opt
 #else
 	call	neoscrypt_fastkdf_opt
@@ -12132,14 +12146,14 @@ _neoscrypt:
 	movl	$32, 16(%esp)
 	movl	%edi, 20(%esp)
 	movl	$32, 24(%esp)
-#if (WIN32) || (__APPLE__)
+#if defined(WIN32) || defined(__APPLE__)
 	call	_neoscrypt_fastkdf
 #else
 	call	neoscrypt_fastkdf
 #endif /* (WIN32) || (__APPLE__) */
-#endif /* (OPT) */
+#endif /* OPT */
 
-#if (WIN32)
+#ifdef WIN32
 /* free memory */
 	movl	32(%esp), %eax
 	movl	%eax, 0(%esp)
@@ -12619,12 +12633,12 @@ _neoscrypt:
 	movdqa	%xmm7, 240(%ebp)
 
 /* FastKDF */
-#if (OPT)
+#ifdef OPT
 	movl	%esi, 0(%esp)
 	movl	%ebp, 4(%esp)
 	movl	%edi, 8(%esp)
 	movl	$1, 12(%esp)
-#if (WIN32) || (__APPLE__)
+#if defined(WIN32) || defined(__APPLE__)
 	call	_neoscrypt_fastkdf_opt
 #else
 	call	neoscrypt_fastkdf_opt
@@ -12637,14 +12651,14 @@ _neoscrypt:
 	movl	$32, 16(%esp)
 	movl	%edi, 20(%esp)
 	movl	$32, 24(%esp)
-#if (WIN32) || (__APPLE__)
+#if defined(WIN32) || defined(__APPLE__)
 	call	_neoscrypt_fastkdf
 #else
 	call	neoscrypt_fastkdf
 #endif /* (WIN32) || (__APPLE__) */
-#endif /* (OPT) */
+#endif /* OPT */
 
-#if (WIN32)
+#ifdef WIN32
 /* free memory */
 	movl	32(%esp), %eax
 	movl	%eax, 0(%esp)
@@ -12661,10 +12675,10 @@ _neoscrypt:
 	popl	%ebx
 	ret
 
-#if (SHA256)
+#ifdef SHA256
 
 .scrypt:
-#if (WIN32)
+#ifdef WIN32
 /* attempt to allocate 131200 + 128 bytes of stack space fails miserably;
  * have to use malloc() and free() instead */
 	subl	$64, %esp
@@ -12687,7 +12701,7 @@ _neoscrypt:
 	movl	%eax, 32(%esp)
 /* memory base: X, Z, V */
 	leal	128(%esp), %ebp
-#endif /* (WIN32) */
+#endif /* WIN32 */
 
 /* PBKDF2-HMAC-SHA256 */
 	movl	$80, %eax
@@ -12698,7 +12712,7 @@ _neoscrypt:
 	movl	$1, 16(%esp)
 	movl	%ebp, 20(%esp)
 	movl	$128, 24(%esp)
-#if (WIN32) || (__APPLE__)
+#if defined(WIN32) || defined(__APPLE__)
 	call	_neoscrypt_pbkdf2_sha256
 #else
 	call	neoscrypt_pbkdf2_sha256
@@ -12843,13 +12857,13 @@ _neoscrypt:
 	movl	$1, 16(%esp)
 	movl	%edi, 20(%esp)
 	movl	$32, 24(%esp)
-#if (WIN32) || (__APPLE__)
+#if defined(WIN32) || defined(__APPLE__)
 	call	_neoscrypt_pbkdf2_sha256
 #else
 	call	neoscrypt_pbkdf2_sha256
 #endif
 
-#if (WIN32)
+#ifdef WIN32
 /* free memory */
 	movl	32(%esp), %eax
 	movl	%eax, 0(%esp)
@@ -12969,13 +12983,13 @@ _neoscrypt:
 	movl	$1, 16(%esp)
 	movl	%edi, 20(%esp)
 	movl	$32, 24(%esp)
-#if (WIN32) || (__APPLE__)
+#if defined(WIN32) || defined(__APPLE__)
 	call	_neoscrypt_pbkdf2_sha256
 #else
 	call	neoscrypt_pbkdf2_sha256
 #endif
 
-#if (WIN32)
+#ifdef WIN32
 /* free memory */
 	movl	32(%esp), %eax
 	movl	%eax, 0(%esp)
@@ -12992,9 +13006,9 @@ _neoscrypt:
 	popl	%ebx
 	ret
 
-#endif /* (SHA256) */
+#endif /* SHA256 */
 
-#if (MINER_4WAY)
+#ifdef MINER_4WAY
 
 /* blake2s_compress_4way(mem)
  * i386 (SSE2) BLAKE2s 4-way block compression */
@@ -13009,7 +13023,7 @@ _blake2s_compress_4way:
 	movl	20(%esp), %edi
 
 /* initialise */
-	leal	768(%edi), %esi
+	leal	448(%edi), %esi
 	movdqa	0(%edi), %xmm0
 	movdqa	16(%edi), %xmm2
 	movdqa	32(%edi), %xmm3
@@ -16925,7 +16939,7 @@ _neoscrypt_xor_chacha_4way:
 
 	ret
 
-#endif /* (MINER_4WAY) */
+#endif /* MINER_4WAY */
 
 /* cpu_vec_exts()
  * i386 detector of any vector extensions present
