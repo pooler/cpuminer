@@ -1,4 +1,4 @@
-AC_INIT([cpuminer], [2.4.3])
+AC_INIT([cpuminer], [2.4.4])
 
 AC_PREREQ([2.59c])
 AC_CANONICAL_SYSTEM

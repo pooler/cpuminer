@@ -1,3 +1,7 @@
+Version 2.4.4 - Mar 24, 2016
+
+- Fix memory leaks affecting getblocktemplate
+
 Version 2.4.3 - Jan 24, 2016
 
 - Add support for the VIA PadLock Hash Engine on x86-64
