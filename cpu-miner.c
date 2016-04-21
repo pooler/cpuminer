@@ -1289,6 +1289,7 @@ start:
 			soval = json_object_get(res, "submitold");
 			submit_old = soval ? json_is_true(soval) : false;
 			pthread_mutex_lock(&g_work_lock);
+			work_free(&g_work);
 			if (have_gbt)
 				rc = gbt_work_decode(res, &g_work);
 			else
