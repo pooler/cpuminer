@@ -1,3 +1,7 @@
+Version 2.4.5 - Jun 10, 2016
+
+- Fix a memory leak affecting long polling
+
 Version 2.4.4 - Mar 24, 2016
 
 - Fix memory leaks affecting getblocktemplate
