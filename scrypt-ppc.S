@@ -83,6 +83,14 @@
 
 #endif
 
+#if !(defined(__powerpc64__) || defined(__ppc64__) || defined(__PPC64__) || \
+	defined(__64BIT__) || defined(_LP64) || defined(__LP64__))
+#define ld lwz
+#define std stw
+#define stdu stwu
+#define stdux stwux
+#endif
+
 
 #ifdef __ALTIVEC__
 
@@ -146,11 +154,9 @@
 #endif
 scrypt_core:
 _scrypt_core:
-	stwu	r1, -4*4(r1)
-	mflr	r0
-	stw	r0, 5*4(r1)
+	stdu	r1, -4*4(r1)
 	mfspr	r0, 256
-	stw	r0, 2*4(r1)
+	std	r0, 2*4(r1)
 	oris	r0, r0, 0xffff
 	ori	r0, r0, 0xf000
 	mtspr	256, r0
@@ -362,10 +368,8 @@ scrypt_core_loop2:
 	stvx	v14, r3, r11
 	stvx	v15, r3, r12
 	
-	lwz	r0, 2*4(r1)
+	ld	r0, 2*4(r1)
 	mtspr	256, r0
-	lwz	r0, 5*4(r1)
-	mtlr	r0
 	addi	r1, r1, 4*4
 	blr
 
@@ -493,30 +497,28 @@ scrypt_core_loop2:
 #endif
 scrypt_core:
 _scrypt_core:
-	stwu	r1, -48*4(r1)
-	mflr	r0
-	stw	r0, 49*4(r1)
+	stdu	r1, -68*4(r1)
 	stw	r5, 2*4(r1)
-	stw	r13, 3*4(r1)
-	stw	r14, 4*4(r1)
-	stw	r15, 5*4(r1)
-	stw	r16, 6*4(r1)
-	stw	r17, 7*4(r1)
-	stw	r18, 8*4(r1)
-	stw	r19, 9*4(r1)
-	stw	r20, 10*4(r1)
-	stw	r21, 11*4(r1)
-	stw	r22, 12*4(r1)
-	stw	r23, 13*4(r1)
-	stw	r24, 14*4(r1)
-	stw	r25, 15*4(r1)
-	stw	r26, 16*4(r1)
-	stw	r27, 17*4(r1)
-	stw	r28, 18*4(r1)
-	stw	r29, 19*4(r1)
-	stw	r30, 20*4(r1)
-	stw	r31, 21*4(r1)
-	stw	r3, 22*4(r1)
+	std	r13, 4*4(r1)
+	std	r14, 6*4(r1)
+	std	r15, 8*4(r1)
+	std	r16, 10*4(r1)
+	std	r17, 12*4(r1)
+	std	r18, 14*4(r1)
+	std	r19, 16*4(r1)
+	std	r20, 18*4(r1)
+	std	r21, 20*4(r1)
+	std	r3, 22*4(r1)
+	std	r22, 48*4(r1)
+	std	r23, 50*4(r1)
+	std	r24, 52*4(r1)
+	std	r25, 54*4(r1)
+	std	r26, 56*4(r1)
+	std	r27, 58*4(r1)
+	std	r28, 60*4(r1)
+	std	r29, 62*4(r1)
+	std	r30, 64*4(r1)
+	std	r31, 66*4(r1)
 	
 	lwz	r16, 0*4(r3)
 	lwz	r17, 1*4(r3)
@@ -1048,7 +1050,7 @@ scrypt_core_loop2:
 	stw	r23, 47*4(r1)
 	bdnz	scrypt_core_loop2
 	
-	lwz	r3, 22*4(r1)
+	ld	r3, 22*4(r1)
 	
 	lwz	r16, 24*4(r1)
 	lwz	r17, 25*4(r1)
@@ -1107,28 +1109,26 @@ scrypt_core_loop2:
 	stw	r14, 30*4(r3)
 	stw	r15, 31*4(r3)
 	
-	lwz	r13, 3*4(r1)
-	lwz	r14, 4*4(r1)
-	lwz	r15, 5*4(r1)
-	lwz	r16, 6*4(r1)
-	lwz	r17, 7*4(r1)
-	lwz	r18, 8*4(r1)
-	lwz	r19, 9*4(r1)
-	lwz	r20, 10*4(r1)
-	lwz	r21, 11*4(r1)
-	lwz	r22, 12*4(r1)
-	lwz	r23, 13*4(r1)
-	lwz	r24, 14*4(r1)
-	lwz	r25, 15*4(r1)
-	lwz	r26, 16*4(r1)
-	lwz	r27, 17*4(r1)
-	lwz	r28, 18*4(r1)
-	lwz	r29, 19*4(r1)
-	lwz	r30, 20*4(r1)
-	lwz	r31, 21*4(r1)
-	lwz	r0, 49*4(r1)
-	mtlr	r0
-	addi	r1, r1, 48*4
+	ld	r13, 4*4(r1)
+	ld	r14, 6*4(r1)
+	ld	r15, 8*4(r1)
+	ld	r16, 10*4(r1)
+	ld	r17, 12*4(r1)
+	ld	r18, 14*4(r1)
+	ld	r19, 16*4(r1)
+	ld	r20, 18*4(r1)
+	ld	r21, 20*4(r1)
+	ld	r22, 48*4(r1)
+	ld	r23, 50*4(r1)
+	ld	r24, 52*4(r1)
+	ld	r25, 54*4(r1)
+	ld	r26, 56*4(r1)
+	ld	r27, 58*4(r1)
+	ld	r28, 60*4(r1)
+	ld	r29, 62*4(r1)
+	ld	r30, 64*4(r1)
+	ld	r31, 66*4(r1)
+	addi	r1, r1, 68*4
 	blr
 
 #endif /* __ALTIVEC__ */

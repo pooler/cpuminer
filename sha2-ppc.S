@@ -91,6 +91,14 @@
 
 #endif
 
+#if !(defined(__powerpc64__) || defined(__ppc64__) || defined(__PPC64__) || \
+	defined(__64BIT__) || defined(_LP64) || defined(__LP64__))
+#define ld lwz
+#define std stw
+#define stdu stwu
+#define stdux stwux
+#endif
+
 
 	.data
 	.align 2
@@ -201,12 +209,12 @@ sha256_k:
 #endif
 sha256_transform:
 _sha256_transform:
-	stwu	r1, -72*4(r1)
+	stdu	r1, -76*4(r1)
 	cmpwi	0, r5, 0
-	stw	r13, 2*4(r1)
-	stw	r14, 3*4(r1)
-	stw	r15, 4*4(r1)
-	stw	r16, 5*4(r1)
+	std	r13, 2*4(r1)
+	std	r14, 4*4(r1)
+	std	r15, 6*4(r1)
+	std	r16, 72*4(r1)
 	
 	bne	0, sha256_transform_swap
 	
@@ -364,11 +372,11 @@ sha256_transform_extend:
 	stw	r10, 6*4(r3)
 	stw	r11, 7*4(r3)
 	
-	lwz	r13, 2*4(r1)
-	lwz	r14, 3*4(r1)
-	lwz	r15, 4*4(r1)
-	lwz	r16, 5*4(r1)
-	addi	r1, r1, 72*4
+	ld	r13, 2*4(r1)
+	ld	r14, 4*4(r1)
+	ld	r15, 6*4(r1)
+	ld	r16, 72*4(r1)
+	addi	r1, r1, 76*4
 	blr
 
 
@@ -381,13 +389,13 @@ sha256_transform_extend:
 #endif
 sha256d_ms:
 _sha256d_ms:
-	stwu	r1, -72*4(r1)
-	stw	r13, 2*4(r1)
-	stw	r14, 3*4(r1)
-	stw	r15, 4*4(r1)
-	stw	r16, 5*4(r1)
-	stw	r17, 6*4(r1)
-	stw	r18, 7*4(r1)
+	stdu	r1, -80*4(r1)
+	std	r13, 2*4(r1)
+	std	r14, 4*4(r1)
+	std	r15, 6*4(r1)
+	std	r16, 72*4(r1)
+	std	r17, 74*4(r1)
+	std	r18, 76*4(r1)
 	
 	mr	r17, r4
 	mr	r18, r5
@@ -883,13 +891,13 @@ _sha256d_ms:
 	add	r11, r11, r5
 	stw	r11, 7*4(r3)
 	
-	lwz	r13, 2*4(r1)
-	lwz	r14, 3*4(r1)
-	lwz	r15, 4*4(r1)
-	lwz	r16, 5*4(r1)
-	lwz	r17, 6*4(r1)
-	lwz	r18, 7*4(r1)
-	addi	r1, r1, 72*4
+	ld	r13, 2*4(r1)
+	ld	r14, 4*4(r1)
+	ld	r15, 6*4(r1)
+	ld	r16, 72*4(r1)
+	ld	r17, 74*4(r1)
+	ld	r18, 76*4(r1)
+	addi	r1, r1, 80*4
 	blr
 
 
@@ -1146,7 +1154,7 @@ _sha256_transform_4way:
 	cmpwi	0, r5, 0
 	li	r7, -(4*4+64*16)
 	subf	r6, r6, r7
-	stwux	r1, r1, r6
+	stdux	r1, r1, r6
 
 	li	r7, 1*16
 	li	r8, 2*16
@@ -1336,7 +1344,7 @@ sha256_transform_4way_extend:
 	stvx	v10, r11, r8
 	stvx	v11, r11, r9
 	
-	lwz	r1, 0(r1)
+	ld	r1, 0(r1)
 	mtspr	256, r0
 	blr
 
@@ -1358,7 +1366,7 @@ _sha256d_ms_4way:
 	andi.	r12, r1, 15
 	li	r11, -(4*4+64*16)
 	subf	r12, r12, r11
-	stwux	r1, r1, r12
+	stdux	r1, r1, r12
 	
 	li	r7, 1*16
 	li	r8, 2*16
@@ -1897,7 +1905,7 @@ _sha256d_ms_4way:
 	vadduwm	v11, v11, v19
 	stvx	v11, r3, r12
 	
-	lwz	r1, 0(r1)
+	ld	r1, 0(r1)
 	mtspr	256, r0
 	blr
 
