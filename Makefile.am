@@ -9,7 +9,7 @@ EXTRA_DIST	= example-cfg.json nomacro.pl
 
 SUBDIRS		= compat
 
-INCLUDES	= $(PTHREAD_FLAGS) -fno-strict-aliasing $(JANSSON_INCLUDES)
+AM_CPPFLAGS	= $(PTHREAD_FLAGS) -fno-strict-aliasing $(JANSSON_INCLUDES)
 
 bin_PROGRAMS	= minerd
 
