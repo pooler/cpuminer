@@ -94,14 +94,22 @@ void applog(int prio, const char *fmt, ...)
 		char *f;
 		int len;
 		time_t now;
+#ifdef HAVE_LOCALTIME_R
+		struct tm tm;
+#else
 		struct tm tm, *tm_p;
+#endif
 
 		time(&now);
 
+#ifdef HAVE_LOCALTIME_R
+		localtime_r(&now, &tm);
+#else
 		pthread_mutex_lock(&applog_lock);
 		tm_p = localtime(&now);
 		memcpy(&tm, tm_p, sizeof(tm));
 		pthread_mutex_unlock(&applog_lock);
+#endif
 
 		len = 40 + strlen(fmt) + 2;
 		f = alloca(len);
