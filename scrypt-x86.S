@@ -32,39 +32,40 @@
 
 #if defined(USE_ASM) && defined(__i386__)
 	
-.macro scrypt_shuffle src, so, dest, do
-	movl	\so+60(\src), %eax
-	movl	\so+44(\src), %ebx
-	movl	\so+28(\src), %ecx
-	movl	\so+12(\src), %edx
-	movl	%eax, \do+12(\dest)
-	movl	%ebx, \do+28(\dest)
-	movl	%ecx, \do+44(\dest)
-	movl	%edx, \do+60(\dest)
-	movl	\so+40(\src), %eax
-	movl	\so+8(\src), %ebx
-	movl	\so+48(\src), %ecx
-	movl	\so+16(\src), %edx
-	movl	%eax, \do+8(\dest)
-	movl	%ebx, \do+40(\dest)
-	movl	%ecx, \do+16(\dest)
-	movl	%edx, \do+48(\dest)
-	movl	\so+20(\src), %eax
-	movl	\so+4(\src), %ebx
-	movl	\so+52(\src), %ecx
-	movl	\so+36(\src), %edx
-	movl	%eax, \do+4(\dest)
-	movl	%ebx, \do+20(\dest)
-	movl	%ecx, \do+36(\dest)
-	movl	%edx, \do+52(\dest)
-	movl	\so+0(\src), %eax
-	movl	\so+24(\src), %ebx
-	movl	\so+32(\src), %ecx
-	movl	\so+56(\src), %edx
-	movl	%eax, \do+0(\dest)
-	movl	%ebx, \do+24(\dest)
-	movl	%ecx, \do+32(\dest)
-	movl	%edx, \do+56(\dest)
+.macro scrypt_shuffle src, so, dest
+        movq    \so+0(\src), %mm0
+        movq    \so+8(\src), %mm1
+        movq    \so+16(\src), %mm2
+        movq    \so+24(\src), %mm3
+        pshufw  $0x4e, %mm0, %mm0
+        pshufw  $0x4e, %mm1, %mm1
+        pshufw  $0x4e, %mm2, %mm2
+        pshufw  $0x4e, %mm3, %mm3
+        movq    \so+32(\src), %mm4
+        movq    \so+40(\src), %mm5
+        movq    \so+48(\src), %mm6
+        movq    \so+56(\src), %mm7
+        pshufw  $0x4e, %mm4, %mm4
+        pshufw  $0x4e, %mm5, %mm5
+        pshufw  $0x4e, %mm6, %mm6
+        pshufw  $0x4e, %mm7, %mm7
+        movq    %mm0, \so+0(\dest)
+        movq    %mm1, \so+8(\dest)
+        movq    %mm2, \so+16(\dest)
+        movq    %mm3, \so+24(\dest)
+        movq    %mm4, \so+32(\dest)
+        movq    %mm5, \so+40(\dest)
+        movq    %mm6, \so+48(\dest)
+        movq    %mm7, \so+56(\dest)
+.endm
+
+.macro scrypt_shuffle2 src, so, dest
+        movdqa  \so+0(\src), %xmm6
+        movdqa  \so+16(\src), %xmm7
+        shufps  $0x1b, %xmm6, %xmm6
+        shufps  $0x1b, %xmm7, %xmm7
+        movdqa  %xmm6, \so+0(\dest)
+        movdqa  %xmm7, \so+16(\dest)
 .endm
 
 .macro salsa8_core_gen_quadround
@@ -692,11 +693,14 @@ scrypt_core_sse2:
 	subl	$128, %esp
 	andl	$-16, %esp
 	
-	scrypt_shuffle %edi, 0, %esp, 0
-	scrypt_shuffle %edi, 64, %esp, 64
+        scrypt_shuffle2 %edi, 0, %esp
+        scrypt_shuffle2 %edi, 32, %esp
+        scrypt_shuffle2 %edi, 64, %esp
+        scrypt_shuffle2 %edi, 96, %esp
 	
-	movdqa	96(%esp), %xmm6
-	movdqa	112(%esp), %xmm7
+	//already done in last scrypt_shuffle2 loop
+	//movdqa	96(%esp), %xmm6
+	//movdqa	112(%esp), %xmm7
 	
 	movl	%esi, %edx
 	movl	28(%ebp), %ecx
@@ -817,8 +821,9 @@ scrypt_core_sse2_loop2:
 	movdqa	%xmm6, 96(%esp)
 	movdqa	%xmm7, 112(%esp)
 	
-	scrypt_shuffle %esp, 0, %edi, 0
-	scrypt_shuffle %esp, 64, %edi, 64
+        scrypt_shuffle %esp, 0, %edi
+        scrypt_shuffle %esp, 64, %edi
+        emms // clear MMX state
 	
 	movl	%ebp, %esp
 	popl	%esi
