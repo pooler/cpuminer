@@ -134,9 +134,11 @@ static int num_processors;
 static char *rpc_url;
 static char *rpc_userpass;
 static char *rpc_user, *rpc_pass;
-static int pk_script_size;
-static unsigned char pk_script[25];
-static char coinbase_sig[101] = "";
+int pk_script_size = 0;
+unsigned char pk_script[25];
+bool opt_testnet_addr = false;
+struct compare_op coinbase_perc_op = { '\0' };
+char coinbase_sig[101] = "";
 char *opt_cert;
 char *opt_proxy;
 long opt_proxy_type;
@@ -185,7 +187,8 @@ Options:\n\
   -T, --timeout=N       timeout for long polling, in seconds (default: none)\n\
   -s, --scantime=N      upper bound on time spent scanning current work when\n\
                           long polling is unavailable, in seconds (default: 5)\n\
-      --coinbase-addr=ADDR  payout address for solo mining\n\
+      --coinbase-addr=ADDR  payout address for solo mining, or pool mining coinbase check\n\
+      --coinbase-perc=TEXT  percent of specified payout address, e.g. =1, >0.99, <0.05\n\
       --coinbase-sig=TEXT  data to insert in the coinbase when possible\n\
       --no-longpoll     disable long polling support\n\
       --no-getwork      disable getwork support\n\
@@ -227,6 +230,7 @@ static struct option const options[] = {
 	{ "benchmark", 0, NULL, 1005 },
 	{ "cert", 1, NULL, 1001 },
 	{ "coinbase-addr", 1, NULL, 1013 },
+	{ "coinbase-perc", 1, NULL, 1014 },
 	{ "coinbase-sig", 1, NULL, 1015 },
 	{ "config", 1, NULL, 'c' },
 	{ "debug", 0, NULL, 'D' },
@@ -441,7 +445,9 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		const char *cbtx_hex = json_string_value(json_object_get(tmp, "data"));
 		cbtx_size = cbtx_hex ? strlen(cbtx_hex) / 2 : 0;
 		cbtx = malloc(cbtx_size + 100);
-		if (cbtx_size < 60 || !hex2bin(cbtx, cbtx_hex, cbtx_size)) {
+
+		if (!hex2bin(cbtx, cbtx_hex, cbtx_size) ||
+			!check_coinbase(cbtx, cbtx_size, &coinbase_perc_op, pk_script, pk_script_size)) {
 			applog(LOG_ERR, "JSON invalid coinbasetxn");
 			goto out;
 		}
@@ -1743,12 +1749,31 @@ static void parse_arg(int key, char *arg, char *pname)
 		have_gbt = false;
 		break;
 	case 1013:			/* --coinbase-addr */
+		opt_testnet_addr = (arg[0] != '1' && arg[0] != '3' && arg[0] != 'x');
 		pk_script_size = address_to_script(pk_script, sizeof(pk_script), arg);
 		if (!pk_script_size) {
 			fprintf(stderr, "%s: invalid address -- '%s'\n",
 				pname, arg);
 			show_usage_and_exit(1);
 		}
+		break;
+	case 1014:			/* --coinbase-perc */
+		if (!pk_script_size) {
+			fprintf(stderr,
+				"%s: --coinbase-perc must be used with --coinbase-addr\n",
+				pname);
+			show_usage_and_exit(1);
+		}
+		if (arg[0] != '>' && arg[0] != '+' &&
+			arg[0] != '<' && arg[0] != '-' &&
+			arg[0] != '=') {
+			fprintf(stderr, "%s: invalid coinbase-perc op -- '%s'\n", pname,
+				arg);
+			show_usage_and_exit(1);
+		}
+		coinbase_perc_op.op = (arg[0] == '+' ? '>' :
+								(arg[0] == '-' ? '<' : arg[0]));
+		coinbase_perc_op.value = atof(&arg[1]);
 		break;
 	case 1015:			/* --coinbase-sig */
 		if (strlen(arg) + 1 > sizeof(coinbase_sig)) {

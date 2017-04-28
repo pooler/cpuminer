@@ -589,7 +589,72 @@ int varint_encode(unsigned char *p, uint64_t n)
 	return 9;
 }
 
+int varint_decode(const unsigned char *p, size_t size, uint64_t *n)
+{
+	int i;
+	if (size > 8 && p[0] == 0xff) {
+		for (*n = 0, i = 8; i > 0; --i)
+			*n = (*n << 8) + p[i];
+		return 9;
+	}
+	if (size > 4 && p[0] == 0xfe) {
+		for (*n = 0, i = 4; i > 0; --i)
+			*n = (*n << 8) + p[i];
+		return 5;
+	}
+	if (size > 2 && p[0] == 0xfd) {
+		*n = p[1] + ((uint64_t)p[2] << 8);
+		return 3;
+	}
+	if (size) {
+		*n = p[0];
+		return 1;
+	}
+	return 0;
+}
+
 static const char b58digits[] = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+static bool b58enc(char *b58, size_t *b58sz, const unsigned char* bin, size_t binsz)
+{
+	int i, j, carry, high, zcount = 0;
+	size_t size;
+	unsigned char *buf;
+
+	while (zcount < binsz && !bin[zcount]) ++zcount;
+
+	size = (binsz - zcount) * 138 / 100 + 1;
+	buf = malloc(size);
+	if (!buf)
+		return false;
+	memset(buf, 0, size);
+
+	for (i = zcount, high = size - 1; i < binsz; ++i, high = j) {
+		for (carry = bin[i], j = size - 1; (j > high) || carry; --j) {
+			carry += 256 * buf[j];
+			buf[j] = carry % 58;
+			carry /= 58;
+		}
+	}
+
+	for (j = 0; j < size && !buf[j]; ++j);
+
+	if (*b58sz <= zcount + size - j) {
+		free(buf);
+		*b58sz = zcount + size - j + 1;
+		return false;
+	}
+
+	if (zcount)
+		memset(b58, '1', zcount);
+	for (i = zcount; j < size; ++i, ++j)
+		b58[i] = b58digits[buf[j]];
+	b58[i] = '\0';
+	*b58sz = i + 1;
+
+	free(buf);
+	return true;
+}
 
 static bool b58dec(unsigned char *bin, size_t binsz, const char *b58)
 {
@@ -671,6 +736,17 @@ size_t address_to_script(unsigned char *out, size_t outsz, const char *addr)
 	if (addrver < 0)
 		return 0;
 	switch (addrver) {
+		case 0:
+		case 111:
+			if (outsz < (rv = 25))
+				return rv;
+			out[ 0] = 0x76;  /* OP_DUP */
+			out[ 1] = 0xa9;  /* OP_HASH160 */
+			out[ 2] = 0x14;  /* push 20 bytes */
+			memcpy(&out[3], &addrbin[1], 20);
+			out[23] = 0x88;  /* OP_EQUALVERIFY */
+			out[24] = 0xac;  /* OP_CHECKSIG */
+			return rv;
 		case 5:    /* Bitcoin script hash */
 		case 196:  /* Testnet script hash */
 			if (outsz < (rv = 23))
@@ -681,17 +757,78 @@ size_t address_to_script(unsigned char *out, size_t outsz, const char *addr)
 			out[22] = 0x87;  /* OP_EQUAL */
 			return rv;
 		default:
-			if (outsz < (rv = 25))
-				return rv;
-			out[ 0] = 0x76;  /* OP_DUP */
-			out[ 1] = 0xa9;  /* OP_HASH160 */
-			out[ 2] = 0x14;  /* push 20 bytes */
-			memcpy(&out[3], &addrbin[1], 20);
-			out[23] = 0x88;  /* OP_EQUALVERIFY */
-			out[24] = 0xac;  /* OP_CHECKSIG */
-			return rv;
+			return 0;
 	}
 }
+
+static bool test_address( char *addr, size_t *addrsz, unsigned char ver, const unsigned char *pkhash )
+{
+	unsigned char buf[25], hret[32];
+
+	buf[0] = ver;
+	memcpy(buf + 1, pkhash, 20);
+	sha256d(hret, buf, 21);
+	memcpy(buf + 21, hret, 4);
+
+	return (b58enc(addr, addrsz, buf, 25) && (*addrsz == 35 || *addrsz == 34) &&
+			b58dec(buf, sizeof(buf), addr) && buf[0] == ver && !memcmp(buf + 1, pkhash, 20));
+}
+
+size_t script_to_address(char *out, size_t outsz, const unsigned char *script, size_t scriptsz, bool testnet)
+{
+	char addr[35];
+	size_t size = sizeof(addr);
+	bool bok = false;
+
+	if (scriptsz == 25) {
+		if (script[0] != 0x76 || script[1] != 0xa9 || script[2] != 0x14 || script[23] != 0x88 || script[24] != 0xac)
+			return 0;
+		bok = test_address(addr, &size, testnet ? 0x6f : 0x00, script + 3);
+	} else if (scriptsz == 23) {
+		if (script[0] != 0xa9 || script[1] != 0x14 || script[22] != 0x87)
+			return 0;
+		bok = test_address(addr, &size, testnet ? 0xc4 : 0x05, script + 2);
+	}
+	if (!bok)
+		return 0;
+	if (outsz >= size)
+		strcpy(out, addr);
+	return size;
+}
+
+#if 0
+void test_addr_script_conversion()
+{
+	char addr[][35] = {};
+	int i;
+	for (i = 0; i < sizeof(addr)/sizeof(addr[0]); ++i) {
+		unsigned char script[25];
+		char newaddr[50];
+		int len1 = address_to_script(script, sizeof(script), addr[i]);
+		if (len1 > sizeof(script) {
+			applog(LOG_ERR, "1 Failed: %s", addr[i]);
+			continue;
+		}
+		int len2 = script_to_address(newaddr, sizeof(newaddr), script, len1, false);
+		if (len2 > sizeof(newaddr)) {
+			bin2hex(newaddr, script, len1);
+			applog(LOG_ERR, "2 Failed: %s", newaddr);
+			continue;
+		}
+		if (strcmp(&addr[0][i], newaddr)) {
+			len2 = script_to_address(newaddr, sizeof(newaddr), script, len1, true);
+			if (len2 > sizeof(newaddr)) {
+				bin2hex(newaddr, script, len1);
+				applog(LOG_ERR, "3 Failed: %s", newaddr);
+				continue;
+			}
+			if (strcmp(&addr[0][i], newaddr))
+				applog(LOG_ERR, "3 Failed: %s/%s", addr[i], newaddr);
+		}
+		applog(LOG_DEBUG, "OK %d %s", len1, addr[i]);
+	}
+}
+#endif
 
 /* Subtract the `struct timeval' values X and Y,
    storing the result in RESULT.
@@ -1201,14 +1338,117 @@ out:
 	return ret;
 }
 
+bool check_coinbase(const unsigned char *coinbase, size_t cbsize,
+	struct compare_op* cop, const unsigned char *pk_script, size_t pk_script_size)
+{
+	size_t pos, i;
+	uint64_t len, total, target;
+
+	if (cbsize < 62) { /* Smallest possible coinbase size */
+		applog(LOG_ERR, "Coinbase check: invalid length %zu", cbsize);
+		return false;
+	}
+	pos = 4; /* Skip the version */
+
+	if (coinbase[pos] != 1) {
+		applog(LOG_ERR, "Coinbase check: multiple inputs (0x%02x) in coinbase", coinbase[pos]);
+		return false;
+	}
+	pos += 1 /* varint length */ + 32 /* prevhash */ + 4 /* 0xffffffff */;
+
+	if (coinbase[pos] < 2 || coinbase[pos] > 100) {
+		applog(LOG_ERR, "Coinbase check: input script sig invalid length: 0x%02x", coinbase[pos]);
+		return false;
+	}
+	pos += 1 /* varint length */ + coinbase[pos] + 4 /* 0xffffffff */;
+
+	if (cbsize <= pos) {
+incomplete_cb:
+		applog(LOG_ERR, "Coinbase check: incomplete coinbase");
+		return false;
+	}
+
+	i = varint_decode(coinbase + pos, cbsize - pos, &len);
+	if (!i)
+		goto incomplete_cb;
+	pos += i;
+
+	total = target = 0;
+	while (len-- > 0) {
+		uint64_t amount = 0, curr_pk_script_len;
+		char addr[35];
+
+		if (cbsize <= pos + 8)
+			goto incomplete_cb;
+
+		amount = le64dec(coinbase + pos);
+		pos += 8; /* amount length */
+
+		total += amount;
+
+		i = varint_decode(coinbase + pos, cbsize - pos, &curr_pk_script_len);
+		if (!i || cbsize <= pos + i + curr_pk_script_len)
+			goto incomplete_cb;
+		pos += i; /* varint length */
+
+		i = script_to_address(addr, sizeof(addr), coinbase + pos, curr_pk_script_len, opt_testnet_addr);
+		if (i || i <= sizeof(addr)) {
+			if (cop && cop->op) {
+				i = (pk_script_size == curr_pk_script_len && !memcmp(pk_script, coinbase + pos, pk_script_size));
+				if (i)
+					target += amount;
+			} else
+				i = 0;
+			if (opt_debug)
+				applog(LOG_DEBUG, "Coinbase output: %10ld - %34s%c", amount, addr, i ? '*' : '\0');
+		} else if (opt_debug) {
+			char *hex = abin2hex(coinbase + pos, curr_pk_script_len);
+			applog(LOG_DEBUG, "Coinbase output: %10ld PK %34s", amount, hex);
+			free(hex);
+		}
+
+		pos += curr_pk_script_len;
+	}
+	if (!total) {
+		applog(LOG_ERR, "Coinbase check: output no coins");
+		return false;
+	}
+	if (cbsize < pos + 4) {
+		applog(LOG_ERR, "Coinbase check: no room for locktime");
+		return false;
+	}
+
+	if (cop && cop->op) {
+		bool pass_cb_check;
+		float cb_perc;
+		cb_perc = (double)target / total;
+		if (cop->op == '>')
+			pass_cb_check = (cb_perc > cop->value);
+		else if (cop->op == '<')
+			pass_cb_check = (cb_perc < cop->value);
+		else
+			pass_cb_check = (cb_perc == cop->value);
+		if (!pass_cb_check) {
+			applog(LOG_ERR, "Stratum notify: lopsided target/total = %g(%ld/%ld), expecting %c %g",
+				cb_perc, target, total, coinbase_perc_op.op, coinbase_perc_op.value);
+			return false;
+		}
+	}
+
+	if (opt_debug)
+		applog(LOG_DEBUG, "Stratum notify: (target, total, percent) = (%ld, %ld, %g)", target, total, (double)target / total);
+
+	return true;
+}
+
 static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 {
 	const char *job_id, *prevhash, *coinb1, *coinb2, *version, *nbits, *ntime;
-	size_t coinb1_size, coinb2_size;
+	size_t coinb1_size, coinb2_size, cbsize;
 	bool clean, ret = false;
 	int merkle_count, i;
 	json_t *merkle_arr;
-	unsigned char **merkle;
+	unsigned char *coinbase, **merkle;
 
 	job_id = json_string_value(json_array_get(params, 0));
 	prevhash = json_string_value(json_array_get(params, 1));
@@ -1243,16 +1483,24 @@ static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 		hex2bin(merkle[i], s, 32);
 	}
 
-	pthread_mutex_lock(&sctx->work_lock);
-
 	coinb1_size = strlen(coinb1) / 2;
 	coinb2_size = strlen(coinb2) / 2;
-	sctx->job.coinbase_size = coinb1_size + sctx->xnonce1_size +
-	                          sctx->xnonce2_size + coinb2_size;
-	sctx->job.coinbase = realloc(sctx->job.coinbase, sctx->job.coinbase_size);
-	sctx->job.xnonce2 = sctx->job.coinbase + coinb1_size + sctx->xnonce1_size;
-	hex2bin(sctx->job.coinbase, coinb1, coinb1_size);
+	cbsize = coinb1_size + sctx->xnonce1_size + sctx->xnonce2_size + coinb2_size;
+	coinbase = malloc(cbsize);
+	hex2bin(coinbase, coinb1, coinb1_size);
+	hex2bin(coinbase + coinb1_size + sctx->xnonce1_size + sctx->xnonce2_size, coinb2, coinb2_size);
+	if (!check_coinbase(coinbase, cbsize, &coinbase_perc_op, pk_script, pk_script_size)) {
+		applog(LOG_ERR, "Stratum notify: invalid coinbase data");
+		goto out;
+	}
+
+	pthread_mutex_lock(&sctx->work_lock);
+
+	sctx->job.coinbase_size = cbsize;
+	sctx->job.coinbase = coinbase;
+	free(sctx->job.coinbase);
 	memcpy(sctx->job.coinbase + coinb1_size, sctx->xnonce1, sctx->xnonce1_size);
+	sctx->job.xnonce2 = sctx->job.coinbase + coinb1_size + sctx->xnonce1_size;
 	if (!sctx->job.job_id || strcmp(sctx->job.job_id, job_id))
 		memset(sctx->job.xnonce2, 0, sctx->xnonce2_size);
 	hex2bin(sctx->job.xnonce2 + sctx->xnonce2_size, coinb2, coinb2_size);
