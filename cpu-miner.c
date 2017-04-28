@@ -1,6 +1,6 @@
 /*
  * Copyright 2010 Jeff Garzik
- * Copyright 2012-2015 pooler
+ * Copyright 2012-2017 pooler
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -127,7 +127,6 @@ static int opt_retries = -1;
 static int opt_fail_pause = 30;
 int opt_timeout = 0;
 static int opt_scantime = 5;
-static const bool opt_time = true;
 static enum algos opt_algo = ALGO_SCRYPT;
 static int opt_scrypt_n = 1024;
 static int opt_n_threads;
@@ -344,9 +343,6 @@ err_out:
 	return false;
 }
 
-#define BLOCK_VERSION_MASK 0x000000ff
-#define BLOCK_VERSION_CURRENT 4
-
 static bool gbt_work_decode(const json_t *val, struct work *work)
 {
 	int i, n;
@@ -360,10 +356,21 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 	unsigned char (*merkle_tree)[32] = NULL;
 	bool coinbase_append = false;
 	bool submit_coinbase = false;
-	bool version_force = false;
-	bool version_reduce = false;
+	bool segwit = false;
 	json_t *tmp, *txa;
 	bool rc = false;
+
+	tmp = json_object_get(val, "rules");
+	if (tmp && json_is_array(tmp)) {
+		n = json_array_size(tmp);
+		for (i = 0; i < n; i++) {
+			const char *s = json_string_value(json_array_get(tmp, i));
+			if (!s)
+				continue;
+			if (!strcmp(s, "segwit") || !strcmp(s, "!segwit"))
+				segwit = true;
+		}
+	}
 
 	tmp = json_object_get(val, "mutable");
 	if (tmp && json_is_array(tmp)) {
@@ -376,10 +383,6 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 				coinbase_append = true;
 			else if (!strcmp(s, "submit/coinbase"))
 				submit_coinbase = true;
-			else if (!strcmp(s, "version/force"))
-				version_force = true;
-			else if (!strcmp(s, "version/reduce"))
-				version_reduce = true;
 		}
 	}
 
@@ -396,13 +399,6 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		goto out;
 	}
 	version = json_integer_value(tmp);
-	if ((version & BLOCK_VERSION_MASK) > BLOCK_VERSION_CURRENT) {
-		if (version_reduce) {
-			version = (version & ~BLOCK_VERSION_MASK) | BLOCK_VERSION_CURRENT;
-		} else if (!version_force) {
-			applog(LOG_WARNING, "Unrecognized block version: %u", version);
-		}
-	}
 
 	if (unlikely(!jobj_binary(val, "previousblockhash", prevhash, sizeof(prevhash)))) {
 		applog(LOG_ERR, "JSON invalid previousblockhash");
@@ -472,19 +468,56 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		le32enc((uint32_t *)(cbtx+37), 0xffffffff); /* prev txout index */
 		cbtx_size = 43;
 		/* BIP 34: height in coinbase */
-		for (n = work->height; n; n >>= 8)
+		for (n = work->height; n; n >>= 8) {
 			cbtx[cbtx_size++] = n & 0xff;
+			if (n < 0x100 && n >= 0x80)
+				cbtx[cbtx_size++] = 0;
+		}
 		cbtx[42] = cbtx_size - 43;
 		cbtx[41] = cbtx_size - 42; /* scriptsig length */
 		le32enc((uint32_t *)(cbtx+cbtx_size), 0xffffffff); /* sequence */
 		cbtx_size += 4;
-		cbtx[cbtx_size++] = 1; /* out-counter */
+		cbtx[cbtx_size++] = segwit ? 2 : 1; /* out-counter */
 		le32enc((uint32_t *)(cbtx+cbtx_size), (uint32_t)cbvalue); /* value */
 		le32enc((uint32_t *)(cbtx+cbtx_size+4), cbvalue >> 32);
 		cbtx_size += 8;
 		cbtx[cbtx_size++] = pk_script_size; /* txout-script length */
 		memcpy(cbtx+cbtx_size, pk_script, pk_script_size);
 		cbtx_size += pk_script_size;
+		if (segwit) {
+			unsigned char (*wtree)[32] = calloc(tx_count + 2, 32);
+			memset(cbtx+cbtx_size, 0, 8); /* value */
+			cbtx_size += 8;
+			cbtx[cbtx_size++] = 38; /* txout-script length */
+			cbtx[cbtx_size++] = 0x6a; /* txout-script */
+			cbtx[cbtx_size++] = 0x24;
+			cbtx[cbtx_size++] = 0xaa;
+			cbtx[cbtx_size++] = 0x21;
+			cbtx[cbtx_size++] = 0xa9;
+			cbtx[cbtx_size++] = 0xed;
+			for (i = 0; i < tx_count; i++) {
+				const json_t *tx = json_array_get(txa, i);
+				const json_t *hash = json_object_get(tx, "hash");
+				if (!hash || !hex2bin(wtree[1+i], json_string_value(hash), 32)) {
+					applog(LOG_ERR, "JSON invalid transaction hash");
+					free(wtree);
+					goto out;
+				}
+				memrev(wtree[1+i], 32);
+			}
+			n = tx_count + 1;
+			while (n > 1) {
+				if (n % 2)
+					memcpy(wtree[n], wtree[n-1], 32);
+				n = (n + 1) / 2;
+				for (i = 0; i < n; i++)
+					sha256d(wtree[i], wtree[2*i], 64);
+			}
+			memset(wtree[1], 0, 32);  /* witness reserved value = 0 */
+			sha256d(cbtx+cbtx_size, wtree[0], 64);
+			cbtx_size += 32;
+			free(wtree);
+		}
 		le32enc((uint32_t *)(cbtx+cbtx_size), 0); /* lock time */
 		cbtx_size += 4;
 		coinbase_append = true;
@@ -547,14 +580,23 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		tmp = json_array_get(txa, i);
 		const char *tx_hex = json_string_value(json_object_get(tmp, "data"));
 		const int tx_size = tx_hex ? strlen(tx_hex) / 2 : 0;
-		unsigned char *tx = malloc(tx_size);
-		if (!tx_hex || !hex2bin(tx, tx_hex, tx_size)) {
-			applog(LOG_ERR, "JSON invalid transactions");
+		if (segwit) {
+			const char *txid = json_string_value(json_object_get(tmp, "txid"));
+			if (!txid || !hex2bin(merkle_tree[1 + i], txid, 32)) {
+				applog(LOG_ERR, "JSON invalid transaction txid");
+				goto out;
+			}
+			memrev(merkle_tree[1 + i], 32);
+		} else {
+			unsigned char *tx = malloc(tx_size);
+			if (!tx_hex || !hex2bin(tx, tx_hex, tx_size)) {
+				applog(LOG_ERR, "JSON invalid transactions");
+				free(tx);
+				goto out;
+			}
+			sha256d(merkle_tree[1 + i], tx, tx_size);
 			free(tx);
-			goto out;
 		}
-		sha256d(merkle_tree[1 + i], tx, tx_size);
-		free(tx);
 		if (!submit_coinbase)
 			strcat(work->txs, tx_hex);
 	}
@@ -764,13 +806,14 @@ static const char *getwork_req =
 	"{\"method\": \"getwork\", \"params\": [], \"id\":0}\r\n";
 
 #define GBT_CAPABILITIES "[\"coinbasetxn\", \"coinbasevalue\", \"longpoll\", \"workid\"]"
+#define GBT_RULES "[\"segwit\"]"
 
 static const char *gbt_req =
 	"{\"method\": \"getblocktemplate\", \"params\": [{\"capabilities\": "
-	GBT_CAPABILITIES "}], \"id\":0}\r\n";
+	GBT_CAPABILITIES ", \"rules\": " GBT_RULES "}], \"id\":0}\r\n";
 static const char *gbt_lp_req =
 	"{\"method\": \"getblocktemplate\", \"params\": [{\"capabilities\": "
-	GBT_CAPABILITIES ", \"longpollid\": \"%s\"}], \"id\":0}\r\n";
+	GBT_CAPABILITIES ", \"rules\": " GBT_RULES ", \"longpollid\": \"%s\"}], \"id\":0}\r\n";
 
 static bool get_upstream_work(CURL *curl, struct work *work)
 {
