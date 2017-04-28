@@ -32,39 +32,13 @@
 
 #if defined(USE_ASM) && defined(__i386__)
 	
-.macro scrypt_shuffle src, so, dest, do
-	movl	\so+60(\src), %eax
-	movl	\so+44(\src), %ebx
-	movl	\so+28(\src), %ecx
-	movl	\so+12(\src), %edx
-	movl	%eax, \do+12(\dest)
-	movl	%ebx, \do+28(\dest)
-	movl	%ecx, \do+44(\dest)
-	movl	%edx, \do+60(\dest)
-	movl	\so+40(\src), %eax
-	movl	\so+8(\src), %ebx
-	movl	\so+48(\src), %ecx
-	movl	\so+16(\src), %edx
-	movl	%eax, \do+8(\dest)
-	movl	%ebx, \do+40(\dest)
-	movl	%ecx, \do+16(\dest)
-	movl	%edx, \do+48(\dest)
-	movl	\so+20(\src), %eax
-	movl	\so+4(\src), %ebx
-	movl	\so+52(\src), %ecx
-	movl	\so+36(\src), %edx
-	movl	%eax, \do+4(\dest)
-	movl	%ebx, \do+20(\dest)
-	movl	%ecx, \do+36(\dest)
-	movl	%edx, \do+52(\dest)
-	movl	\so+0(\src), %eax
-	movl	\so+24(\src), %ebx
-	movl	\so+32(\src), %ecx
-	movl	\so+56(\src), %edx
-	movl	%eax, \do+0(\dest)
-	movl	%ebx, \do+24(\dest)
-	movl	%ecx, \do+32(\dest)
-	movl	%edx, \do+56(\dest)
+.macro scrypt_shuffle src, so, dest
+        movdqa  \so+0(\src), %xmm6
+        movdqa  \so+16(\src), %xmm7
+        shufps  $0x1b, %xmm6, %xmm6
+        shufps  $0x1b, %xmm7, %xmm7
+        movdqa  %xmm6, \so+0(\dest)
+        movdqa  %xmm7, \so+16(\dest)
 .endm
 
 .macro salsa8_core_gen_quadround
@@ -692,11 +666,14 @@ scrypt_core_sse2:
 	subl	$128, %esp
 	andl	$-16, %esp
 	
-	scrypt_shuffle %edi, 0, %esp, 0
-	scrypt_shuffle %edi, 64, %esp, 64
+        scrypt_shuffle %edi, 0, %esp
+        scrypt_shuffle %edi, 32, %esp
+        scrypt_shuffle %edi, 64, %esp
+        scrypt_shuffle %edi, 96, %esp
 	
-	movdqa	96(%esp), %xmm6
-	movdqa	112(%esp), %xmm7
+	//already done in last scrypt_shuffle2 loop
+	//movdqa	96(%esp), %xmm6
+	//movdqa	112(%esp), %xmm7
 	
 	movl	%esi, %edx
 	movl	28(%ebp), %ecx
@@ -817,8 +794,13 @@ scrypt_core_sse2_loop2:
 	movdqa	%xmm6, 96(%esp)
 	movdqa	%xmm7, 112(%esp)
 	
-	scrypt_shuffle %esp, 0, %edi, 0
-	scrypt_shuffle %esp, 64, %edi, 64
+        //scrypt_shuffle %esp, 0, %edi
+        //scrypt_shuffle %esp, 64, %edi
+
+	scrypt_shuffle %esp, 0, %edi
+	scrypt_shuffle %esp, 32, %edi
+	scrypt_shuffle %esp, 64, %edi
+	scrypt_shuffle %esp, 96, %edi
 	
 	movl	%ebp, %esp
 	popl	%esi
