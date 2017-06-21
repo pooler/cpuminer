@@ -100,13 +100,16 @@
 #endif
 
 
+#ifdef _AIX
+	.csect .text[RO]
+#else
 	.data
+#endif
 	.align 2
 sha256_h:
 	.long 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a
 	.long 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
 
-	.data
 	.align 2
 sha256_k:
 	.long 0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5
@@ -125,6 +128,14 @@ sha256_k:
 	.long 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3
 	.long 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208
 	.long 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+
+#ifdef _AIX
+	.toc
+T.sha256_h:
+	.tc sha256_h[TC], sha256_h
+T.sha256_k:
+	.tc sha256_k[TC], sha256_k
+#endif
 
 
 .macro sha256_extend_doubleround i, rw, wo, ra, rb, ry, rz
@@ -200,15 +211,21 @@ sha256_k:
 .endm
 
 
+#ifdef _AIX
+	.csect .text[PR]
+#else
 	.text
+#endif
 	.align 2
 	.globl sha256_transform
 	.globl _sha256_transform
+	.globl .sha256_transform
 #ifdef __ELF__
 	.type sha256_transform, %function
 #endif
 sha256_transform:
 _sha256_transform:
+.sha256_transform:
 	stdu	r1, -76*4(r1)
 	cmpwi	0, r5, 0
 	std	r13, 2*4(r1)
@@ -328,8 +345,12 @@ sha256_transform_extend:
 	lwz	r9, 5*4(r3)
 	lwz	r10, 6*4(r3)
 	lwz	r11, 7*4(r3)
+#ifdef _AIX
+	ld	r16, T.sha256_k(r2)
+#else
 	lis	r16, HI(sha256_k)
 	addi	r16, r16, LO(sha256_k)
+#endif
 	sha256_main_quadround  0, r16, r1, 8*4
 	sha256_main_quadround  4, r16, r1, 8*4
 	sha256_main_quadround  8, r16, r1, 8*4
@@ -380,15 +401,16 @@ sha256_transform_extend:
 	blr
 
 
-	.text
 	.align 2
 	.globl sha256d_ms
 	.globl _sha256d_ms
+	.globl .sha256d_ms
 #ifdef __ELF__
 	.type sha256d_ms, %function
 #endif
 sha256d_ms:
 _sha256d_ms:
+.sha256d_ms:
 	stdu	r1, -80*4(r1)
 	std	r13, 2*4(r1)
 	std	r14, 4*4(r1)
@@ -549,8 +571,12 @@ _sha256d_ms:
 	lwz	r5,  5*4(r16)
 	lwz	r6,  6*4(r16)
 	lwz	r7,  7*4(r16)
+#ifdef _AIX
+	ld	r16, T.sha256_k(r2)
+#else
 	lis	r16, HI(sha256_k)
 	addi	r16, r16, LO(sha256_k)
+#endif
 	
 	sha256_main_round  3, r16, r17, 0, r5, r6, r7, r4, r9, r10, r11, r8
 	sha256_main_quadround  4, r16, r17, 0
@@ -818,8 +844,12 @@ _sha256d_ms:
 	sha256_extend_doubleround 40, r1, 8*4, r9, r10, r7, r8
 	sha256_extend_doubleround 42, r1, 8*4, r4, r5, r9, r10
 	
+#ifdef _AIX
+	ld	r18, T.sha256_h(r2)
+#else
 	lis	r18, HI(sha256_h)
 	addi	r18, r18, LO(sha256_h)
+#endif
 	
 	lwz	r14, 8*4+(44+1)*4(r1)
 	rotrwi	r12, r4, 17
@@ -907,7 +937,11 @@ _sha256d_ms:
 	.machine ppc7400
 #endif
 
+#ifdef _AIX
+	.csect .text[RO]
+#else
 	.data
+#endif
 	.align 4
 sha256_4h:
 	.long 0x6a09e667, 0x6a09e667, 0x6a09e667, 0x6a09e667
@@ -919,7 +953,6 @@ sha256_4h:
 	.long 0x1f83d9ab, 0x1f83d9ab, 0x1f83d9ab, 0x1f83d9ab
 	.long 0x5be0cd19, 0x5be0cd19, 0x5be0cd19, 0x5be0cd19
 
-	.data
 	.align 4
 sha256_4k:
 	.long 0x428a2f98, 0x428a2f98, 0x428a2f98, 0x428a2f98
@@ -987,7 +1020,6 @@ sha256_4k:
 	.long 0xbef9a3f7, 0xbef9a3f7, 0xbef9a3f7, 0xbef9a3f7
 	.long 0xc67178f2, 0xc67178f2, 0xc67178f2, 0xc67178f2
 
-	.data
 	.align 4
 sha256d_4preext2:
 	.long 0x00a00000, 0x00a00000, 0x00a00000, 0x00a00000
@@ -995,10 +1027,21 @@ sha256d_4preext2:
 	.long 0x80000000, 0x80000000, 0x80000000, 0x80000000
 	.long 0x00400022, 0x00400022, 0x00400022, 0x00400022
 
-	.data
 	.align 4
 br_perm:
 	.long 0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c
+
+#ifdef _AIX
+	.toc
+T.sha256_4h:
+	.tc sha256_4h[TC], sha256_4h
+T.sha256_4k:
+	.tc sha256_4k[TC], sha256_4k
+T.sha256d_4preext2:
+	.tc sha256d_4preext2[TC], sha256d_4preext2
+T.br_perm:
+	.tc br_perm[TC], br_perm
+#endif
 
 
 .macro sha256_4way_extend_setup
@@ -1093,21 +1136,31 @@ br_perm:
 .endm
 
 
+#ifdef _AIX
+	.csect .text[PR]
+#else
 	.text
+#endif
 	.align 2
 	.globl sha256_init_4way
 	.globl _sha256_init_4way
+	.globl .sha256_init_4way
 #ifdef __ELF__
 	.type sha256_init_4way, %function
 #endif
 sha256_init_4way:
 _sha256_init_4way:
+.sha256_init_4way:
 	mfspr	r0, 256
 	oris	r12, r0, 0xff00
 	mtspr	256, r12
 	
+#ifdef _AIX
+	ld	r4, T.sha256_4h(r2)
+#else
 	lis	r4, HI(sha256_4h)
 	addi	r4, r4, LO(sha256_4h)
+#endif
 	li	r5, 1*16
 	li	r6, 2*16
 	li	r7, 3*16
@@ -1136,15 +1189,16 @@ _sha256_init_4way:
 	blr
 
 
-	.text
 	.align 2
 	.globl sha256_transform_4way
 	.globl _sha256_transform_4way
+	.globl .sha256_transform_4way
 #ifdef __ELF__
 	.type sha256_transform_4way, %function
 #endif
 sha256_transform_4way:
 _sha256_transform_4way:
+.sha256_transform_4way:
 	mfspr	r0, 256
 	oris	r12, r0, 0xffff
 	ori	r12, r12, 0xf000
@@ -1204,8 +1258,12 @@ _sha256_transform_4way:
 	b	sha256_transform_4way_extend
 
 sha256_transform_4way_swap:
+#ifdef _AIX
+	ld	r5, T.br_perm(r2)
+#else
 	lis	r5, HI(br_perm)
 	addi	r5, r5, LO(br_perm)
+#endif
 	lvx	v19, 0, r5
 	
 	lvx	v11, 0, r4
@@ -1298,8 +1356,12 @@ sha256_transform_4way_extend:
 	lvx	v9, r11, r7
 	lvx	v10, r11, r8
 	lvx	v11, r11, r9
+#ifdef _AIX
+	ld	r12, T.sha256_4k(r2)
+#else
 	lis	r12, HI(sha256_4k)
 	addi	r12, r12, LO(sha256_4k)
+#endif
 	addi	r5, r1, 4*4
 	sha256_4way_main_setup
 	sha256_4way_main_quadround  0, r12, r5
@@ -1349,15 +1411,16 @@ sha256_transform_4way_extend:
 	blr
 
 
-	.text
 	.align 2
 	.globl sha256d_ms_4way
 	.globl _sha256d_ms_4way
+	.globl .sha256d_ms_4way
 #ifdef __ELF__
 	.type sha256d_ms_4way, %function
 #endif
 sha256d_ms_4way:
 _sha256d_ms_4way:
+.sha256d_ms_4way:
 	mfspr	r0, 256
 	oris	r12, r0, 0xffff
 	ori	r12, r12, 0xf000
@@ -1533,8 +1596,12 @@ _sha256d_ms_4way:
 	lvx	v5, r12, r7
 	lvx	v6, r12, r8
 	lvx	v7, r12, r9
+#ifdef _AIX
+	ld	r12, T.sha256_4k(r2)
+#else
 	lis	r12, HI(sha256_4k)
 	addi	r12, r12, LO(sha256_4k)
+#endif
 	sha256_4way_main_setup
 	sha256_4way_main_round  3, r12, r4, v5, v6, v7, v4, v9, v10, v11, v8
 	sha256_4way_main_quadround  4, r12, r4
@@ -1607,8 +1674,12 @@ _sha256d_ms_4way:
 	
 	sha256_4way_extend_setup
 	
+#ifdef _AIX
+	ld	r12, T.sha256d_4preext2(r2)
+#else
 	lis	r12, HI(sha256d_4preext2)
 	addi	r12, r12, LO(sha256d_4preext2)
+#endif
 	lvx	v2, 0, r12
 	
 	vxor	v9, v9, v9
@@ -1846,8 +1917,12 @@ _sha256d_ms_4way:
 	stvx	v6, r4, r10
 	addi	r4, r4, -44*16
 	
+#ifdef _AIX
+	ld	r5, T.sha256_4h(r2)
+#else
 	lis	r5, HI(sha256_4h)
 	addi	r5, r5, LO(sha256_4h)
+#endif
 	lvx	v4, 0, r5
 	lvx	v5, r5, r7
 	lvx	v6, r5, r8
@@ -1857,8 +1932,12 @@ _sha256d_ms_4way:
 	lvx	v9, r12, r7
 	lvx	v10, r12, r8
 	lvx	v11, r12, r9
+#ifdef _AIX
+	ld	r12, T.sha256_4k(r2)
+#else
 	lis	r12, HI(sha256_4k)
 	addi	r12, r12, LO(sha256_4k)
+#endif
 	sha256_4way_main_setup
 	sha256_4way_main_quadround  0, r12, r4
 	sha256_4way_main_quadround  4, r12, r4
@@ -1910,15 +1989,16 @@ _sha256d_ms_4way:
 	blr
 
 
-	.text
 	.align 2
 	.globl sha256_use_4way
 	.globl _sha256_use_4way
+	.globl .sha256_use_4way
 #ifdef __ELF__
 	.type sha256_use_4way, %function
 #endif
 sha256_use_4way:
 _sha256_use_4way:
+.sha256_use_4way:
 	li	r3, 1
 	blr
 

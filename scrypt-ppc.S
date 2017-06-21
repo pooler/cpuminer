@@ -145,15 +145,21 @@
 	salsa8_core_doubleround
 .endm
 
+#ifdef _AIX
+	.csect .text[PR]
+#else
 	.text
+#endif
 	.align 2
 	.globl scrypt_core
 	.globl _scrypt_core
+	.globl .scrypt_core
 #ifdef __ELF__
 	.type scrypt_core, %function
 #endif
 scrypt_core:
 _scrypt_core:
+.scrypt_core:
 	stdu	r1, -4*4(r1)
 	mfspr	r0, 256
 	std	r0, 2*4(r1)
@@ -488,15 +494,21 @@ scrypt_core_loop2:
 	salsa8_core_doubleround
 .endm
 
+#ifdef _AIX
+	.csect .text[PR]
+#else
 	.text
+#endif
 	.align 2
 	.globl scrypt_core
 	.globl _scrypt_core
+	.globl .scrypt_core
 #ifdef __ELF__
 	.type scrypt_core, %function
 #endif
 scrypt_core:
 _scrypt_core:
+.scrypt_core:
 	stdu	r1, -68*4(r1)
 	stw	r5, 2*4(r1)
 	std	r13, 4*4(r1)
