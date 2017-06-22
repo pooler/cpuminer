@@ -1,3 +1,8 @@
+Version 2.5.0 - Jun 22, 2017
+
+- Add Segwit support
+- Add support for 64-bit PowerPC
+
 Version 2.4.5 - Jun 10, 2016
 
 - Fix a memory leak affecting long polling
