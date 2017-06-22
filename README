@@ -13,7 +13,7 @@ Dependencies:
 
 Basic *nix build instructions:
 	./autogen.sh	# only needed if building from git repo
-	./nomacro.pl	# only needed if building on Mac OS X or with Clang
+	./nomacro.pl	# in case the assembler doesn't support macros
 	./configure CFLAGS="-O3" # Make sure -O3 is an O and not a zero!
 	make
 
