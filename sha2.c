@@ -226,22 +226,16 @@ void sha256d(unsigned char *hash, const unsigned char *data, int len)
 
 static inline void sha256d_preextend(uint32_t *W)
 {
-	W[16] = s1(W[14]) + W[ 9] + s0(W[ 1]) + W[ 0];
-	W[17] = s1(W[15]) + W[10] + s0(W[ 2]) + W[ 1];
-	W[18] = s1(W[16]) + W[11]             + W[ 2];
-	W[19] = s1(W[17]) + W[12] + s0(W[ 4]);
-	W[20] =             W[13] + s0(W[ 5]) + W[ 4];
-	W[21] =             W[14] + s0(W[ 6]) + W[ 5];
-	W[22] =             W[15] + s0(W[ 7]) + W[ 6];
-	W[23] =             W[16] + s0(W[ 8]) + W[ 7];
-	W[24] =             W[17] + s0(W[ 9]) + W[ 8];
-	W[25] =                     s0(W[10]) + W[ 9];
-	W[26] =                     s0(W[11]) + W[10];
-	W[27] =                     s0(W[12]) + W[11];
-	W[28] =                     s0(W[13]) + W[12];
-	W[29] =                     s0(W[14]) + W[13];
-	W[30] =                     s0(W[15]) + W[14];
-	W[31] =                     s0(W[16]) + W[15];
+        W[16] =                     s0(W[ 1]) + W[ 0];
+        W[17] = s1(W[15])         + s0(W[ 2]) + W[ 1];
+        W[18] = s1(W[16])                     + W[ 2];
+        W[19] = s1(W[17])         + s0(W[ 4])        ;
+        W[20] =                                 W[ 4];
+        W[22] =             W[15]                    ;
+        W[23] =             W[16]                    ;
+        W[24] =             W[17]                    ;
+        W[30] =                     s0(W[15])        ;
+        W[31] =                     s0(W[16]) + W[15];
 }
 
 static inline void sha256d_prehash(uint32_t *S, const uint32_t *W)
