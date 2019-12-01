@@ -26,3 +26,5 @@ config.sub
 
 mingw32-config.cache
 
+compile_commands.json
+.idea

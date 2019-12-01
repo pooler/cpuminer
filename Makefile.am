@@ -32,6 +32,6 @@ endif
 endif
 minerd_LDFLAGS	= $(PTHREAD_FLAGS)
 minerd_LDADD	= @LIBCURL@ @JANSSON_LIBS@ @PTHREAD_LIBS@ @WS2_LIBS@
-minerd_CFLAGS	= -fno-strict-aliasing
-minerd_CPPFLAGS	= @LIBCURL_CPPFLAGS@ $(JANSSON_INCLUDES) $(PTHREAD_FLAGS)
+minerd_CFLAGS	= -fno-strict-aliasing -g -O0
+minerd_CPPFLAGS	= @LIBCURL_CPPFLAGS@ $(JANSSON_INCLUDES) $(PTHREAD_FLAGS) -g -O0
 

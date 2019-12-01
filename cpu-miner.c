@@ -345,20 +345,26 @@ err_out:
 
 static bool gbt_work_decode(const json_t *val, struct work *work)
 {
-	int i, n;
+	int i, n, k = 0;
 	uint32_t version, curtime, bits;
 	uint32_t prevhash[8];
 	uint32_t target[8];
 	int cbtx_size;
 	unsigned char *cbtx = NULL;
-	int tx_count, tx_size;
+	int tx_count, tx_size, keystone_count;
 	unsigned char txc_vi[9];
 	unsigned char (*merkle_tree)[32] = NULL;
 	bool coinbase_append = false;
 	bool submit_coinbase = false;
 	bool segwit = false;
-	json_t *tmp, *txa;
+	json_t *tmp, *txa, *keystones;
 	bool rc = false;
+
+	// VeriBlock:
+	const int keystones_total = 2;
+	const int unauthcontext_size = 4 /* sizeof(int) */ + keystones_total * 32;
+        unsigned char unauthcontext[unauthcontext_size];
+	const int pop_root_size = 36;
 
 	tmp = json_object_get(val, "rules");
 	if (tmp && json_is_array(tmp)) {
@@ -392,6 +398,11 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		goto out;
 	}
 	work->height = json_integer_value(tmp);
+	// VeriBlock: put height into first 4 bytes of unauthcontext
+        unauthcontext[k++] = (work->height & 0xff000000u) >> 24u;
+        unauthcontext[k++] = (work->height & 0x00ff0000u) >> 16u;
+        unauthcontext[k++] = (work->height & 0x0000ff00u) >> 8u;
+        unauthcontext[k++] = (work->height & 0x000000ffu) >> 0u;
 
 	tmp = json_object_get(val, "version");
 	if (!tmp || !json_is_integer(tmp)) {
@@ -461,7 +472,8 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 			goto out;
 		}
 		cbvalue = json_is_integer(tmp) ? json_integer_value(tmp) : json_number_value(tmp);
-		cbtx = malloc(256);
+		// VeriBlock:
+		cbtx = malloc(256 + pop_root_size);
 		le32enc((uint32_t *)cbtx, 1); /* version */
 		cbtx[4] = 1; /* in-counter */
 		memset(cbtx+5, 0x00, 32); /* prev txout hash */
@@ -488,7 +500,8 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 			unsigned char (*wtree)[32] = calloc(tx_count + 2, 32);
 			memset(cbtx+cbtx_size, 0, 8); /* value */
 			cbtx_size += 8;
-			cbtx[cbtx_size++] = 38; /* txout-script length */
+			// VeriBlock:
+			cbtx[cbtx_size++] = 38 + pop_root_size; /* txout-script length */
 			cbtx[cbtx_size++] = 0x6a; /* txout-script */
 			cbtx[cbtx_size++] = 0x24;
 			cbtx[cbtx_size++] = 0xaa;
@@ -522,6 +535,21 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		cbtx_size += 4;
 		coinbase_append = true;
 	}
+
+        // VeriBlock:
+        tmp = json_object_get(val, "pop_witness_commitment");
+        if(tmp) {
+          // copy pop root into coinbase
+          const char* pop_root = json_string_value(tmp);
+          unsigned char buf[pop_root_size];
+          n = pop_root ? strlen(pop_root) / 2 : 0;
+          if(!pop_root || n != pop_root_size || !hex2bin(buf, pop_root, n)) {
+            applog(LOG_ERR, "JSON invalid pop_witness_commitment");
+            goto out;
+          }
+          memcpy(cbtx + cbtx_size, pop_root, pop_root_size);
+        }
+
 	if (coinbase_append) {
 		unsigned char xsig[100];
 		int xsig_len = 0;
@@ -573,6 +601,28 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 	bin2hex(work->txs, txc_vi, n);
 	bin2hex(work->txs + 2*n, cbtx, cbtx_size);
 
+	// VeriBlock:
+	// read keystones
+        keystones = json_object_get(val, "keystone_hashes");
+        if (!keystones || !json_is_array(keystones)) {
+          applog(LOG_ERR, "JSON invalid keystone_hashes");
+          goto out;
+        }
+        keystone_count = json_array_size(keystones);
+        if(keystone_count != keystones_total) {
+          applog(LOG_ERR, "Expected to get %d keystones, but got %d", keystones_total, keystone_count);
+          goto out;
+        }
+        for (i = 0; i < keystone_count; i++) {
+          const json_t *ks = json_array_get(keystones, i);
+          const char *ks_hex = json_string_value(ks);
+          if (!ks_hex || !hex2bin(unauthcontext + k, ks_hex, 32)) {
+            applog(LOG_ERR, "JSON invalid keystone at index %d", i);
+            goto out;
+          }
+          k += 32; // sizeof(keystone hash)
+        }
+
 	/* generate merkle root */
 	merkle_tree = malloc(32 * ((1 + tx_count + 1) & ~1));
 	sha256d(merkle_tree[0], cbtx, cbtx_size);
@@ -610,6 +660,15 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		for (i = 0; i < n; i++)
 			sha256d(merkle_tree[i], merkle_tree[2*i], 64);
 	}
+
+	// VeriBlock: merkle_tree[0] is a btc merkle root
+	// calculate top level merkle root as sha256d(sha256d(unauthcontext) || merkle_root[0])
+        // to do this, copy existing merkle_root[0] into merkle_root[1]
+        // then copy sha256d(unauthcontext) into merkle_root[0]
+        // and do one more round of hashing
+        memcpy(merkle_tree[1], merkle_tree[0], 32);
+	sha256d(merkle_tree[0], unauthcontext, unauthcontext_size);
+        sha256d(merkle_tree[0], merkle_tree[0], 64); // last round of hashing
 
 	/* assemble block header */
 	work->data[0] = swab32(version);
