@@ -666,9 +666,35 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
         // to do this, copy existing merkle_root[0] into merkle_root[1]
         // then copy sha256d(unauthcontext) into merkle_root[0]
         // and do one more round of hashing
-        memcpy(merkle_tree[1], merkle_tree[0], 32);
-	sha256d(merkle_tree[0], unauthcontext, unauthcontext_size);
-        sha256d(merkle_tree[0], merkle_tree[0], 64); // last round of hashing
+        
+        // memcpy(merkle_tree[1], merkle_tree[0], 32);
+        
+        //  double hash of context
+//        sha256d(unauthcontext, unauthcontext, unauthcontext_size);
+//        sha256d(unauthcontext, unauthcontext, 64);
+        
+        //  context + merkle_tree
+        unsigned char tmpBuff[0x1000] = {};
+        unsigned char* pTmp = tmpBuff;
+        
+        unsigned char unauthHash[64] = {};
+       
+        sha256d(unauthHash, unauthcontext, unauthcontext_size);
+      
+        
+        memcpy(pTmp, unauthcontext, unauthcontext_size);    //  context
+        pTmp += unauthcontext_size;     
+        memcpy(pTmp, &merkle_tree, 64);                     //  tree
+        pTmp += 64;
+        unsigned long tmpBufSize = pTmp - tmpBuff; 
+        
+        unsigned char bufHash[64] = {};
+        sha256d(bufHash, tmpBuff, tmpBufSize);
+        sha256d(bufHash, bufHash, 64);
+        memcpy(merkle_tree[0], bufHash, 64);
+        
+//	sha256d(merkle_tree[0], unauthcontext, 64);
+//        sha256d(merkle_tree[0], merkle_tree[0], 64); // last round of hashing
 
 	/* assemble block header */
 	work->data[0] = swab32(version);
