@@ -343,9 +343,22 @@ err_out:
 	return false;
 }
 
+static void tool_invert_buffer(void* buf, size_t bufSize)
+{
+    unsigned char* p = (unsigned char*)(buf);
+    
+    for (size_t i=0; i<bufSize/2; i++)
+    {
+        unsigned char t = 0;
+        t = p[i];
+        p[i] = p[bufSize - 1 - i];
+        p[bufSize - 1 - i] = t;
+    }
+}
+
 static bool gbt_work_decode(const json_t *val, struct work *work)
 {
-	int i, n, k = 0;
+	unsigned int x, i, n, k = 0;
 	uint32_t version, curtime, bits;
 	uint32_t prevhash[8];
 	uint32_t target[8];
@@ -398,12 +411,13 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		goto out;
 	}
 	work->height = json_integer_value(tmp);
+        
 	// VeriBlock: put height into first 4 bytes of unauthcontext
-        unauthcontext[k++] = (work->height & 0xff000000u) >> 24u;
-        unauthcontext[k++] = (work->height & 0x00ff0000u) >> 16u;
-        unauthcontext[k++] = (work->height & 0x0000ff00u) >> 8u;
-        unauthcontext[k++] = (work->height & 0x000000ffu) >> 0u;
-
+    unauthcontext[k++] = (work->height & 0xff000000u) >> 24u;
+    unauthcontext[k++] = (work->height & 0x00ff0000u) >> 16u;
+    unauthcontext[k++] = (work->height & 0x0000ff00u) >> 8u;
+    unauthcontext[k++] = (work->height & 0x000000ffu) >> 0u;
+        
 	tmp = json_object_get(val, "version");
 	if (!tmp || !json_is_integer(tmp)) {
 		applog(LOG_ERR, "JSON invalid version");
@@ -451,7 +465,8 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 	if (tmp) {
 		const char *cbtx_hex = json_string_value(json_object_get(tmp, "data"));
 		cbtx_size = cbtx_hex ? strlen(cbtx_hex) / 2 : 0;
-		cbtx = malloc(cbtx_size + 100);
+		cbtx = malloc(cbtx_size + 1000);
+        memset(cbtx, 0, cbtx_size + 1000);
 		if (cbtx_size < 60 || !hex2bin(cbtx, cbtx_hex, cbtx_size)) {
 			applog(LOG_ERR, "JSON invalid coinbasetxn");
 			goto out;
@@ -472,8 +487,11 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 			goto out;
 		}
 		cbvalue = json_is_integer(tmp) ? json_integer_value(tmp) : json_number_value(tmp);
-		// VeriBlock:
-		cbtx = malloc(256 + pop_root_size);
+		
+        // VeriBlock:
+        size_t cbtxSize = 1000 + pop_root_size;
+		cbtx = malloc(cbtxSize);
+        memset(cbtx, 0, cbtxSize);
 		le32enc((uint32_t *)cbtx, 1); /* version */
 		cbtx[4] = 1; /* in-counter */
 		memset(cbtx+5, 0x00, 32); /* prev txout hash */
@@ -489,22 +507,45 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		cbtx[41] = cbtx_size - 42; /* scriptsig length */
 		le32enc((uint32_t *)(cbtx+cbtx_size), 0xffffffff); /* sequence */
 		cbtx_size += 4;
-		cbtx[cbtx_size++] = segwit ? 2 : 1; /* out-counter */
+		cbtx[cbtx_size++] = (segwit ? 2 : 1) + 1; /* out-counter */
 		le32enc((uint32_t *)(cbtx+cbtx_size), (uint32_t)cbvalue); /* value */
 		le32enc((uint32_t *)(cbtx+cbtx_size+4), cbvalue >> 32);
 		cbtx_size += 8;
 		cbtx[cbtx_size++] = pk_script_size; /* txout-script length */
 		memcpy(cbtx+cbtx_size, pk_script, pk_script_size);
 		cbtx_size += pk_script_size;
+
+        //=================================================================
+        memset(cbtx+cbtx_size, 0, 8); /* value */
+        cbtx_size += 8;
+        cbtx[cbtx_size++] = pop_root_size; /* txout-script length */
+                            
+        // VeriBlock INSERT POP_ROOT:
+        tmp = json_object_get(val, "pop_witness_commitment");
+        if(tmp) {
+            // copy pop root into coinbase
+            const char* pop_root = json_string_value(tmp);
+            unsigned char buf[pop_root_size];
+            memset(buf, 0, sizeof(buf));
+            n = pop_root ? strlen(pop_root) / 2 : 0;
+            if(!pop_root || n != pop_root_size || !hex2bin(buf, pop_root, n)) {
+                    applog(LOG_ERR, "JSON invalid pop_witness_commitment");
+                    goto out;
+            }
+            memcpy(cbtx + cbtx_size, buf, pop_root_size);
+            cbtx_size += pop_root_size;
+        }
+        //=================================================================
+                                
 		if (segwit) {
 			unsigned char (*wtree)[32] = calloc(tx_count + 2, 32);
 			memset(cbtx+cbtx_size, 0, 8); /* value */
 			cbtx_size += 8;
 			// VeriBlock:
-			cbtx[cbtx_size++] = 38 + pop_root_size; /* txout-script length */
+			cbtx[cbtx_size++] = 38; /* txout-script length */
 			cbtx[cbtx_size++] = 0x6a; /* txout-script */
 			cbtx[cbtx_size++] = 0x24;
-			cbtx[cbtx_size++] = 0xaa;
+ 			cbtx[cbtx_size++] = 0xaa;
 			cbtx[cbtx_size++] = 0x21;
 			cbtx[cbtx_size++] = 0xa9;
 			cbtx[cbtx_size++] = 0xed;
@@ -535,21 +576,7 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		cbtx_size += 4;
 		coinbase_append = true;
 	}
-
-        // VeriBlock:
-        tmp = json_object_get(val, "pop_witness_commitment");
-        if(tmp) {
-          // copy pop root into coinbase
-          const char* pop_root = json_string_value(tmp);
-          unsigned char buf[pop_root_size];
-          n = pop_root ? strlen(pop_root) / 2 : 0;
-          if(!pop_root || n != pop_root_size || !hex2bin(buf, pop_root, n)) {
-            applog(LOG_ERR, "JSON invalid pop_witness_commitment");
-            goto out;
-          }
-          memcpy(cbtx + cbtx_size, pop_root, pop_root_size);
-        }
-
+                   
 	if (coinbase_append) {
 		unsigned char xsig[100];
 		int xsig_len = 0;
@@ -622,9 +649,19 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
           }
           k += 32; // sizeof(keystone hash)
         }
+        
+    const int keystoneSize = 32;
+    for (k=0; k<2; k++)
+    {
+        unsigned char *ks_begin = unauthcontext + 4 + k*keystoneSize;
+        tool_invert_buffer(ks_begin, keystoneSize);
+    }
 
 	/* generate merkle root */
-	merkle_tree = malloc(32 * ((1 + tx_count + 1) & ~1));
+    unsigned long mtreeSize = 32 * ((1 + tx_count + 1) & ~1);
+	merkle_tree = malloc(mtreeSize);
+    memset(merkle_tree, 0, mtreeSize);
+        
 	sha256d(merkle_tree[0], cbtx, cbtx_size);
 	for (i = 0; i < tx_count; i++) {
 		tmp = json_array_get(txa, i);
@@ -663,39 +700,15 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 
 	// VeriBlock: merkle_tree[0] is a btc merkle root
 	// calculate top level merkle root as sha256d(sha256d(unauthcontext) || merkle_root[0])
-        // to do this, copy existing merkle_root[0] into merkle_root[1]
-        // then copy sha256d(unauthcontext) into merkle_root[0]
-        // and do one more round of hashing
+    // to do this, copy existing merkle_root[0] into merkle_root[1]
+    // then copy sha256d(unauthcontext) into merkle_root[0]
+    // and do one more round of hashing
+    memcpy (merkle_tree[1], merkle_tree[0], sizeof(merkle_tree[0]));
+    sha256d(merkle_tree[0], unauthcontext, unauthcontext_size);
+    unsigned char resultTreeHash[32] = {};
+    sha256d(resultTreeHash, merkle_tree, mtreeSize); // last round of hashing
+    memcpy(merkle_tree[0], resultTreeHash, sizeof(resultTreeHash));
         
-        // memcpy(merkle_tree[1], merkle_tree[0], 32);
-        
-        //  double hash of context
-//        sha256d(unauthcontext, unauthcontext, unauthcontext_size);
-//        sha256d(unauthcontext, unauthcontext, 64);
-        
-        //  context + merkle_tree
-        unsigned char tmpBuff[0x1000] = {};
-        unsigned char* pTmp = tmpBuff;
-        
-        unsigned char unauthHash[64] = {};
-       
-        sha256d(unauthHash, unauthcontext, unauthcontext_size);
-      
-        
-        memcpy(pTmp, unauthcontext, unauthcontext_size);    //  context
-        pTmp += unauthcontext_size;     
-        memcpy(pTmp, &merkle_tree, 64);                     //  tree
-        pTmp += 64;
-        unsigned long tmpBufSize = pTmp - tmpBuff; 
-        
-        unsigned char bufHash[64] = {};
-        sha256d(bufHash, tmpBuff, tmpBufSize);
-        sha256d(bufHash, bufHash, 64);
-        memcpy(merkle_tree[0], bufHash, 64);
-        
-//	sha256d(merkle_tree[0], unauthcontext, 64);
-//        sha256d(merkle_tree[0], merkle_tree[0], 64); // last round of hashing
-
 	/* assemble block header */
 	work->data[0] = swab32(version);
 	for (i = 0; i < 8; i++)
@@ -2068,7 +2081,7 @@ int main(int argc, char *argv[])
 		if (have_stratum)
 			tq_push(thr_info[stratum_thr_id].q, strdup(rpc_url));
 	}
-
+       
 	/* start mining threads */
 	for (i = 0; i < opt_n_threads; i++) {
 		thr = &thr_info[i];
