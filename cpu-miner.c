@@ -124,6 +124,7 @@ bool use_syslog = false;
 static bool opt_background = false;
 static bool opt_quiet = false;
 static int opt_retries = -1;
+static int opt_max_blocks = -1;
 static int opt_fail_pause = 30;
 int opt_timeout = 0;
 static int opt_scantime = 5;
@@ -194,7 +195,9 @@ Options:\n\
       --no-redirect     ignore requests to change the URL of the mining server\n\
   -q, --quiet           disable per-thread hashmeter output\n\
   -D, --debug           enable debug output\n\
-  -P, --protocol-dump   verbose dump of protocol-level activities\n"
+  -P, --protocol-dump   verbose dump of protocol-level activities\n\
+  -X, --max-blocks=N maximum number of blocks to mine before exiting\n"
+
 #ifdef HAVE_SYSLOG_H
 "\
   -S, --syslog          use system log for output messages\n"
@@ -217,7 +220,7 @@ static char const short_options[] =
 #ifdef HAVE_SYSLOG_H
 	"S"
 #endif
-	"a:c:Dhp:Px:qr:R:s:t:T:o:u:O:V";
+	"a:c:Dhp:PxX:qr:R:s:t:T:o:u:O:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
@@ -241,6 +244,7 @@ static struct option const options[] = {
 	{ "proxy", 1, NULL, 'x' },
 	{ "quiet", 0, NULL, 'q' },
 	{ "retries", 1, NULL, 'r' },
+	{ "max-blocks", 1, NULL, 'X' },
 	{ "retry-pause", 1, NULL, 'R' },
 	{ "scantime", 1, NULL, 's' },
 #ifdef HAVE_SYSLOG_H
@@ -681,6 +685,11 @@ static void share_result(int result, const char *reason)
 		   100. * accepted_count / (accepted_count + rejected_count),
 		   s,
 		   result ? "(yay!!!)" : "(booooo)");
+
+   	if (accepted_count >= opt_max_blocks) {
+	   applog(LOG_DEBUG, "DEBUG: Maximum blocks found as per set program option, exiting.");
+	   exit(0);
+	}
 
 	if (opt_debug && reason)
 		applog(LOG_DEBUG, "DEBUG: reject reason: %s", reason);
@@ -1716,6 +1725,12 @@ static void parse_arg(int key, char *arg, char *pname)
 			opt_proxy_type = CURLPROXY_HTTP;
 		free(opt_proxy);
 		opt_proxy = strdup(arg);
+		break;
+	case 'X':
+		v = atoi(arg);
+		if (v < -1)	/* sanity check */
+			show_usage_and_exit(1);
+		opt_max_blocks = v;
 		break;
 	case 1001:
 		free(opt_cert);
