@@ -206,6 +206,8 @@ extern int timeval_subtract(struct timeval *result, struct timeval *x,
 	struct timeval *y);
 extern bool fulltest(const uint32_t *hash, const uint32_t *target);
 extern void diff_to_target(uint32_t *target, double diff);
+/* Return the network difficulty from the work.data[18] bits as a double. */
+extern double diff_from_nbits(const void *nbits);
 
 struct stratum_job {
 	char *job_id;
