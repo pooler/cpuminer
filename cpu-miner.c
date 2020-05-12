@@ -1226,12 +1226,12 @@ static void *miner_thread(void *userdata)
 			switch (opt_algo) {
 			case ALGO_SCRYPT:
 				rc = scanhash_scrypt(thr_id, work.data, scratchbuf, work.target,
-									max_nonce, &hashes_done, opt_scrypt_n);
+				                     max_nonce, &hashes_done, opt_scrypt_n);
 				break;
 
 			case ALGO_SHA256D:
 				rc = scanhash_sha256d(thr_id, work.data, work.target,
-									max_nonce, &hashes_done);
+				                      max_nonce, &hashes_done);
 				break;
 
 			default:
@@ -1774,23 +1774,23 @@ static void parse_arg(int key, char *arg, char *pname)
 		strcpy(coinbase_sig, arg);
 		break;
 	case 'M': {			/* --max-diff */
-			char *colon;
-			if (sscanf(arg, "%lf", &max_diff) != 1 || max_diff <= 1.0) {
-				fprintf(stderr, "%s: invalid --max-diff: %s\n", pname, arg);
+		char *colon;
+		if (sscanf(arg, "%lf", &max_diff) != 1 || max_diff <= 1.0) {
+			fprintf(stderr, "%s: invalid --max-diff: %s\n", pname, arg);
+			show_usage_and_exit(1);
+		}
+		// Optional second component to arg e.g. "10.0:5" where 5 here
+		// is the time to sleep.
+		if ((colon = strchr(arg, ':'))) {
+			if (sscanf(++colon, "%d", &max_diff_backoff_secs) != 1
+			    || max_diff_backoff_secs < 1) {
+				fprintf(stderr, "%s: invalid backoff time specified for"
+				        " --max-diff: %s\n", pname, colon);
 				show_usage_and_exit(1);
-			}
-			// Optional second component to arg e.g. "10.0:5" where 5 here
-			// is the time to sleep.
-			if ((colon = strchr(arg, ':'))) {
-				if (sscanf(++colon, "%d", &max_diff_backoff_secs) != 1
-						|| max_diff_backoff_secs < 1) {
-					fprintf(stderr, "%s: invalid backoff time specified for"
-					                " --max-diff: %s\n", pname, colon);
-					show_usage_and_exit(1);
-				}
 			}
 		}
 		break;
+	}
 	case 'S':
 		use_syslog = true;
 		break;
