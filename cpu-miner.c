@@ -147,6 +147,7 @@ int stratum_thr_id = -1;
 struct work_restart *work_restart = NULL;
 static struct stratum_ctx stratum;
 static double max_diff = 0.;
+static int max_diff_backoff_secs = 10;
 
 pthread_mutex_t applog_lock;
 static pthread_mutex_t stats_lock;
@@ -193,10 +194,11 @@ Options:\n\
       --no-gbt          disable getblocktemplate support\n\
       --no-stratum      disable X-Stratum support\n\
       --no-redirect     ignore requests to change the URL of the mining server\n\
-  -M, --max-diff=N      specify a floating point value for the maximum block\n\
+  -M, --max-diff=N[:T]  specify a floating point value for the maximum block\n\
                         difficulty that we will mine (default: inf); this\n\
                         option is intended for testnet miners wishing to only\n\
-                        mine when difficulty drops to 1.0\n\
+                        mine when difficulty drops to 1.0 (optional :T is the\n\
+                        time to sleep in seconds, default: 10)\n\
   -q, --quiet           disable per-thread hashmeter output\n\
   -D, --debug           enable debug output\n\
   -P, --protocol-dump   verbose dump of protocol-level activities\n"
@@ -1216,9 +1218,9 @@ static void *miner_thread(void *userdata)
 
 		if (max_diff > 1.0 && (work_diff = diff_from_nbits(&work.data[18])) > max_diff) {
 			rc = 0;
-			applog(LOG_INFO, "thread %d: %1.1lf > max_diff %1.1lf, sleeping 10 secs",
-			       thr_id, work_diff, max_diff);
-			sleep(10);
+			applog(LOG_INFO, "thread %d: %1.1lf > max_diff %1.1lf, sleeping %d secs",
+			       thr_id, work_diff, max_diff, max_diff_backoff_secs);
+			sleep(max_diff_backoff_secs);
 		} else {
 			/* scan nonces for a proof-of-work hash */
 			switch (opt_algo) {
@@ -1771,10 +1773,22 @@ static void parse_arg(int key, char *arg, char *pname)
 		}
 		strcpy(coinbase_sig, arg);
 		break;
-	case 'M':			/* --max-diff */
-		if (sscanf(arg, "%lf", &max_diff) != 1 || max_diff <= 1.0) {
-			fprintf(stderr, "%s: invalid max_diff: %s\n", pname, arg);
-			show_usage_and_exit(1);
+	case 'M': {			/* --max-diff */
+			char *colon;
+			if (sscanf(arg, "%lf", &max_diff) != 1 || max_diff <= 1.0) {
+				fprintf(stderr, "%s: invalid --max-diff: %s\n", pname, arg);
+				show_usage_and_exit(1);
+			}
+			// Optional second component to arg e.g. "10.0:5" where 5 here
+			// is the time to sleep.
+			if ((colon = strchr(arg, ':'))) {
+				if (sscanf(++colon, "%d", &max_diff_backoff_secs) != 1
+						|| max_diff_backoff_secs < 1) {
+					fprintf(stderr, "%s: invalid backoff time specified for"
+					                " --max-diff: %s\n", pname, colon);
+					show_usage_and_exit(1);
+				}
+			}
 		}
 		break;
 	case 'S':
