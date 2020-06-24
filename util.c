@@ -1064,7 +1064,7 @@ out:
 	return sret;
 }
 
-#if LIBCURL_VERSION_NUM >= 0x071101
+#if LIBCURL_VERSION_NUM >= 0x071101 && LIBCURL_VERSION_NUM < 0x072d00
 static curl_socket_t opensocket_grab_cb(void *clientp, curlsocktype purpose,
 	struct curl_sockaddr *addr)
 {
@@ -1122,7 +1122,7 @@ bool stratum_connect(struct stratum_ctx *sctx, const char *url)
 #if LIBCURL_VERSION_NUM >= 0x070f06
 	curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_keepalive_cb);
 #endif
-#if LIBCURL_VERSION_NUM >= 0x071101
+#if LIBCURL_VERSION_NUM >= 0x071101 && LIBCURL_VERSION_NUM < 0x072d00
 	curl_easy_setopt(curl, CURLOPT_OPENSOCKETFUNCTION, opensocket_grab_cb);
 	curl_easy_setopt(curl, CURLOPT_OPENSOCKETDATA, &sctx->sock);
 #endif
@@ -1136,7 +1136,9 @@ bool stratum_connect(struct stratum_ctx *sctx, const char *url)
 		return false;
 	}
 
-#if LIBCURL_VERSION_NUM < 0x071101
+#if LIBCURL_VERSION_NUM >= 0x072d00
+	curl_easy_getinfo(curl, CURLINFO_ACTIVESOCKET, &sctx->sock);
+#elif LIBCURL_VERSION_NUM < 0x071101
 	/* CURLINFO_LASTSOCKET is broken on Win64; only use it as a last resort */
 	curl_easy_getinfo(curl, CURLINFO_LASTSOCKET, (long *)&sctx->sock);
 #endif
