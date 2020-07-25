@@ -43,12 +43,6 @@ struct data_buffer {
 	size_t		len;
 };
 
-struct upload_buffer {
-	const void	*buf;
-	size_t		len;
-	size_t		pos;
-};
-
 struct header_info {
 	char		*lp_path;
 	char		*reason;
@@ -207,46 +201,6 @@ static size_t all_data_cb(const void *ptr, size_t size, size_t nmemb,
 	return len;
 }
 
-static size_t upload_data_cb(void *ptr, size_t size, size_t nmemb,
-			     void *user_data)
-{
-	struct upload_buffer *ub = user_data;
-	int len = size * nmemb;
-
-	if (len > ub->len - ub->pos)
-		len = ub->len - ub->pos;
-
-	if (len) {
-		memcpy(ptr, ub->buf + ub->pos, len);
-		ub->pos += len;
-	}
-
-	return len;
-}
-
-#if LIBCURL_VERSION_NUM >= 0x071200
-static int seek_data_cb(void *user_data, curl_off_t offset, int origin)
-{
-	struct upload_buffer *ub = user_data;
-	
-	switch (origin) {
-	case SEEK_SET:
-		ub->pos = offset;
-		break;
-	case SEEK_CUR:
-		ub->pos += offset;
-		break;
-	case SEEK_END:
-		ub->pos = ub->len + offset;
-		break;
-	default:
-		return 1; /* CURL_SEEKFUNC_FAIL */
-	}
-
-	return 0; /* CURL_SEEKFUNC_OK */
-}
-#endif
-
 static size_t resp_hdr_cb(void *ptr, size_t size, size_t nmemb, void *user_data)
 {
 	struct header_info *hi = user_data;
@@ -356,11 +310,9 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	int rc;
 	long http_rc;
 	struct data_buffer all_data = {0};
-	struct upload_buffer upload_data;
 	char *json_buf;
 	json_error_t err;
 	struct curl_slist *headers = NULL;
-	char len_hdr[64];
 	char curl_err_str[CURL_ERROR_SIZE];
 	long timeout = (flags & JSON_RPC_LONGPOLL) ? opt_timeout : 30;
 	struct header_info hi = {0};
@@ -378,12 +330,6 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	curl_easy_setopt(curl, CURLOPT_TCP_NODELAY, 1);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, all_data_cb);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &all_data);
-	curl_easy_setopt(curl, CURLOPT_READFUNCTION, upload_data_cb);
-	curl_easy_setopt(curl, CURLOPT_READDATA, &upload_data);
-#if LIBCURL_VERSION_NUM >= 0x071200
-	curl_easy_setopt(curl, CURLOPT_SEEKFUNCTION, &seek_data_cb);
-	curl_easy_setopt(curl, CURLOPT_SEEKDATA, &upload_data);
-#endif
 	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curl_err_str);
 	if (opt_redirect)
 		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
@@ -402,19 +348,12 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	if (flags & JSON_RPC_LONGPOLL)
 		curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_keepalive_cb);
 #endif
-	curl_easy_setopt(curl, CURLOPT_POST, 1);
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, rpc_req);
 
 	if (opt_protocol)
 		applog(LOG_DEBUG, "JSON protocol request:\n%s\n", rpc_req);
 
-	upload_data.buf = rpc_req;
-	upload_data.len = strlen(rpc_req);
-	upload_data.pos = 0;
-	sprintf(len_hdr, "Content-Length: %lu",
-		(unsigned long) upload_data.len);
-
 	headers = curl_slist_append(headers, "Content-Type: application/json");
-	headers = curl_slist_append(headers, len_hdr);
 	headers = curl_slist_append(headers, "User-Agent: " USER_AGENT);
 	headers = curl_slist_append(headers, "X-Mining-Extensions: midstate");
 	headers = curl_slist_append(headers, "Accept:"); /* disable Accept hdr*/
