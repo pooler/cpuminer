@@ -468,12 +468,18 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		le32enc((uint32_t *)(cbtx+37), 0xffffffff); /* prev txout index */
 		cbtx_size = 43;
 		/* BIP 34: height in coinbase */
-		for (n = work->height; n; n >>= 8) {
-			cbtx[cbtx_size++] = n & 0xff;
-			if (n < 0x100 && n >= 0x80)
-				cbtx[cbtx_size++] = 0;
+		if (work->height >= 1 && work->height <= 16) {
+			/* Use OP_1-OP_16 to conform to Bitcoin's implementation. */
+			cbtx[42] = work->height + 0x50;
+			cbtx[cbtx_size++] = 0x00; /* OP_0; pads to 2 bytes */
+		} else {
+			for (n = work->height; n; n >>= 8) {
+				cbtx[cbtx_size++] = n & 0xff;
+				if (n < 0x100 && n >= 0x80)
+					cbtx[cbtx_size++] = 0;
+			}
+			cbtx[42] = cbtx_size - 43;
 		}
-		cbtx[42] = cbtx_size - 43;
 		cbtx[41] = cbtx_size - 42; /* scriptsig length */
 		le32enc((uint32_t *)(cbtx+cbtx_size), 0xffffffff); /* sequence */
 		cbtx_size += 4;
