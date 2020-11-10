@@ -41,6 +41,7 @@
 struct data_buffer {
 	void		*buf;
 	size_t		len;
+	size_t		allocated;
 };
 
 struct header_info {
@@ -182,21 +183,41 @@ static size_t all_data_cb(const void *ptr, size_t size, size_t nmemb,
 {
 	struct data_buffer *db = user_data;
 	size_t len = size * nmemb;
-	size_t oldlen, newlen;
+	size_t newalloc, reqalloc;
 	void *newmem;
 	static const unsigned char zero = 0;
+	static const size_t max_realloc_increase = 8 * 1024 * 1024;
+	static const size_t initial_alloc = 16 * 1024;
 
-	oldlen = db->len;
-	newlen = oldlen + len;
+	/* minimum required allocation size */
+	reqalloc = db->len + len + 1;
 
-	newmem = realloc(db->buf, newlen + 1);
-	if (!newmem)
-		return 0;
+	if (reqalloc > db->allocated) {
+		if (db->len > 0)
+			newalloc = db->allocated * 2;
+		else
+			newalloc = initial_alloc;
 
-	db->buf = newmem;
-	db->len = newlen;
-	memcpy(db->buf + oldlen, ptr, len);
-	memcpy(db->buf + newlen, &zero, 1);	/* null terminate */
+		/* limit the maximum buffer increase */
+		if (newalloc - db->allocated > max_realloc_increase)
+			newalloc = db->allocated + max_realloc_increase;
+
+		/* ensure we have a big enough allocation */
+		if (reqalloc > newalloc)
+			newalloc = reqalloc;
+
+		newmem = realloc(db->buf, newalloc);
+		if (!newmem)
+			return 0;
+
+		db->buf = newmem;
+		db->allocated = newalloc;
+	}
+
+	memcpy(db->buf + db->len, ptr, len); /* append new data */
+	memcpy(db->buf + db->len + len, &zero, 1); /* null terminate */
+
+	db->len += len;
 
 	return len;
 }
