@@ -578,6 +578,7 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 	work->txs = malloc(2 * (n + cbtx_size + tx_size) + 1);
 	bin2hex(work->txs, txc_vi, n);
 	bin2hex(work->txs + 2*n, cbtx, cbtx_size);
+	char *txs_end = work->txs + strlen(work->txs);
 
 	/* generate merkle root */
 	merkle_tree = malloc(32 * ((1 + tx_count + 1) & ~1));
@@ -585,7 +586,8 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 	for (i = 0; i < tx_count; i++) {
 		tmp = json_array_get(txa, i);
 		const char *tx_hex = json_string_value(json_object_get(tmp, "data"));
-		const int tx_size = tx_hex ? strlen(tx_hex) / 2 : 0;
+		const size_t tx_hex_len = tx_hex ? strlen(tx_hex) : 0;
+		const int tx_size = tx_hex_len / 2;
 		if (segwit) {
 			const char *txid = json_string_value(json_object_get(tmp, "txid"));
 			if (!txid || !hex2bin(merkle_tree[1 + i], txid, 32)) {
@@ -603,8 +605,10 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 			sha256d(merkle_tree[1 + i], tx, tx_size);
 			free(tx);
 		}
-		if (!submit_coinbase)
-			strcat(work->txs, tx_hex);
+		if (!submit_coinbase) {
+			strcpy(txs_end, tx_hex);
+			txs_end += tx_hex_len;
+		}
 	}
 	n = 1 + tx_count;
 	while (n > 1) {
