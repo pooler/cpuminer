@@ -38,16 +38,18 @@
 #include "miner.h"
 #include "elist.h"
 
-struct data_buffer {
-	void		*buf;
-	size_t		len;
-	size_t		allocated;
-};
-
 struct header_info {
 	char		*lp_path;
 	char		*reason;
 	char		*stratum_url;
+	size_t		content_length;
+};
+
+struct data_buffer {
+	void			*buf;
+	size_t			len;
+	size_t			allocated;
+	struct header_info	*headers;
 };
 
 struct tq_ent {
@@ -193,14 +195,20 @@ static size_t all_data_cb(const void *ptr, size_t size, size_t nmemb,
 	reqalloc = db->len + len + 1;
 
 	if (reqalloc > db->allocated) {
-		if (db->len > 0)
+		if (db->len > 0) {
 			newalloc = db->allocated * 2;
-		else
-			newalloc = initial_alloc;
+		} else {
+			if (db->headers->content_length > 0)
+				newalloc = db->headers->content_length + 1;
+			else
+				newalloc = initial_alloc;
+		}
 
-		/* limit the maximum buffer increase */
-		if (newalloc - db->allocated > max_realloc_increase)
-			newalloc = db->allocated + max_realloc_increase;
+		if (db->headers->content_length == 0) {
+			/* limit the maximum buffer increase */
+			if (newalloc - db->allocated > max_realloc_increase)
+				newalloc = db->allocated + max_realloc_increase;
+		}
 
 		/* ensure we have a big enough allocation */
 		if (reqalloc > newalloc)
@@ -273,6 +281,9 @@ static size_t resp_hdr_cb(void *ptr, size_t size, size_t nmemb, void *user_data)
 		val = NULL;
 	}
 
+	if (!strcasecmp("Content-Length", key))
+		hi->content_length = strtoul(val, NULL, 10);
+
 out:
 	free(key);
 	free(val);
@@ -338,6 +349,7 @@ json_t *json_rpc_call(CURL *curl, const char *url,
 	long timeout = (flags & JSON_RPC_LONGPOLL) ? opt_timeout : 30;
 	struct header_info hi = {0};
 
+	all_data.headers = &hi;
 	/* it is assumed that 'curl' is freshly [re]initialized at this pt */
 
 	if (opt_protocol)
