@@ -508,29 +508,42 @@ char *abin2hex(const unsigned char *p, size_t len)
 
 bool hex2bin(unsigned char *p, const char *hexstr, size_t len)
 {
-	char hex_byte[3];
-	char *ep;
+	if(hexstr == NULL)
+		return false;
 
-	hex_byte[2] = '\0';
-
-	while (*hexstr && len) {
-		if (!hexstr[1]) {
-			applog(LOG_ERR, "hex2bin str truncated");
-			return false;
-		}
-		hex_byte[0] = hexstr[0];
-		hex_byte[1] = hexstr[1];
-		*p = (unsigned char) strtol(hex_byte, &ep, 16);
-		if (*ep) {
-			applog(LOG_ERR, "hex2bin failed on '%s'", hex_byte);
-			return false;
-		}
-		p++;
-		hexstr += 2;
-		len--;
+	size_t hexstr_len = strlen(hexstr);
+	if((hexstr_len % 2) != 0) {
+		applog(LOG_ERR, "hex2bin str truncated");
+		return false;
 	}
 
-	return (len == 0 && *hexstr == 0) ? true : false;
+	size_t bin_len = hexstr_len / 2;
+	if (bin_len > len) {
+		applog(LOG_ERR, "hex2bin buffer too small");
+		return false;
+	}
+
+	memset(p, 0, len);
+
+	size_t i = 0;
+	while (i < hexstr_len) {
+		char c = hexstr[i];
+		unsigned char nibble;
+		if(c >= '0' && c <= '9') {
+			nibble = (c - '0');
+		} else if (c >= 'A' && c <= 'F') {
+			nibble = (10 + (c - 'A'));
+		} else if (c >= 'a' && c <= 'f') {
+			nibble = (10 + (c - 'a'));
+		} else {
+			applog(LOG_ERR, "hex2bin invalid hex");
+			return false;
+		}
+		p[(i / 2)] |= (nibble << ((1 - (i % 2)) * 4));
+		i++;
+	}
+
+	return true;
 }
 
 int varint_encode(unsigned char *p, uint64_t n)
