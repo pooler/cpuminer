@@ -351,6 +351,7 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 	uint32_t target[8];
 	int cbtx_size;
 	unsigned char *cbtx = NULL;
+	unsigned char *tx = NULL;
 	int tx_count, tx_size;
 	unsigned char txc_vi[9];
 	unsigned char (*merkle_tree)[32] = NULL;
@@ -582,6 +583,8 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 
 	/* generate merkle root */
 	merkle_tree = malloc(32 * ((1 + tx_count + 1) & ~1));
+	size_t tx_buf_size = 32 * 1024;
+	tx = malloc(tx_buf_size);
 	sha256d(merkle_tree[0], cbtx, cbtx_size);
 	for (i = 0; i < tx_count; i++) {
 		tmp = json_array_get(txa, i);
@@ -596,20 +599,23 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 			}
 			memrev(merkle_tree[1 + i], 32);
 		} else {
-			unsigned char *tx = malloc(tx_size);
+			if (tx_size > tx_buf_size) {
+				free(tx);
+				tx_buf_size = tx_size * 2;
+				tx = malloc(tx_buf_size);
+			}
 			if (!tx_hex || !hex2bin(tx, tx_hex, tx_size)) {
 				applog(LOG_ERR, "JSON invalid transactions");
-				free(tx);
 				goto out;
 			}
 			sha256d(merkle_tree[1 + i], tx, tx_size);
-			free(tx);
 		}
 		if (!submit_coinbase) {
 			strcpy(txs_end, tx_hex);
 			txs_end += tx_hex_len;
 		}
 	}
+	free(tx); tx = NULL;
 	n = 1 + tx_count;
 	while (n > 1) {
 		if (n % 2) {
@@ -666,6 +672,7 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 	rc = true;
 
 out:
+	free(tx);
 	free(cbtx);
 	free(merkle_tree);
 	return rc;
