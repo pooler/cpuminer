@@ -77,7 +77,7 @@ void applog(int prio, const char *fmt, ...)
 		va_list ap2;
 		char *buf;
 		int len;
-		
+
 		va_copy(ap2, ap);
 		len = vsnprintf(NULL, 0, fmt, ap2) + 1;
 		va_end(ap2);
@@ -840,7 +840,7 @@ bool fulltest(const uint32_t *hash, const uint32_t *target)
 {
 	int i;
 	bool rc = true;
-	
+
 	for (i = 7; i >= 0; i--) {
 		if (hash[i] > target[i]) {
 			rc = false;
@@ -855,7 +855,7 @@ bool fulltest(const uint32_t *hash, const uint32_t *target)
 	if (opt_debug) {
 		uint32_t hash_be[8], target_be[8];
 		char hash_str[65], target_str[65];
-		
+
 		for (i = 0; i < 8; i++) {
 			be32enc(hash_be + i, hash[7 - i]);
 			be32enc(target_be + i, target[7 - i]);
@@ -877,7 +877,7 @@ void diff_to_target(uint32_t *target, double diff)
 {
 	uint64_t m;
 	int k;
-	
+
 	for (k = 6; k > 0 && diff > 1.0; k--)
 		diff /= 4294967296.0;
 	m = 4294901760.0 / diff;
@@ -890,6 +890,25 @@ void diff_to_target(uint32_t *target, double diff)
 	}
 }
 
+double diff_from_nbits(const void *nbits_in)
+{
+	double numerator;
+	uint32_t diff32;
+	uint8_t pow;
+	int powdiff;
+	const uint32_t possibly_unswabbed_bits = le32dec(nbits_in);
+	const uint8_t * const nbits = (const uint8_t *)&possibly_unswabbed_bits;
+
+	pow = nbits[0];
+	powdiff = (8 * (0x1d - 3)) - (8 * (pow - 3));
+	if (powdiff < 0) // testnet only
+		powdiff = 0;
+	diff32 = be32dec(nbits) & 0x00FFFFFF;
+	numerator = 0xFFFFULL << powdiff;
+
+	return numerator / (double)diff32;
+}
+
 #ifdef WIN32
 #define socket_blocks() (WSAGetLastError() == WSAEWOULDBLOCK)
 #else
@@ -899,7 +918,7 @@ void diff_to_target(uint32_t *target, double diff)
 static bool send_line(struct stratum_ctx *sctx, char *s)
 {
 	ssize_t len, sent = 0;
-	
+
 	len = strlen(s);
 	s[len++] = '\n';
 
@@ -1458,7 +1477,7 @@ static bool stratum_get_version(struct stratum_ctx *sctx, json_t *id)
 	char *s;
 	json_t *val;
 	bool ret;
-	
+
 	if (!id || json_is_null(id))
 		return false;
 
@@ -1483,7 +1502,7 @@ static bool stratum_show_message(struct stratum_ctx *sctx, json_t *id, json_t *p
 	val = json_array_get(params, 0);
 	if (val)
 		applog(LOG_NOTICE, "MESSAGE FROM SERVER: %s", json_string_value(val));
-	
+
 	if (!id || json_is_null(id))
 		return true;
 

@@ -86,7 +86,7 @@ static inline void affine_to_cpu(int id, int cpu)
 {
 }
 #endif
-		
+
 enum workio_commands {
 	WC_GET_WORK,
 	WC_SUBMIT_WORK,
@@ -146,6 +146,8 @@ int longpoll_thr_id = -1;
 int stratum_thr_id = -1;
 struct work_restart *work_restart = NULL;
 static struct stratum_ctx stratum;
+static double max_diff = 0.;
+static int max_diff_backoff_secs = 10;
 
 pthread_mutex_t applog_lock;
 static pthread_mutex_t stats_lock;
@@ -192,6 +194,11 @@ Options:\n\
       --no-gbt          disable getblocktemplate support\n\
       --no-stratum      disable X-Stratum support\n\
       --no-redirect     ignore requests to change the URL of the mining server\n\
+  -M, --max-diff=N[:T]  specify a floating point value for the maximum block\n\
+                        difficulty that we will mine (default: inf); this\n\
+                        option is intended for testnet miners wishing to only\n\
+                        mine when difficulty drops to 1.0 (optional :T is the\n\
+                        time to sleep in seconds, default: 10)\n\
   -q, --quiet           disable per-thread hashmeter output\n\
   -D, --debug           enable debug output\n\
   -P, --protocol-dump   verbose dump of protocol-level activities\n"
@@ -217,7 +224,7 @@ static char const short_options[] =
 #ifdef HAVE_SYSLOG_H
 	"S"
 #endif
-	"a:c:Dhp:Px:qr:R:s:t:T:o:u:O:V";
+	"a:c:DhM:p:Px:qr:R:s:t:T:o:u:O:V";
 
 static struct option const options[] = {
 	{ "algo", 1, NULL, 'a' },
@@ -236,6 +243,7 @@ static struct option const options[] = {
 	{ "no-longpoll", 0, NULL, 1003 },
 	{ "no-redirect", 0, NULL, 1009 },
 	{ "no-stratum", 0, NULL, 1007 },
+	{ "max-diff", 1, NULL, 'M' },
 	{ "pass", 1, NULL, 'p' },
 	{ "protocol-dump", 0, NULL, 'P' },
 	{ "proxy", 1, NULL, 'x' },
@@ -690,7 +698,7 @@ static void share_result(int result, const char *reason)
 		hashrate += thr_hashrates[i];
 	result ? accepted_count++ : rejected_count++;
 	pthread_mutex_unlock(&stats_lock);
-	
+
 	sprintf(s, hashrate >= 1e6 ? "%.0f" : "%.2f", 1e-3 * hashrate);
 	applog(LOG_INFO, "accepted: %lu/%lu (%.2f%%), %s khash/s %s",
 		   accepted_count,
@@ -1045,7 +1053,7 @@ static bool get_work(struct thr_info *thr, struct work *work)
 static bool submit_work(struct thr_info *thr, const struct work *work_in)
 {
 	struct workio_cmd *wc;
-	
+
 	/* fill out work request message */
 	wc = calloc(1, sizeof(*wc));
 	if (!wc)
@@ -1089,7 +1097,7 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		memcpy(merkle_root + 32, sctx->job.merkle[i], 32);
 		sha256d(merkle_root, merkle_root, 64);
 	}
-	
+
 	/* Increment extranonce2 */
 	for (i = 0; i < sctx->xnonce2_size && !++sctx->job.xnonce2[i]; i++);
 
@@ -1147,7 +1155,7 @@ static void *miner_thread(void *userdata)
 			       thr_id, thr_id % num_processors);
 		affine_to_cpu(thr_id, thr_id % num_processors);
 	}
-	
+
 	if (opt_algo == ALGO_SCRYPT) {
 		scratchbuf = scrypt_buffer_alloc(opt_scrypt_n);
 		if (!scratchbuf) {
@@ -1162,6 +1170,7 @@ static void *miner_thread(void *userdata)
 		struct timeval tv_start, tv_end, diff;
 		int64_t max64;
 		int rc;
+		double work_diff;
 
 		if (have_stratum) {
 			while (time(NULL) >= g_work_time + 120)
@@ -1198,7 +1207,7 @@ static void *miner_thread(void *userdata)
 			work.data[19]++;
 		pthread_mutex_unlock(&g_work_lock);
 		work_restart[thr_id].restart = 0;
-		
+
 		/* adjust max_nonce to meet target scan time */
 		if (have_stratum)
 			max64 = LP_SCANTIME;
@@ -1220,25 +1229,32 @@ static void *miner_thread(void *userdata)
 			max_nonce = end_nonce;
 		else
 			max_nonce = work.data[19] + max64;
-		
+
 		hashes_done = 0;
 		gettimeofday(&tv_start, NULL);
 
-		/* scan nonces for a proof-of-work hash */
-		switch (opt_algo) {
-		case ALGO_SCRYPT:
-			rc = scanhash_scrypt(thr_id, work.data, scratchbuf, work.target,
-			                     max_nonce, &hashes_done, opt_scrypt_n);
-			break;
+		if (max_diff > 1.0 && (work_diff = diff_from_nbits(&work.data[18])) > max_diff) {
+			rc = 0;
+			applog(LOG_INFO, "thread %d: %1.1lf > max_diff %1.1lf, sleeping %d secs",
+			       thr_id, work_diff, max_diff, max_diff_backoff_secs);
+			sleep(max_diff_backoff_secs);
+		} else {
+			/* scan nonces for a proof-of-work hash */
+			switch (opt_algo) {
+			case ALGO_SCRYPT:
+				rc = scanhash_scrypt(thr_id, work.data, scratchbuf, work.target,
+				                     max_nonce, &hashes_done, opt_scrypt_n);
+				break;
 
-		case ALGO_SHA256D:
-			rc = scanhash_sha256d(thr_id, work.data, work.target,
-			                      max_nonce, &hashes_done);
-			break;
+			case ALGO_SHA256D:
+				rc = scanhash_sha256d(thr_id, work.data, work.target,
+				                      max_nonce, &hashes_done);
+				break;
 
-		default:
-			/* should never happen */
-			goto out;
+			default:
+				/* should never happen */
+				goto out;
+			}
 		}
 
 		/* record scanhash elapsed time */
@@ -1308,7 +1324,7 @@ start:
 		lp_url = hdr_path;
 		hdr_path = NULL;
 	}
-	
+
 	/* absolute path, on current server */
 	else {
 		copy_start = (*hdr_path == '/') ? (hdr_path + 1) : hdr_path;
@@ -1462,7 +1478,7 @@ static void *stratum_thread(void *userdata)
 				restart_threads();
 			}
 		}
-		
+
 		if (!stratum_socket_full(&stratum, 120)) {
 			applog(LOG_ERR, "Stratum connection timed out");
 			s = NULL;
@@ -1774,6 +1790,24 @@ static void parse_arg(int key, char *arg, char *pname)
 		}
 		strcpy(coinbase_sig, arg);
 		break;
+	case 'M': {			/* --max-diff */
+		char *colon;
+		if (sscanf(arg, "%lf", &max_diff) != 1 || max_diff <= 1.0) {
+			fprintf(stderr, "%s: invalid --max-diff: %s\n", pname, arg);
+			show_usage_and_exit(1);
+		}
+		// Optional second component to arg e.g. "10.0:5" where 5 here
+		// is the time to sleep.
+		if ((colon = strchr(arg, ':'))) {
+			if (sscanf(++colon, "%d", &max_diff_backoff_secs) != 1
+			    || max_diff_backoff_secs < 1) {
+				fprintf(stderr, "%s: invalid backoff time specified for"
+				        " --max-diff: %s\n", pname, colon);
+				show_usage_and_exit(1);
+			}
+		}
+		break;
+	}
 	case 'S':
 		use_syslog = true;
 		break;
@@ -1948,7 +1982,7 @@ int main(int argc, char *argv[])
 	thr_info = calloc(opt_n_threads + 3, sizeof(*thr));
 	if (!thr_info)
 		return 1;
-	
+
 	thr_hashrates = (double *) calloc(opt_n_threads, sizeof(double));
 	if (!thr_hashrates)
 		return 1;
