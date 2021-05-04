@@ -615,7 +615,8 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 			txs_end += tx_hex_len;
 		}
 	}
-	free(tx); tx = NULL;
+	free(tx);
+	tx = NULL;
 	n = 1 + tx_count;
 	while (n > 1) {
 		if (n % 2) {
