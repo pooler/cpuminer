@@ -22,7 +22,9 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <errno.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <jansson.h>
 #include <curl/curl.h>
 #include <time.h>

@@ -18,7 +18,7 @@ AC_PROG_RANLIB
 
 dnl Checks for header files
 AC_HEADER_STDC
-AC_CHECK_HEADERS([sys/endian.h sys/param.h syslog.h])
+AC_CHECK_HEADERS([sys/endian.h sys/param.h syslog.h unistd.h sys/time.h])
 # sys/sysctl.h requires sys/types.h on FreeBSD
 # sys/sysctl.h requires sys/param.h on OpenBSD
 AC_CHECK_HEADERS([sys/sysctl.h], [], [],
