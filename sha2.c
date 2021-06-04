@@ -10,7 +10,7 @@
 
 #include "cpuminer-config.h"
 #include "miner.h"
-
+#include "compat.h"
 #include <string.h>
 #include <inttypes.h>
 
@@ -474,10 +474,10 @@ void sha256d_ms_4way(uint32_t *hash,  uint32_t *data,
 static inline int scanhash_sha256d_4way(int thr_id, uint32_t *pdata,
 	const uint32_t *ptarget, uint32_t max_nonce, unsigned long *hashes_done)
 {
-	uint32_t data[4 * 64] __attribute__((aligned(128)));
-	uint32_t hash[4 * 8] __attribute__((aligned(32)));
-	uint32_t midstate[4 * 8] __attribute__((aligned(32)));
-	uint32_t prehash[4 * 8] __attribute__((aligned(32)));
+	uint32_t ATTRALIGN(128) data[4 * 64];
+	uint32_t ATTRALIGN(32) hash[4 * 8];
+	uint32_t ATTRALIGN(32) midstate[4 * 8];
+	uint32_t ATTRALIGN(32) prehash[4 * 8];
 	uint32_t n = pdata[19] - 1;
 	const uint32_t first_nonce = pdata[19];
 	const uint32_t Htarg = ptarget[7];
@@ -533,10 +533,10 @@ void sha256d_ms_8way(uint32_t *hash,  uint32_t *data,
 static inline int scanhash_sha256d_8way(int thr_id, uint32_t *pdata,
 	const uint32_t *ptarget, uint32_t max_nonce, unsigned long *hashes_done)
 {
-	uint32_t data[8 * 64] __attribute__((aligned(128)));
-	uint32_t hash[8 * 8] __attribute__((aligned(32)));
-	uint32_t midstate[8 * 8] __attribute__((aligned(32)));
-	uint32_t prehash[8 * 8] __attribute__((aligned(32)));
+	uint32_t ATTRALIGN(128) data[8 * 64];
+	uint32_t ATTRALIGN(32) hash[8 * 8];
+	uint32_t ATTRALIGN(32) midstate[8 * 8];
+	uint32_t ATTRALIGN(32) prehash[8 * 8];
 	uint32_t n = pdata[19] - 1;
 	const uint32_t first_nonce = pdata[19];
 	const uint32_t Htarg = ptarget[7];
@@ -587,10 +587,10 @@ static inline int scanhash_sha256d_8way(int thr_id, uint32_t *pdata,
 int scanhash_sha256d(int thr_id, uint32_t *pdata, const uint32_t *ptarget,
 	uint32_t max_nonce, unsigned long *hashes_done)
 {
-	uint32_t data[64] __attribute__((aligned(128)));
-	uint32_t hash[8] __attribute__((aligned(32)));
-	uint32_t midstate[8] __attribute__((aligned(32)));
-	uint32_t prehash[8] __attribute__((aligned(32)));
+	uint32_t ATTRALIGN(128) data[64];
+	uint32_t ATTRALIGN(32) hash[8];
+	uint32_t ATTRALIGN(32) midstate[8];
+	uint32_t ATTRALIGN(32) prehash[8];
 	uint32_t n = pdata[19] - 1;
 	const uint32_t first_nonce = pdata[19];
 	const uint32_t Htarg = ptarget[7];
