@@ -5,7 +5,9 @@
 
 #include <stdbool.h>
 #include <inttypes.h>
+#ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
+#endif
 #include <pthread.h>
 #include <jansson.h>
 #include <curl/curl.h>

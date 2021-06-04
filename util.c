@@ -22,7 +22,9 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <errno.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <jansson.h>
 #include <curl/curl.h>
 #include <time.h>
@@ -222,8 +224,8 @@ static size_t all_data_cb(const void *ptr, size_t size, size_t nmemb,
 		db->allocated = newalloc;
 	}
 
-	memcpy(db->buf + db->len, ptr, len); /* append new data */
-	memcpy(db->buf + db->len + len, &zero, 1); /* null terminate */
+	memcpy((char*)db->buf + db->len, ptr, len); /* append new data */
+	memcpy((char*)db->buf + db->len + len, &zero, 1); /* null terminate */
 
 	db->len += len;
 
@@ -245,13 +247,13 @@ static size_t resp_hdr_cb(void *ptr, size_t size, size_t nmemb, void *user_data)
 	tmp = memchr(ptr, ':', ptrlen);
 	if (!tmp || (tmp == ptr))	/* skip empty keys / blanks */
 		goto out;
-	slen = tmp - ptr;
+	slen = (char*)tmp - (char*)ptr;
 	if ((slen + 1) == ptrlen)	/* skip key w/ no value */
 		goto out;
 	memcpy(key, ptr, slen);		/* store & nul term key */
 	key[slen] = 0;
 
-	rem = ptr + slen + 1;		/* trim value's leading whitespace */
+	rem = (char*)ptr + slen + 1;		/* trim value's leading whitespace */
 	remlen = ptrlen - slen - 1;
 	while ((remlen > 0) && (isspace(*rem))) {
 		remlen--;
