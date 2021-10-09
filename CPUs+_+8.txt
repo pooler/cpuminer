@@ -1,1 +1,152 @@
 
+CPUs : 8
+SoCs : 1
+
+CPU 0 :  AArch64 Processor rev 4 (aarch64)
+Name : Qualcomm Snapdragon 439
+CPUs : 8
+Max Frequency : 1958 MHz
+
+ Core set 0 : ARM Cortex-A53
+ Core set 0 Nb Cores : 8
+ Core set 0 Max Clock : 1958 MHz
+Core set 0 Impl.id : 0x41
+Core set 0 Arch.id : 0x8
+Core set 0 Var.id : 0
+Core set 0 Part.id : 0xd03
+Core set 0 Rev.id : 4
+Core set 0 Revision : r0p4
+
+Arch : 8x ARM Cortex-A53 @1.96 GHz
+Codename : 
+Process : 12 nm
+GPU Vendor : Qualcomm
+GPU Renderer : Adreno (TM) 505
+
+Model : vivo 1906 (1906)
+Manufacturer : vivo
+Board : QC_Reference_Phone
+Hardware : qcom
+Android Ver. : 11
+Kernel Arch. : aarch64
+
+Battery capacity : 5000
+
+--- CPUInfos ---
+abi : arm64-v8a
+abi2 : 
+supported abis : [arm64-v8a, armeabi-v7a, armeabi]
+supported 32-bit abis : [armeabi-v7a, armeabi]
+supported 64-bit abis : [arm64-v8a]
+Processor	: AArch64 Processor rev 4 (aarch64)
+processor	: 0
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32
+CPU implementer	: 0x41
+CPU architecture: 8
+CPU variant	: 0x0
+CPU part	: 0xd03
+CPU revision	: 4
+
+processor	: 1
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32
+CPU implementer	: 0x41
+CPU architecture: 8
+CPU variant	: 0x0
+CPU part	: 0xd03
+CPU revision	: 4
+
+processor	: 2
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32
+CPU implementer	: 0x41
+CPU architecture: 8
+CPU variant	: 0x0
+CPU part	: 0xd03
+CPU revision	: 4
+
+processor	: 3
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32
+CPU implementer	: 0x41
+CPU architecture: 8
+CPU variant	: 0x0
+CPU part	: 0xd03
+CPU revision	: 4
+
+processor	: 4
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32
+CPU implementer	: 0x41
+CPU architecture: 8
+CPU variant	: 0x0
+CPU part	: 0xd03
+CPU revision	: 4
+
+processor	: 5
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32
+CPU implementer	: 0x41
+CPU architecture: 8
+CPU variant	: 0x0
+CPU part	: 0xd03
+CPU revision	: 4
+
+processor	: 6
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32
+CPU implementer	: 0x41
+CPU architecture: 8
+CPU variant	: 0x0
+CPU part	: 0xd03
+CPU revision	: 4
+
+processor	: 7
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32
+CPU implementer	: 0x41
+CPU architecture: 8
+CPU variant	: 0x0
+CPU part	: 0xd03
+CPU revision	: 4
+
+Hardware	: Qualcomm Technologies, Inc SDM439
+
+--- Debug Infos ---
+
+20=xo-therm-adc=44698
+21=xo-therm-buf-adc=44397
+22=aoss0-usr=54000
+23=mdm-core-usr=53000
+24=lpass-usr=53000
+25=camera-usr=53000
+26=cpuss1-usr=55000
+27=apc1-cpu0-usr=53000
+28=apc1-cpu1-usr=54000
+29=apc1-cpu2-usr=54000
+30=apc1-cpu3-usr=54000
+31=cpuss0-usr=56000
+32=gpu-usr=54000
+33=gpu-step=54000
+34=hexa-cpu-max-step=56000
+35=apc1-cpu0-step=53000
+36=apc1-cpu1-step=54000
+37=apc1-cpu2-step=54000
+
+clock 0=1958400
+clock2 0=-1
+clock 1=1958400
+clock2 1=-1
+clock 2=1958400
+clock2 2=-1
+clock 3=1958400
+clock2 3=-1
+clock 4=1459200
+clock2 4=-1
+clock 5=1459200
+clock2 5=-1
+clock 6=1459200
+clock2 6=-1
+clock 7=1459200
+clock2 7=-1
